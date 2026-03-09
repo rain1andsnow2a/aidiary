@@ -1,6 +1,7 @@
 """
 认证相关的 Pydantic Schemas
 """
+from __future__ import annotations
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
