@@ -1,0 +1,361 @@
+"""
+日记业务逻辑服务
+"""
+from typing import Optional, List, Tuple
+from datetime import date, datetime
+from sqlalchemy import select, func, desc, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.diary import Diary, TimelineEvent
+from app.schemas.diary import DiaryCreate, DiaryUpdate, TimelineEventCreate
+
+
+class DiaryService:
+    """日记服务类"""
+
+    async def create_diary(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        diary_data: DiaryCreate
+    ) -> Diary:
+        """
+        创建日记
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            diary_data: 日记数据
+
+        Returns:
+            Diary: 创建的日记对象
+        """
+        # 计算字数
+        word_count = len(diary_data.content)
+
+        # 创建日记对象
+        diary = Diary(
+            user_id=user_id,
+            title=diary_data.title,
+            content=diary_data.content,
+            diary_date=diary_data.diary_date or date.today(),
+            emotion_tags=diary_data.emotion_tags,
+            importance_score=diary_data.importance_score,
+            images=diary_data.images,
+            word_count=word_count
+        )
+
+        db.add(diary)
+        await db.commit()
+        await db.refresh(diary)
+
+        return diary
+
+    async def get_diary(
+        self,
+        db: AsyncSession,
+        diary_id: int,
+        user_id: int
+    ) -> Optional[Diary]:
+        """
+        获取日记详情
+
+        Args:
+            db: 数据库会话
+            diary_id: 日记ID
+            user_id: 用户ID
+
+        Returns:
+            Optional[Diary]: 日记对象或None
+        """
+        result = await db.execute(
+            select(Diary).where(
+                and_(
+                    Diary.id == diary_id,
+                    Diary.user_id == user_id
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_diaries(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        emotion_tag: Optional[str] = None
+    ) -> Tuple[List[Diary], int]:
+        """
+        获取日记列表
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            page: 页码（从1开始）
+            page_size: 每页大小
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            emotion_tag: 情绪标签过滤（可选）
+
+        Returns:
+            Tuple[List[Diary], int]: (日记列表, 总数)
+        """
+        # 构建查询条件
+        conditions = [Diary.user_id == user_id]
+
+        if start_date:
+            conditions.append(Diary.diary_date >= start_date)
+        if end_date:
+            conditions.append(Diary.diary_date <= end_date)
+        if emotion_tag:
+            conditions.append(Diary.emotion_tags.contains([emotion_tag]))
+
+        # 查询总数
+        count_query = select(func.count(Diary.id)).where(and_(*conditions))
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # 查询日记列表
+        query = (
+            select(Diary)
+            .where(and_(*conditions))
+            .order_by(desc(Diary.diary_date), desc(Diary.created_at))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+
+        result = await db.execute(query)
+        diaries = result.scalars().all()
+
+        return list(diaries), total
+
+    async def update_diary(
+        self,
+        db: AsyncSession,
+        diary_id: int,
+        user_id: int,
+        diary_data: DiaryUpdate
+    ) -> Optional[Diary]:
+        """
+        更新日记
+
+        Args:
+            db: 数据库会话
+            diary_id: 日记ID
+            user_id: 用户ID
+            diary_data: 更新数据
+
+        Returns:
+            Optional[Diary]: 更新后的日记对象或None
+        """
+        # 获取日记
+        diary = await self.get_diary(db, diary_id, user_id)
+        if not diary:
+            return None
+
+        # 更新字段
+        update_data = diary_data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(diary, field, value)
+
+        # 如果内容有更新，重新计算字数
+        if diary_data.content:
+            diary.word_count = len(diary_data.content)
+
+        await db.commit()
+        await db.refresh(diary)
+
+        return diary
+
+    async def delete_diary(
+        self,
+        db: AsyncSession,
+        diary_id: int,
+        user_id: int
+    ) -> bool:
+        """
+        删除日记
+
+        Args:
+            db: 数据库会话
+            diary_id: 日记ID
+            user_id: 用户ID
+
+        Returns:
+            bool: 是否删除成功
+        """
+        # 获取日记
+        diary = await self.get_diary(db, diary_id, user_id)
+        if not diary:
+            return False
+
+        await db.delete(diary)
+        await db.commit()
+
+        return True
+
+    async def get_diaries_by_date(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        target_date: date
+    ) -> List[Diary]:
+        """
+        获取指定日期的所有日记
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            target_date: 目标日期
+
+        Returns:
+            List[Diary]: 日记列表
+        """
+        result = await db.execute(
+            select(Diary).where(
+                and_(
+                    Diary.user_id == user_id,
+                    Diary.diary_date == target_date
+                )
+            ).order_by(desc(Diary.created_at))
+        )
+        return list(result.scalars().all())
+
+
+class TimelineService:
+    """时间轴服务类"""
+
+    async def create_event(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        event_data: TimelineEventCreate
+    ) -> TimelineEvent:
+        """
+        创建时间轴事件
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            event_data: 事件数据
+
+        Returns:
+            TimelineEvent: 创建的事件对象
+        """
+        event = TimelineEvent(
+            user_id=user_id,
+            diary_id=event_data.diary_id,
+            event_date=event_data.event_date,
+            event_summary=event_data.event_summary,
+            emotion_tag=event_data.emotion_tag,
+            importance_score=event_data.importance_score,
+            event_type=event_data.event_type,
+            related_entities=event_data.related_entities
+        )
+
+        db.add(event)
+        await db.commit()
+        await db.refresh(event)
+
+        return event
+
+    async def get_timeline(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        limit: int = 100
+    ) -> List[TimelineEvent]:
+        """
+        获取时间轴事件列表
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            start_date: 开始日期
+            end_date: 结束日期
+            limit: 返回数量限制
+
+        Returns:
+            List[TimelineEvent]: 事件列表
+        """
+        conditions = [TimelineEvent.user_id == user_id]
+
+        if start_date:
+            conditions.append(TimelineEvent.event_date >= start_date)
+        if end_date:
+            conditions.append(TimelineEvent.event_date <= end_date)
+
+        result = await db.execute(
+            select(TimelineEvent)
+            .where(and_(*conditions))
+            .order_by(desc(TimelineEvent.event_date), desc(TimelineEvent.importance_score))
+            .limit(limit)
+        )
+
+        return list(result.scalars().all())
+
+    async def get_events_by_date(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        target_date: date
+    ) -> List[TimelineEvent]:
+        """
+        获取指定日期的事件
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            target_date: 目标日期
+
+        Returns:
+            List[TimelineEvent]: 事件列表
+        """
+        result = await db.execute(
+            select(TimelineEvent).where(
+                and_(
+                    TimelineEvent.user_id == user_id,
+                    TimelineEvent.event_date == target_date
+                )
+            ).order_by(desc(TimelineEvent.importance_score))
+        )
+
+        return list(result.scalars().all())
+
+    async def get_recent_events(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        days: int = 7
+    ) -> List[TimelineEvent]:
+        """
+        获取最近N天的事件
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            days: 天数
+
+        Returns:
+            List[TimelineEvent]: 事件列表
+        """
+        from datetime import timedelta
+
+        start_date = date.today() - timedelta(days=days)
+
+        return await self.get_timeline(
+            db,
+            user_id,
+            start_date=start_date,
+            limit=100
+        )
+
+
+# 创建全局实例
+diary_service = DiaryService()
+timeline_service = TimelineService()
