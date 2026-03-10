@@ -1,4 +1,4 @@
-// 注册页面 - Apple风格
+// 注册页面 - 温暖柔和心理日记风格
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -65,119 +65,139 @@ export default function RegisterPage() {
     }
   }
 
-  const inputClass = "w-full h-12 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/90 text-sm placeholder:text-white/20 outline-none transition-all duration-200 focus:border-primary/50 focus:bg-white/[0.06]"
+  const inputClass = "w-full h-12 px-4 rounded-2xl bg-white border border-rose-100 text-stone-700 text-sm placeholder:text-stone-300 outline-none transition-all duration-200 focus:border-rose-300 focus:ring-2 focus:ring-rose-100 shadow-sm"
+
+  const strengthColor = (len: number, i: number) => {
+    if (len < i * 3) return 'bg-stone-100'
+    if (len >= 12) return 'bg-emerald-400'
+    if (len >= 8) return 'bg-violet-400'
+    return 'bg-amber-300'
+  }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #fff8f5 0%, #fdf4ff 50%, #f8f4ff 100%)' }}>
       {/* 左侧品牌区域 */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a]" />
-        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/3 left-1/3 w-56 h-56 bg-emerald-500/5 rounded-full blur-[80px]" />
-        <div className="relative z-10 px-16 max-w-lg">
-          <div className="mb-8">
-            <span className="text-primary text-lg font-semibold tracking-wide">印记</span>
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden items-center justify-center p-16">
+        <div className="absolute top-16 right-20 w-64 h-64 rounded-full opacity-20 animate-float"
+          style={{ background: 'radial-gradient(circle, #c4b5fd, #f9a8d4)' }} />
+        <div className="absolute bottom-20 left-10 w-52 h-52 rounded-full opacity-15 animate-float"
+          style={{ animationDelay: '1.2s', background: 'radial-gradient(circle, #86efac, #67e8f9)' }} />
+        <div className="absolute top-1/2 left-1/4 w-36 h-36 rounded-full opacity-10 animate-float"
+          style={{ animationDelay: '0.6s', background: 'radial-gradient(circle, #fde68a, #fdba74)' }} />
+
+        <div className="relative z-10 max-w-md">
+          <div className="mb-10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-lg font-bold shadow-md"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}>印</div>
+            <span className="text-stone-700 text-xl font-semibold">印记</span>
           </div>
-          <h2 className="text-4xl font-bold text-white/90 leading-tight mb-4">
-            开始记录，<br />遇见更好的自己
+
+          <h2 className="text-4xl font-bold leading-tight mb-5" style={{ color: '#3d2b2b' }}>
+            开始记录，<br />
+            <span className="text-gradient">遇见更好的自己</span>
           </h2>
-          <p className="text-white/40 text-sm leading-relaxed">
-            创建你的印记账号，AI 将随着你的每一篇日记更加了解你。
+          <p className="text-stone-500 text-sm leading-relaxed mb-12">
+            创建你的印记账号，AI 将随着每一篇日记更了解你。
             从今天起，让文字成为通往内心的桥梁。
           </p>
 
-          <div className="mt-12 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-primary text-xs">1</div>
-              <span className="text-white/50 text-sm">验证邮箱，获取验证码</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center text-white/30 text-xs">2</div>
-              <span className="text-white/30 text-sm">设置密码，完成注册</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center text-white/30 text-xs">3</div>
-              <span className="text-white/30 text-sm">开始书写第一篇日记</span>
-            </div>
+          <div className="space-y-3">
+            {[
+              { num: '1', label: '验证邮箱', desc: '获取注册验证码', active: true },
+              { num: '2', label: '设置密码', desc: '保护你的账号安全', active: step === 2 },
+              { num: '3', label: '开始探索', desc: '书写第一篇日记', active: false },
+            ].map((s) => (
+              <div key={s.num} className={`flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-300 ${s.active ? 'bg-white/70 border border-rose-100' : 'opacity-50'}`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold text-white ${s.active ? '' : 'opacity-60'}`}
+                  style={{ background: s.active ? 'linear-gradient(135deg, #fb7185, #c084fc)' : '#e5e7eb' }}>
+                  {s.num}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-stone-700">{s.label}</div>
+                  <div className="text-xs text-stone-400">{s.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* 右侧注册表单 */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center px-6 sm:px-12">
-        <div className="w-full max-w-[400px] animate-fade-in">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white/95 tracking-tight">创建账号</h1>
-            <p className="text-white/40 text-sm mt-2">
-              {step === 1 ? '输入邮箱开始注册' : '完善信息，完成注册'}
+      <div className="w-full lg:w-[55%] flex items-center justify-center px-6 sm:px-16">
+        <div className="w-full max-w-[420px] animate-fade-in">
+          <div className="lg:hidden flex items-center gap-2 mb-8">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}>印</div>
+            <span className="text-stone-700 font-semibold">印记</span>
+          </div>
+
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-stone-800">创建账号 ✨</h1>
+            <p className="text-stone-400 text-sm mt-1.5">
+              {step === 1 ? '输入邮箱，开始你的心灵之旅' : '完善信息，完成注册'}
             </p>
           </div>
 
-          {/* 步骤指示器 */}
-          <div className="flex items-center gap-2 mb-8">
-            <div className={`h-1 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-primary w-16' : 'bg-white/10 w-8'}`} />
-            <div className={`h-1 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-primary w-16' : 'bg-white/10 w-8'}`} />
+          {/* 步骤进度条 */}
+          <div className="flex gap-2 mb-7">
+            <div className={`h-1.5 rounded-full transition-all duration-500 ${step >= 1 ? 'flex-1' : 'w-8'}`}
+              style={{ background: step >= 1 ? 'linear-gradient(90deg, #fb7185, #c084fc)' : '#e5e7eb' }} />
+            <div className={`h-1.5 rounded-full transition-all duration-500 ${step >= 2 ? 'flex-1' : 'w-8 bg-stone-100'}`}
+              style={{ background: step >= 2 ? 'linear-gradient(90deg, #c084fc, #818cf8)' : undefined }} />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Step 1: 邮箱验证 */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                邮箱
-              </label>
-              <div className="flex gap-3">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* 邮箱 */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-stone-500">邮箱地址</label>
+              <div className="flex gap-2.5">
                 <input
                   type="email"
-                  placeholder="请输入邮箱"
+                  placeholder="your@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={step === 2}
-                  className={`${inputClass} flex-1 disabled:opacity-50`}
+                  className={`${inputClass} flex-1 disabled:bg-stone-50 disabled:text-stone-400`}
                 />
                 {step === 1 && (
                   <button
                     type="button"
                     onClick={handleSendCode}
                     disabled={!email || !email.includes('@') || countdown > 0}
-                    className="shrink-0 h-12 px-5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                    className="shrink-0 h-12 px-4 rounded-2xl text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                    style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
                   >
                     {countdown > 0 ? `${countdown}s` : '发送验证码'}
                   </button>
                 )}
               </div>
               {step === 2 && (
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="text-[11px] text-white/30 hover:text-primary transition-colors"
-                >
-                  更换邮箱
+                <button type="button" onClick={() => setStep(1)}
+                  className="text-xs text-rose-400 hover:text-rose-500 transition-colors">
+                  ← 更换邮箱
                 </button>
               )}
             </div>
 
-            {/* Step 2: 验证码 + 密码 */}
             {step === 2 && (
-              <div className="space-y-5 animate-fade-in">
+              <div className="space-y-4 animate-fade-in">
                 {/* 验证码 */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                    验证码
-                  </label>
-                  <div className="flex gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-500">验证码</label>
+                  <div className="flex gap-2.5">
                     <input
                       type="text"
-                      placeholder="6位验证码"
+                      placeholder="6 位验证码"
                       value={code}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       maxLength={6}
-                      className={`${inputClass} flex-1 text-center tracking-[0.3em] placeholder:tracking-normal`}
+                      className={`${inputClass} flex-1 text-center tracking-[0.4em] placeholder:tracking-normal`}
                     />
                     <button
                       type="button"
                       onClick={handleSendCode}
                       disabled={countdown > 0}
-                      className="shrink-0 h-12 px-4 rounded-xl text-sm bg-white/[0.06] border border-white/[0.08] text-white/60 hover:bg-white/[0.1] disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                      className="shrink-0 h-12 px-4 rounded-2xl text-sm font-medium border border-rose-200 text-rose-400 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                     >
                       {countdown > 0 ? `${countdown}s` : '重发'}
                     </button>
@@ -185,9 +205,9 @@ export default function RegisterPage() {
                 </div>
 
                 {/* 用户名 */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                    用户名 <span className="text-white/20 normal-case">（选填）</span>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-500">
+                    昵称 <span className="text-stone-300">（选填）</span>
                   </label>
                   <input
                     type="text"
@@ -199,110 +219,81 @@ export default function RegisterPage() {
                 </div>
 
                 {/* 密码 */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                    密码
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-500">密码</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="至少6位密码"
+                      placeholder="至少 6 位密码"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className={`${inputClass} pr-12`}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                    >
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 transition-colors">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        {showPassword ? (
-                          <>
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </>
-                        ) : (
-                          <>
-                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                            <line x1="1" y1="1" x2="23" y2="23" />
-                          </>
-                        )}
+                        {showPassword
+                          ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>
+                          : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></>
+                        }
                       </svg>
                     </button>
                   </div>
                   {password && (
-                    <div className="flex gap-1.5 mt-1">
+                    <div className="flex gap-1 mt-1.5">
                       {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                            password.length >= i * 3
-                              ? password.length >= 12
-                                ? 'bg-emerald-400'
-                                : password.length >= 8
-                                  ? 'bg-primary'
-                                  : 'bg-amber-400'
-                              : 'bg-white/10'
-                          }`}
-                        />
+                        <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${strengthColor(password.length, i)}`} />
                       ))}
                     </div>
                   )}
                 </div>
 
                 {/* 确认密码 */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                    确认密码
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-stone-500">确认密码</label>
                   <input
                     type="password"
                     placeholder="再次输入密码"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={inputClass}
+                    className={`${inputClass} ${confirmPassword && password !== confirmPassword ? 'border-red-200 focus:border-red-300' : ''}`}
                   />
                   {confirmPassword && password !== confirmPassword && (
-                    <p className="text-[11px] text-red-400/70">密码不一致</p>
+                    <p className="text-xs text-red-400">两次密码不一致</p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* 错误提示 */}
             {error && (
-              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/15 text-red-400 text-sm animate-fade-in">
+              <div className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100 text-red-500 text-sm animate-fade-in">
                 {error}
               </div>
             )}
 
-            {/* 注册按钮 */}
             {step === 2 && (
               <button
                 type="submit"
                 disabled={!code || !password || password !== confirmPassword || isLoading}
-                className="w-full h-12 rounded-xl text-sm font-semibold bg-primary hover:bg-primary/90 text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
+                className="w-full h-12 rounded-2xl text-sm font-semibold text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] shadow-md mt-1"
+                style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
               >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-                ) : '注册'}
+                {isLoading
+                  ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
+                  : '完成注册 🎉'}
               </button>
             )}
 
-            {/* 分隔线 */}
-            <div className="flex items-center gap-4 py-1">
-              <div className="flex-1 h-px bg-white/[0.06]" />
-              <span className="text-[11px] text-white/20">或</span>
-              <div className="flex-1 h-px bg-white/[0.06]" />
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-rose-100" />
+              <span className="text-xs text-stone-300">或</span>
+              <div className="flex-1 h-px bg-rose-100" />
             </div>
 
-            {/* 登录入口 */}
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="w-full h-12 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white/90 transition-all duration-200 active:scale-[0.98]"
+              className="w-full h-12 rounded-2xl text-sm font-medium text-rose-400 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all duration-200 active:scale-[0.98]"
             >
               已有账号？立即登录
             </button>

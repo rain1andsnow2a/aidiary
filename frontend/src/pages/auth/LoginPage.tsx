@@ -1,4 +1,4 @@
-// 登录页面 - Apple风格
+// 登录页面 - 温暖柔和心理日记风格
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -41,12 +41,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearError()
-
-    if (!email) {
-      toast('请输入邮箱地址', 'error')
-      return
-    }
-
+    if (!email) { toast('请输入邮箱地址', 'error'); return }
     try {
       if (mode === 'password') {
         if (!password) { toast('请输入密码', 'error'); return }
@@ -61,123 +56,146 @@ export default function LoginPage() {
     }
   }
 
+  const inputClass = "w-full h-12 px-4 rounded-2xl bg-white border border-rose-100 text-stone-700 text-sm placeholder:text-stone-300 outline-none transition-all duration-200 focus:border-rose-300 focus:ring-2 focus:ring-rose-100 shadow-sm"
+
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #fff8f5 0%, #fdf4ff 50%, #f8f4ff 100%)' }}>
       {/* 左侧品牌区域 */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a]" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[80px]" />
-        <div className="relative z-10 px-16 max-w-lg">
-          <div className="mb-8">
-            <span className="text-primary text-lg font-semibold tracking-wide">印记</span>
-            <span className="ml-3 text-xs text-white/30 border border-white/10 rounded-full px-2.5 py-0.5">
-              Beta
-            </span>
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden items-center justify-center p-16">
+        {/* 背景装饰 */}
+        <div className="absolute top-20 left-16 w-72 h-72 rounded-full opacity-20 animate-float"
+          style={{ background: 'radial-gradient(circle, #f9a8d4, #c4b5fd)' }} />
+        <div className="absolute bottom-24 right-8 w-48 h-48 rounded-full opacity-15 animate-float" 
+          style={{ animationDelay: '1.5s', background: 'radial-gradient(circle, #fdba74, #fca5a5)' }} />
+        <div className="absolute top-1/2 right-16 w-32 h-32 rounded-full opacity-10 animate-float"
+          style={{ animationDelay: '0.8s', background: 'radial-gradient(circle, #86efac, #67e8f9)' }} />
+
+        <div className="relative z-10 max-w-md">
+          <div className="mb-10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-lg font-bold shadow-md"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}>
+              印
+            </div>
+            <span className="text-stone-700 text-xl font-semibold">印记</span>
+            <span className="text-xs text-stone-400 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-0.5">Beta</span>
           </div>
-          <h2 className="text-4xl font-bold text-white/90 leading-tight mb-4">
-            你的每一天，<br />都值得被记住
+
+          <h2 className="text-4xl font-bold leading-tight mb-5" style={{ color: '#3d2b2b' }}>
+            你的每一天，<br />
+            <span className="text-gradient">都值得被记住</span>
           </h2>
-          <p className="text-white/40 text-sm leading-relaxed">
-            基于 AI 的智能日记应用，通过深度分析帮助你更好地认识自己。
+          <p className="text-stone-500 text-sm leading-relaxed mb-12">
+            基于 AI 的智能日记应用，通过深度心理分析帮助你更好地认识自己。
             记录生活，探索内心，让每一段文字都有温度。
           </p>
-          <div className="mt-12 flex gap-8 text-sm">
-            <div>
-              <div className="text-2xl font-bold text-white/80">AI</div>
-              <div className="text-white/30 mt-1">智能分析</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white/80">RAG</div>
-              <div className="text-white/30 mt-1">知识图谱</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white/80">E2E</div>
-              <div className="text-white/30 mt-1">隐私加密</div>
-            </div>
+
+          <div className="space-y-4">
+            {[
+              { icon: '🌸', title: 'AI 深度分析', desc: '萨提亚冰山模型，看见内心深处' },
+              { icon: '🌿', title: '情绪追踪', desc: '可视化情绪变化，了解自己的规律' },
+              { icon: '✨', title: '疗愈回应', desc: '温暖的 AI 反馈，给你情感支持' },
+            ].map((item) => (
+              <div key={item.title} className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-rose-50">
+                <span className="text-2xl mt-0.5">{item.icon}</span>
+                <div>
+                  <div className="text-sm font-semibold text-stone-700">{item.title}</div>
+                  <div className="text-xs text-stone-400 mt-0.5">{item.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* 右侧登录表单 */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center px-6 sm:px-12">
-        <div className="w-full max-w-[400px] animate-fade-in">
-          <div className="mb-10">
-            <h1 className="text-3xl font-bold text-white/95 tracking-tight">欢迎回来</h1>
-            <p className="text-white/40 text-sm mt-2">请输入您的账号信息登录</p>
+      <div className="w-full lg:w-[55%] flex items-center justify-center px-6 sm:px-16">
+        <div className="w-full max-w-[420px] animate-fade-in">
+          {/* 移动端logo */}
+          <div className="lg:hidden flex items-center gap-2 mb-8">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}>印</div>
+            <span className="text-stone-700 font-semibold">印记</span>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-stone-800">欢迎回来 👋</h1>
+            <p className="text-stone-400 text-sm mt-1.5">很高兴再次见到你</p>
+          </div>
+
+          {/* 登录方式切换 */}
+          <div className="flex rounded-2xl bg-rose-50 p-1 mb-6">
+            {(['password', 'code'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setMode(m); clearError() }}
+                className={`flex-1 h-9 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  mode === m
+                    ? 'bg-white text-rose-500 shadow-sm'
+                    : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                {m === 'password' ? '密码登录' : '验证码登录'}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* 邮箱 */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                邮箱
-              </label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-stone-500">邮箱地址</label>
               <input
                 type="email"
-                placeholder="请输入邮箱"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-12 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/90 text-sm placeholder:text-white/20 outline-none transition-all duration-200 focus:border-primary/50 focus:bg-white/[0.06]"
+                className={inputClass}
               />
-              <p className="text-[11px] text-white/25">请使用注册时的邮箱登录</p>
             </div>
 
-            {/* 密码/验证码切换 */}
             {mode === 'password' ? (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                  密码
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-stone-500">密码</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="请输入密码"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-12 px-4 pr-12 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/90 text-sm placeholder:text-white/20 outline-none transition-all duration-200 focus:border-primary/50 focus:bg-white/[0.06]"
+                    className={`${inputClass} pr-12`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 transition-colors"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       {showPassword ? (
-                        <>
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </>
+                        <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>
                       ) : (
-                        <>
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                          <line x1="1" y1="1" x2="23" y2="23" />
-                        </>
+                        <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></>
                       )}
                     </svg>
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                  验证码
-                </label>
-                <div className="flex gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-stone-500">验证码</label>
+                <div className="flex gap-2.5">
                   <input
                     type="text"
-                    placeholder="6位验证码"
+                    placeholder="6 位验证码"
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     maxLength={6}
-                    className="flex-1 h-12 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/90 text-sm text-center tracking-[0.3em] placeholder:text-white/20 placeholder:tracking-normal outline-none transition-all duration-200 focus:border-primary/50 focus:bg-white/[0.06]"
+                    className={`${inputClass} flex-1 text-center tracking-[0.4em] placeholder:tracking-normal`}
                   />
                   <button
                     type="button"
                     onClick={handleSendCode}
                     disabled={!email || !email.includes('@') || countdown > 0}
-                    className="shrink-0 h-12 px-5 rounded-xl text-sm font-medium bg-white/[0.06] border border-white/[0.08] text-white/70 hover:bg-white/[0.1] hover:text-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                    className="shrink-0 h-12 px-4 rounded-2xl text-sm font-medium border border-rose-200 text-rose-400 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
                   >
                     {countdown > 0 ? `${countdown}s` : '发送'}
                   </button>
@@ -185,24 +203,9 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* 记住我 / 切换登录方式 */}
-            <div className="flex items-center justify-between text-xs">
-              <label className="flex items-center gap-2 text-white/40 cursor-pointer group">
-                <div className="w-4 h-4 rounded border border-white/15 group-hover:border-white/30 transition-colors" />
-                记住我
-              </label>
-              <button
-                type="button"
-                onClick={() => { setMode(mode === 'password' ? 'code' : 'password'); clearError() }}
-                className="text-white/40 hover:text-primary transition-colors"
-              >
-                {mode === 'password' ? '验证码登录' : '密码登录'}
-              </button>
-            </div>
-
             {/* 错误提示 */}
             {error && (
-              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/15 text-red-400 text-sm animate-fade-in">
+              <div className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100 text-red-500 text-sm animate-fade-in">
                 {error}
               </div>
             )}
@@ -211,27 +214,26 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 rounded-xl text-sm font-semibold bg-primary hover:bg-primary/90 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full h-12 rounded-2xl text-sm font-semibold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] shadow-md mt-2"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+                <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
               ) : '登录'}
             </button>
 
-            {/* 分隔线 */}
-            <div className="flex items-center gap-4 py-1">
-              <div className="flex-1 h-px bg-white/[0.06]" />
-              <span className="text-[11px] text-white/20">或</span>
-              <div className="flex-1 h-px bg-white/[0.06]" />
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-rose-100" />
+              <span className="text-xs text-stone-300">或</span>
+              <div className="flex-1 h-px bg-rose-100" />
             </div>
 
-            {/* 注册入口 */}
             <button
               type="button"
               onClick={() => navigate('/register')}
-              className="w-full h-12 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white/90 transition-all duration-200 active:scale-[0.98]"
+              className="w-full h-12 rounded-2xl text-sm font-medium text-rose-400 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all duration-200 active:scale-[0.98]"
             >
-              注册新账号
+              还没有账号？立即注册
             </button>
           </form>
         </div>
