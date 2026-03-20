@@ -2,9 +2,11 @@
 印记 - Smart Diary Application
 FastAPI主应用
 """
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.db import init_db
@@ -53,6 +55,15 @@ app.include_router(diaries.router, prefix="/api/v1", tags=["日记"])
 # 导入并注册AI路由
 from app.api.v1 import ai
 app.include_router(ai.router, prefix="/api/v1", tags=["AI分析"])
+
+# 导入并注册用户画像路由
+from app.api.v1 import users
+app.include_router(users.router, prefix="/api/v1", tags=["用户"])
+
+# 挂载头像静态文件目录
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(os.path.join(UPLOADS_DIR, "avatars"), exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 @app.get("/", tags=["根路径"])

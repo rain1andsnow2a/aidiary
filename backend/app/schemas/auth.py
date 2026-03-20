@@ -52,6 +52,11 @@ class UserResponse(BaseModel):
     id: int
     email: str
     username: Optional[str]
+    avatar_url: Optional[str] = None
+    mbti: Optional[str] = None
+    social_style: Optional[str] = None
+    current_state: Optional[str] = None
+    catchphrases: Optional[list] = None
     is_active: bool
     is_verified: bool
     created_at: datetime
@@ -59,6 +64,15 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ProfileUpdateRequest(BaseModel):
+    """用户画像更新请求"""
+    username: Optional[str] = Field(None, max_length=50, description="用户名")
+    mbti: Optional[str] = Field(None, max_length=10, description="MBTI类型")
+    social_style: Optional[str] = Field(None, max_length=20, description="社交风格")
+    current_state: Optional[str] = Field(None, max_length=20, description="当前状态")
+    catchphrases: Optional[list] = Field(None, description="口头禅列表")
 
 
 class UserUpdateRequest(BaseModel):

@@ -1,13 +1,13 @@
-// 日记列表页面
+// 日记列表页面 - 温暖柔和心理日记风格
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDiaryStore } from '@/store/diaryStore'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+
+const EMOTION_FILTERS = ['全部', '开心', '平静', '焦虑', '成就感', '满足', '担忧', '疲惫']
 
 export default function DiaryList() {
   const navigate = useNavigate()
@@ -36,114 +36,101 @@ export default function DiaryList() {
 
   if (isLoading && diaries.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #f5f3ff 100%)' }}>
         <Loading size="lg" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #f5f3ff 100%)' }}>
       {/* 顶部导航 */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-rose-100/60" style={{ background: 'rgba(255,248,245,0.88)' }}>
+        <div className="max-w-3xl mx-auto px-6">
+          <div className="flex justify-between items-center py-3.5">
+            <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">
               ← 返回
-            </Button>
-            <h1 className="text-xl font-bold">我的日记</h1>
-            <Button onClick={() => navigate('/diaries/new')}>写日记</Button>
+            </button>
+            <span className="text-sm font-semibold text-stone-600">📖 我的日记</span>
+            <button
+              onClick={() => navigate('/diaries/new')}
+              className="h-8 px-4 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
+            >
+              写日记
+            </button>
           </div>
         </div>
       </header>
 
-      {/* 主内容 */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 筛选器 */}
-        <div className="mb-6">
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={selectedEmotion === undefined ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedEmotion(undefined)}
-            >
-              全部
-            </Button>
-            <Button
-              variant={selectedEmotion === '开心' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedEmotion('开心')}
-            >
-              开心
-            </Button>
-            <Button
-              variant={selectedEmotion === '平静' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedEmotion('平静')}
-            >
-              平静
-            </Button>
-            <Button
-              variant={selectedEmotion === '焦虑' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedEmotion('焦虑')}
-            >
-              焦虑
-            </Button>
-            <Button
-              variant={selectedEmotion === '成就感' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedEmotion('成就感')}
-            >
-              成就感
-            </Button>
-          </div>
+      <main className="max-w-3xl mx-auto px-6 py-8">
+        {/* 情绪筛选 */}
+        <div className="flex gap-2 flex-wrap mb-6">
+          {EMOTION_FILTERS.map((label) => {
+            const isActive = label === '全部' ? selectedEmotion === undefined : selectedEmotion === label
+            return (
+              <button
+                key={label}
+                onClick={() => setSelectedEmotion(label === '全部' ? undefined : label)}
+                className={`px-3.5 py-1.5 rounded-2xl text-xs font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'text-white shadow-sm'
+                    : 'bg-white text-stone-400 border border-stone-100 hover:border-rose-200 hover:text-rose-400'
+                }`}
+                style={isActive ? { background: 'linear-gradient(135deg, #fb7185, #c084fc)' } : undefined}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
 
         {/* 日记列表 */}
         {diaries.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <p className="text-muted-foreground mb-4">还没有日记，开始写第一篇吧！</p>
-              <Button onClick={() => navigate('/diaries/new')}>写日记</Button>
-            </CardContent>
-          </Card>
+          <div className="card-warm p-12 text-center">
+            <p className="text-4xl mb-3">🌱</p>
+            <p className="text-stone-400 text-sm mb-5">还没有日记，开始写第一篇吧</p>
+            <button
+              onClick={() => navigate('/diaries/new')}
+              className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md"
+              style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
+            >
+              ✍️ 写日记
+            </button>
+          </div>
         ) : (
           <>
-            <div className="space-y-4">
-              {diaries.map((diary) => (
-                <Card
-                  key={diary.id}
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/diaries/${diary.id}`)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold mb-1">{diary.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(diary.diary_date), 'yyyy年MM月dd日 EEEE', {
-                            locale: zhCN,
-                          })}
+            <div className="space-y-3">
+              {diaries.map((diary) => {
+                const tags = diary.emotion_tags ?? []
+                return (
+                  <div
+                    key={diary.id}
+                    className="card-warm p-5 cursor-pointer hover:shadow-md transition-all duration-200 active:scale-[0.99]"
+                    onClick={() => navigate(`/diaries/${diary.id}`)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold text-stone-700 truncate">{diary.title || '无标题'}</h3>
+                        <p className="text-xs text-stone-300 mt-0.5">
+                          {format(new Date(diary.diary_date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-primary">
-                          {diary.importance_score}/10
-                        </span>
-                      </div>
+                      <span className="text-xs font-medium text-rose-400 shrink-0 ml-3">
+                        ⭐ {diary.importance_score}/10
+                      </span>
                     </div>
 
-                    <p className="text-muted-foreground mb-3 line-clamp-3">
+                    <p className="text-xs text-stone-400 line-clamp-2 leading-5 mb-3">
                       {diary.content}
                     </p>
 
-                    {diary.emotion_tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {diary.emotion_tags.map((tag, index) => (
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {tags.map((tag, index) => (
                           <span
                             key={index}
-                            className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full"
+                            className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-400 border border-rose-100"
                           >
                             {tag}
                           </span>
@@ -151,47 +138,38 @@ export default function DiaryList() {
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center text-sm text-muted-foreground">
-                      <span>{diary.word_count} 字</span>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/diaries/${diary.id}/edit`)
-                          }}
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-stone-300">{diary.word_count} 字</span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/diaries/${diary.id}/edit`) }}
+                          className="text-[11px] text-stone-300 hover:text-stone-500 px-2 py-1 rounded-lg hover:bg-stone-50 transition-colors"
                         >
                           编辑
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(diary.id, diary.title)
-                          }}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(diary.id, diary.title) }}
+                          className="text-[11px] text-stone-300 hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
                         >
                           删除
-                        </Button>
+                        </button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+                )
+              })}
             </div>
 
             {/* 加载更多 */}
             {pagination.page < pagination.totalPages && (
               <div className="mt-6 text-center">
-                <Button
-                  variant="outline"
+                <button
                   onClick={handleLoadMore}
                   disabled={isLoading}
-                  className="w-full"
+                  className="w-full h-11 rounded-2xl text-sm font-medium bg-white border border-stone-100 text-stone-400 hover:bg-stone-50 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50"
                 >
                   {isLoading ? <Loading size="sm" /> : '加载更多'}
-                </Button>
+                </button>
               </div>
             )}
           </>

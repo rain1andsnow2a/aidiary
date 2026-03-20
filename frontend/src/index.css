@@ -144,3 +144,9 @@ input:focus, textarea:focus {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* 下拉菜单入场动画 */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

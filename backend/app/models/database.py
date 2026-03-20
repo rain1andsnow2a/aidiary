@@ -3,8 +3,8 @@
 使用SQLAlchemy ORM
 """
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, Integer, func, JSON
+from typing import Optional, List
+from sqlalchemy import String, Boolean, DateTime, Integer, Text, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -23,6 +23,11 @@ class User(Base):
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     username: Mapped[Optional[str]] = mapped_column(String(50))
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500))
+    mbti: Mapped[Optional[str]] = mapped_column(String(10))
+    social_style: Mapped[Optional[str]] = mapped_column(String(20))
+    current_state: Mapped[Optional[str]] = mapped_column(String(20))
+    catchphrases: Mapped[Optional[list]] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(

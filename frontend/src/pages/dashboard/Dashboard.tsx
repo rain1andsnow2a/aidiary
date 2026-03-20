@@ -1,5 +1,5 @@
 // 仪表盘/首页 - 温暖柔和心理日记风格
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useDiaryStore } from '@/store/diaryStore'
@@ -9,23 +9,30 @@ import EmotionChart from '@/components/common/EmotionChart'
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { diaries, fetchDiaries, fetchEmotionStats, emotionStats, isLoading } = useDiaryStore()
+  const { diaries, fetchDiaries, isLoading } = useDiaryStore()
   const [stats, setStats] = useState({
     total: 0,
     thisMonth: 0,
     topEmotion: '',
   })
+  const [localEmotionStats, setLocalEmotionStats] = useState<{ tag: string; count: number; percentage: number }[]>([])
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
+  // 点击外部关闭下拉菜单
   useEffect(() => {
-    fetchData()
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const fetchData = async () => {
-    await Promise.all([
-      fetchDiaries({ page: 1, pageSize: 5 }),
-      fetchEmotionStats(30),
-    ])
-  }
+  useEffect(() => {
+    fetchDiaries({ page: 1, pageSize: 50 })
+  }, [])
 
   useEffect(() => {
     if (diaries.length > 0) {
@@ -37,7 +44,7 @@ export default function Dashboard() {
 
       const emotionCounts: Record<string, number> = {}
       diaries.forEach((d) => {
-        d.emotion_tags.forEach((tag) => {
+        ;(d.emotion_tags ?? []).forEach((tag) => {
           emotionCounts[tag] = (emotionCounts[tag] || 0) + 1
         })
       })
@@ -49,10 +56,17 @@ export default function Dashboard() {
         thisMonth,
         topEmotion,
       })
+
+      const totalTags = Object.values(emotionCounts).reduce((a, b) => a + b, 0)
+      const computed = Object.entries(emotionCounts)
+        .map(([tag, count]) => ({ tag, count, percentage: totalTags > 0 ? Math.round((count / totalTags) * 100) : 0 }))
+        .sort((a, b) => b.count - a.count)
+      setLocalEmotionStats(computed)
     }
   }, [diaries])
 
   const handleLogout = async () => {
+    setShowUserMenu(false)
     await logout()
     navigate('/login')
   }
@@ -66,6 +80,9 @@ export default function Dashboard() {
     return '晚上好'
   }
 
+  const displayName = user?.username || user?.email?.split('@')[0] || '用户'
+  const avatarLetter = displayName.charAt(0).toUpperCase()
+
   if (isLoading && diaries.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #fff8f5, #fdf4ff)' }}>
@@ -78,7 +95,7 @@ export default function Dashboard() {
     <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #f5f3ff 100%)' }}>
       {/* 顶部导航 */}
       <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-rose-100/60" style={{ background: 'rgba(255,248,245,0.85)' }}>
-        <div className="max-w-5xl mx-auto px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="flex justify-between items-center h-15 py-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm"
@@ -93,36 +110,99 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-stone-400 hidden sm:block">
-                {user?.username || user?.email?.split('@')[0]}
-              </span>
-              <button onClick={() => navigate('/settings')}
-                className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-300 hover:text-rose-500 hover:bg-rose-100 transition-all">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+
+            {/* 用户头像 + 下拉菜单 */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2.5 px-2 py-1.5 rounded-2xl hover:bg-rose-50/80 transition-all"
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-white/80 overflow-hidden"
+                  style={!user?.avatar_url ? { background: 'linear-gradient(135deg, #fb7185, #c084fc)' } : undefined}>
+                  {user?.avatar_url
+                    ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : avatarLetter}
+                </div>
+                <span className="text-sm text-stone-600 font-medium hidden sm:block">{displayName}</span>
+                <svg className={`w-3.5 h-3.5 text-stone-400 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`}
+                  viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
               </button>
-              <button onClick={handleLogout} className="text-xs text-stone-300 hover:text-stone-500 transition-colors">登出</button>
+
+              {/* 下拉菜单 */}
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white/95 backdrop-blur-xl shadow-xl border border-rose-100/60 overflow-hidden z-50"
+                  style={{ animation: 'fadeInDown 0.15s ease-out' }}>
+                  {/* 用户信息区 */}
+                  <div className="px-4 py-3.5 border-b border-rose-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden"
+                        style={!user?.avatar_url ? { background: 'linear-gradient(135deg, #fb7185, #c084fc)' } : undefined}>
+                        {user?.avatar_url
+                          ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                          : avatarLetter}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-stone-700 truncate">{displayName}</p>
+                        <p className="text-xs text-stone-400 truncate">{user?.email}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 菜单项 */}
+                  <div className="py-1.5">
+                    <button
+                      onClick={() => { setShowUserMenu(false); navigate('/diaries/new') }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-rose-50/80 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-base w-5 text-center">✍️</span>
+                      写日记
+                    </button>
+                    <button
+                      onClick={() => { setShowUserMenu(false); navigate('/diaries') }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-rose-50/80 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-base w-5 text-center">📖</span>
+                      我的日记
+                    </button>
+                    <button
+                      onClick={() => { setShowUserMenu(false); navigate('/settings') }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-rose-50/80 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-base w-5 text-center">⚙️</span>
+                      设置
+                    </button>
+                  </div>
+
+                  {/* 登出 */}
+                  <div className="border-t border-rose-50 py-1.5">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-50/60 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-base w-5 text-center">🚪</span>
+                      退出登录
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 lg:px-8 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-8 space-y-6">
         {/* 欢迎横幅 */}
-        <div className="relative overflow-hidden rounded-3xl p-8" style={{ background: 'linear-gradient(135deg, #fce7f3 0%, #ede9fe 100%)' }}>
-          <div className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-30 -translate-y-1/3 translate-x-1/3"
-            style={{ background: 'radial-gradient(circle, #f9a8d4, #c4b5fd)' }} />
-          <div className="absolute bottom-0 left-1/2 w-32 h-32 rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, #fdba74, #fca5a5)' }} />
+        <div className="relative overflow-hidden rounded-3xl p-8 min-h-[180px]">
+          <img src="/dashboard-banner-bg_1.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/30 to-transparent" />
           <div className="relative">
             <p className="text-rose-400/80 text-sm mb-1">{greeting()} 👋</p>
             <h1 className="text-2xl font-bold text-stone-700 mb-1.5">
-              {user?.username || user?.email?.split('@')[0]}
+              {displayName}
             </h1>
-            <p className="text-stone-400 text-sm mb-5">今天想记录些什么呢？</p>
+            <p className="text-stone-500/80 text-sm mb-5">今天想记录些什么呢？</p>
             <button
               onClick={() => navigate('/diaries/new')}
               className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md transition-all duration-200 active:scale-[0.97]"
@@ -172,14 +252,14 @@ export default function Dashboard() {
         </div>
 
         {/* 情绪统计图表 */}
-        {emotionStats.length > 0 && (
+        {localEmotionStats.length > 0 && (
           <div className="card-warm p-6">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">💭</span>
               <h2 className="text-sm font-semibold text-stone-700">情绪分布</h2>
             </div>
             <p className="text-xs text-stone-400 mb-4 ml-7">近 30 天的情绪变化</p>
-            <EmotionChart data={emotionStats} type="bar" />
+            <EmotionChart data={localEmotionStats} type="bar" />
           </div>
         )}
 
@@ -213,9 +293,9 @@ export default function Dashboard() {
                     <span className="text-[11px] text-stone-300 shrink-0">{diary.diary_date}</span>
                   </div>
                   <p className="text-xs text-stone-400 line-clamp-2 leading-relaxed">{diary.content}</p>
-                  {diary.emotion_tags.length > 0 && (
+                  {(diary.emotion_tags ?? []).length > 0 && (
                     <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {diary.emotion_tags.map((tag, i) => (
+                      {(diary.emotion_tags ?? []).map((tag, i) => (
                         <span key={i} className="text-[10px] px-2 py-0.5 bg-rose-100 text-rose-400 rounded-full">
                           {tag}
                         </span>

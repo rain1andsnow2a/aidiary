@@ -56,4 +56,32 @@ export const authService = {
     const response = await api.get<User>('/api/v1/auth/me')
     return response.data
   },
+
+  // 获取用户画像
+  getProfile: async (): Promise<User> => {
+    const response = await api.get<User>('/api/v1/users/profile')
+    return response.data
+  },
+
+  // 更新用户画像
+  updateProfile: async (data: {
+    username?: string
+    mbti?: string
+    social_style?: string
+    current_state?: string
+    catchphrases?: string[]
+  }): Promise<User> => {
+    const response = await api.put<User>('/api/v1/users/profile', data)
+    return response.data
+  },
+
+  // 上传头像
+  uploadAvatar: async (file: File): Promise<User> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<User>('/api/v1/users/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
 }
