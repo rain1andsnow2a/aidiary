@@ -13,6 +13,9 @@ import {
   COMMAND_PRIORITY_LOW, EditorState, LexicalEditor
 } from 'lexical'
 import { HeadingNode, QuoteNode } from '@lexical/rich-text'
+import { CodeNode } from '@lexical/code'
+import { ListNode, ListItemNode } from '@lexical/list'
+import { LinkNode } from '@lexical/link'
 import { $generateHtmlFromNodes } from '@lexical/html'
 import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown'
 import { Bold, Italic, Image as ImageIcon, Loader2 } from 'lucide-react'
@@ -259,7 +262,7 @@ export default function RichTextEditor({
   const initialConfig = {
     namespace: 'DiaryEditor',
     theme,
-    nodes: [HeadingNode, QuoteNode],
+    nodes: [HeadingNode, QuoteNode, CodeNode, ListNode, ListItemNode, LinkNode],
     onError: (error: Error) => console.error(error),
   }
 
