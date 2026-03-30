@@ -1,22 +1,39 @@
 // 日记编辑器 - 温暖柔和心理日记风格
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDiaryStore } from '@/store/diaryStore'
 import { toast } from '@/components/ui/toast'
+import { PenLine, Calendar, MessageCircle, Star, Smile, CloudSun, AlertCircle, Trophy, HeartHandshake, HelpCircle, Sparkles, Battery, Heart, Angry, Frown, PartyPopper, ChevronRight } from 'lucide-react'
+import RichTextEditor from '@/components/editor/RichTextEditor'
+import { aiService } from '@/services/ai.service'
 
 const PRESET_EMOTIONS = [
-  { label: '开心', emoji: '😊' },
-  { label: '平静', emoji: '😌' },
-  { label: '焦虑', emoji: '😰' },
-  { label: '成就感', emoji: '🌟' },
-  { label: '满足', emoji: '🥰' },
-  { label: '担忧', emoji: '😟' },
-  { label: '期待', emoji: '✨' },
-  { label: '疲惫', emoji: '😴' },
-  { label: '感动', emoji: '🥲' },
-  { label: '愤怒', emoji: '😤' },
-  { label: '悲伤', emoji: '😢' },
-  { label: '兴奋', emoji: '🎉' },
+  { label: '开心', icon: <Smile className="w-3.5 h-3.5" /> },
+  { label: '平静', icon: <CloudSun className="w-3.5 h-3.5" /> },
+  { label: '焦虑', icon: <AlertCircle className="w-3.5 h-3.5" /> },
+  { label: '成就感', icon: <Trophy className="w-3.5 h-3.5" /> },
+  { label: '满足', icon: <HeartHandshake className="w-3.5 h-3.5" /> },
+  { label: '担忧', icon: <HelpCircle className="w-3.5 h-3.5" /> },
+  { label: '期待', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { label: '疲惫', icon: <Battery className="w-3.5 h-3.5" /> },
+  { label: '感动', icon: <Heart className="w-3.5 h-3.5" /> },
+  { label: '愤怒', icon: <Angry className="w-3.5 h-3.5" /> },
+  { label: '悲伤', icon: <Frown className="w-3.5 h-3.5" /> },
+  { label: '兴奋', icon: <PartyPopper className="w-3.5 h-3.5" /> },
+]
+
+// 每日引导问题（基于时间随机选取）
+const GUIDED_QUESTIONS = [
+  '今天有没有一个让你印象深刻的瞬间？',
+  '今天你感觉最充实的事情是什么？',
+  '有没有什么话你想对今天的自己说？',
+  '今天遇到了什么挑战？你是怎么应对的？',
+  '今天有什么让你感到温暖或感动的事？',
+  '今天的心情用一个词来形容会是什么？',
+  '今天有没有什么事情让你感到困惑或烦恼？',
+  '如果今天可以重来，你会改变什么？',
+  '今天你为自己做了什么？',
+  '此刻你最想感谢的人或事是什么？',
 ]
 
 export default function DiaryEditor() {
@@ -28,12 +45,20 @@ export default function DiaryEditor() {
   const [diaryDate, setDiaryDate] = useState(new Date().toISOString().split('T')[0])
   const [emotionTags, setEmotionTags] = useState<string[]>([])
   const [importanceScore, setImportanceScore] = useState(5)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+  // 每日引导问题
+  const guidedQuestion = GUIDED_QUESTIONS[new Date().getDate() % GUIDED_QUESTIONS.length]
 
   const toggleEmotionTag = (tag: string) => {
     setEmotionTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     )
   }
+
+  const handleContentChange = useCallback((text: string, _html: string) => {
+    setContent(text)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,7 +74,17 @@ export default function DiaryEditor() {
         emotionTags: emotionTags.length > 0 ? emotionTags : undefined,
         importanceScore,
       })
-      toast('日记保存成功 🌸', 'success')
+      toast('日记保存成功', 'success')
+      // 后台自动触发AI分析
+      setIsAnalyzing(true)
+      aiService.analyze({ diary_id: diary.id })
+        .then(() => {
+          toast('AI 分析已完成', 'success')
+        })
+        .catch(() => {
+          // 静默失败，用户可以手动触发
+        })
+        .finally(() => setIsAnalyzing(false))
       navigate(`/diaries/${diary.id}`)
     } catch (error: any) {
       toast(error.message || '保存失败', 'error')
@@ -71,14 +106,14 @@ export default function DiaryEditor() {
             >
               ← 返回
             </button>
-            <span className="text-sm font-semibold text-stone-600">✍️ 写日记</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><PenLine className="w-4 h-4 text-rose-400" /> 写日记</span>
             <button
               onClick={handleSubmit}
               disabled={isLoading}
               className="h-8 px-4 rounded-xl text-xs font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.97] shadow-sm"
               style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
             >
-              {isLoading
+              {isLoading || isAnalyzing
                 ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 : '保存'}
             </button>
@@ -98,7 +133,7 @@ export default function DiaryEditor() {
               className="w-full bg-transparent text-xl font-bold text-stone-700 placeholder:text-stone-200 outline-none border-none"
             />
             <div className="flex items-center gap-2">
-              <span className="text-stone-300 text-sm">📅</span>
+              <Calendar className="w-4 h-4 text-stone-300" />
               <input
                 type="date"
                 value={diaryDate}
@@ -108,19 +143,33 @@ export default function DiaryEditor() {
             </div>
           </div>
 
-          {/* 日记内容 */}
+          {/* 今日引导问题 */}
+          <div className="card-warm p-4 flex items-start gap-3">
+            <Sparkles className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-stone-400 mb-1">今日思考</p>
+              <p className="text-sm text-stone-600 leading-6">{guidedQuestion}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTitle(guidedQuestion)}
+              className="shrink-0 flex items-center gap-0.5 text-xs text-rose-400 hover:text-rose-500 transition-colors"
+            >
+              用作标题 <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* 日记内容 - 富文本编辑器 */}
           <div className="card-warm overflow-hidden">
-            <textarea
+            <RichTextEditor
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder={"今天发生了什么？\n\n你有什么感受？\n\n在这里自由书写，这是只属于你的空间..."}
-              className="w-full min-h-[320px] p-6 bg-transparent text-stone-600 text-sm leading-7 placeholder:text-stone-200 outline-none resize-none"
+              onChange={handleContentChange}
             />
             <div className="px-6 py-3 border-t border-rose-50 flex justify-between items-center">
               <span className="text-xs text-stone-300">{wordCount} 字</span>
               {wordCount > 0 && (
                 <span className="text-xs text-rose-300">
-                  {wordCount < 100 ? '继续写写' : wordCount < 300 ? '写得不错 ✨' : '内容很丰富 🌸'}
+                  {wordCount < 100 ? '继续写写' : wordCount < 300 ? '写得不错' : '内容很丰富'}
                 </span>
               )}
             </div>
@@ -129,7 +178,7 @@ export default function DiaryEditor() {
           {/* 情绪标签 */}
           <div className="card-warm p-5">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-base">💭</span>
+              <MessageCircle className="w-4 h-4 text-rose-400" />
               <h3 className="text-sm font-semibold text-stone-600">今天的心情</h3>
               {emotionTags.length > 0 && (
                 <span className="text-xs text-rose-400 bg-rose-50 px-2 py-0.5 rounded-full ml-auto">
@@ -138,7 +187,7 @@ export default function DiaryEditor() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {PRESET_EMOTIONS.map(({ label, emoji }) => (
+              {PRESET_EMOTIONS.map(({ label, icon }) => (
                 <button
                   key={label}
                   type="button"
@@ -152,7 +201,7 @@ export default function DiaryEditor() {
                     ? { background: 'linear-gradient(135deg, #fb7185, #c084fc)' }
                     : undefined}
                 >
-                  <span>{emoji}</span>
+                  {icon}
                   {label}
                 </button>
               ))}
@@ -163,7 +212,7 @@ export default function DiaryEditor() {
           <div className="card-warm p-5">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
-                <span className="text-base">⭐</span>
+                <Star className="w-4 h-4 text-amber-400" />
                 <h3 className="text-sm font-semibold text-stone-600">这件事对我有多重要？</h3>
               </div>
               <span className="text-lg font-bold text-rose-400">{importanceScore}</span>
@@ -203,7 +252,7 @@ export default function DiaryEditor() {
             >
               {isLoading
                 ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                : '保存日记 🌸'}
+                : '保存日记'}
             </button>
           </div>
         </form>

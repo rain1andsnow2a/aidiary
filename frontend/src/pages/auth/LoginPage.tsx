@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
 import { toast } from '@/components/ui/toast'
+import { Sparkles, Leaf, Brain } from 'lucide-react'
 
 type LoginMode = 'password' | 'code'
 
@@ -91,12 +92,12 @@ export default function LoginPage() {
 
           <div className="space-y-4">
             {[
-              { icon: '🌸', title: 'AI 深度分析', desc: '萨提亚冰山模型，看见内心深处' },
-              { icon: '🌿', title: '情绪追踪', desc: '可视化情绪变化，了解自己的规律' },
-              { icon: '✨', title: '疗愈回应', desc: '温暖的 AI 反馈，给你情感支持' },
+              { icon: <Brain className="w-5 h-5 text-rose-400" />, title: 'AI 深度分析', desc: '萨提亚冰山模型，看见内心深处' },
+              { icon: <Leaf className="w-5 h-5 text-emerald-400" />, title: '情绪追踪', desc: '可视化情绪变化，了解自己的规律' },
+              { icon: <Sparkles className="w-5 h-5 text-amber-400" />, title: '疗愈回应', desc: '温暖的 AI 反馈，给你情感支持' },
             ].map((item) => (
               <div key={item.title} className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-rose-50">
-                <span className="text-2xl mt-0.5">{item.icon}</span>
+                <span className="mt-0.5">{item.icon}</span>
                 <div>
                   <div className="text-sm font-semibold text-stone-700">{item.title}</div>
                   <div className="text-xs text-stone-400 mt-0.5">{item.desc}</div>
@@ -118,7 +119,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-stone-800">欢迎回来 👋</h1>
+            <h1 className="text-2xl font-bold text-stone-800">欢迎回来</h1>
             <p className="text-stone-400 text-sm mt-1.5">很高兴再次见到你</p>
           </div>
 

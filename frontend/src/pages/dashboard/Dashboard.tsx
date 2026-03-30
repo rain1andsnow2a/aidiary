@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useDiaryStore } from '@/store/diaryStore'
 import { toast } from '@/components/ui/toast'
 import EmotionChart from '@/components/common/EmotionChart'
+import { PenLine, BookOpen, Settings, LogOut, Sprout, BookMarked, Moon, Heart, Clock, Sparkles, MessageCircle, FileText } from 'lucide-react'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -156,21 +157,21 @@ export default function Dashboard() {
                       onClick={() => { setShowUserMenu(false); navigate('/diaries/new') }}
                       className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-rose-50/80 transition-colors flex items-center gap-3"
                     >
-                      <span className="text-base w-5 text-center">✍️</span>
+                      <PenLine className="w-4 h-4 text-rose-400" />
                       写日记
                     </button>
                     <button
                       onClick={() => { setShowUserMenu(false); navigate('/diaries') }}
                       className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-rose-50/80 transition-colors flex items-center gap-3"
                     >
-                      <span className="text-base w-5 text-center">📖</span>
+                      <BookOpen className="w-4 h-4 text-violet-400" />
                       我的日记
                     </button>
                     <button
                       onClick={() => { setShowUserMenu(false); navigate('/settings') }}
                       className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-rose-50/80 transition-colors flex items-center gap-3"
                     >
-                      <span className="text-base w-5 text-center">⚙️</span>
+                      <Settings className="w-4 h-4 text-stone-400" />
                       设置
                     </button>
                   </div>
@@ -181,7 +182,7 @@ export default function Dashboard() {
                       onClick={handleLogout}
                       className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-50/60 transition-colors flex items-center gap-3"
                     >
-                      <span className="text-base w-5 text-center">🚪</span>
+                      <LogOut className="w-4 h-4 text-red-400" />
                       退出登录
                     </button>
                   </div>
@@ -198,7 +199,7 @@ export default function Dashboard() {
           <img src="/dashboard-banner-bg_1.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/30 to-transparent" />
           <div className="relative">
-            <p className="text-rose-400/80 text-sm mb-1">{greeting()} 👋</p>
+            <p className="text-rose-400/80 text-sm mb-1">{greeting()}</p>
             <h1 className="text-2xl font-bold text-stone-700 mb-1.5">
               {displayName}
             </h1>
@@ -208,7 +209,7 @@ export default function Dashboard() {
               className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md transition-all duration-200 active:scale-[0.97]"
               style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
             >
-              ✍️ 开始写日记
+              开始写日记
             </button>
           </div>
         </div>
@@ -216,12 +217,12 @@ export default function Dashboard() {
         {/* 统计卡片 */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: '累计日记', value: stats.total, emoji: '📔', bg: 'from-rose-50 to-pink-50', border: 'border-rose-100', val: 'text-rose-500' },
-            { label: '本月记录', value: stats.thisMonth, emoji: '🌙', bg: 'from-violet-50 to-purple-50', border: 'border-violet-100', val: 'text-violet-500' },
-            { label: '主要情绪', value: stats.topEmotion || '—', emoji: '🌸', bg: 'from-amber-50 to-orange-50', border: 'border-amber-100', val: 'text-amber-500' },
+            { label: '累计日记', value: stats.total, icon: <BookMarked className="w-5 h-5 text-rose-400" />, bg: 'from-rose-50 to-pink-50', border: 'border-rose-100', val: 'text-rose-500' },
+            { label: '本月记录', value: stats.thisMonth, icon: <Moon className="w-5 h-5 text-violet-400" />, bg: 'from-violet-50 to-purple-50', border: 'border-violet-100', val: 'text-violet-500' },
+            { label: '主要情绪', value: stats.topEmotion || '—', icon: <Heart className="w-5 h-5 text-amber-400" />, bg: 'from-amber-50 to-orange-50', border: 'border-amber-100', val: 'text-amber-500' },
           ].map((item) => (
             <div key={item.label} className={`rounded-2xl bg-gradient-to-br ${item.bg} border ${item.border} p-5`}>
-              <span className="text-xl block mb-2">{item.emoji}</span>
+              <span className="block mb-2">{item.icon}</span>
               <p className="text-xs text-stone-400 mb-1">{item.label}</p>
               <p className={`text-xl font-bold ${item.val}`}>{item.value}</p>
             </div>
@@ -231,10 +232,10 @@ export default function Dashboard() {
         {/* 快速操作 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: '✍️', title: '写日记', desc: '记录今天', bg: 'hover:bg-rose-50 hover:border-rose-200', action: () => navigate('/diaries/new') },
-            { icon: '📖', title: '日记本', desc: '浏览记录', bg: 'hover:bg-violet-50 hover:border-violet-200', action: () => navigate('/diaries') },
-            { icon: '🌿', title: '时间轴', desc: '回顾历程', bg: 'hover:bg-emerald-50 hover:border-emerald-200', action: () => navigate('/timeline') },
-            { icon: '🔮', title: 'AI 分析', desc: '心理洞察', bg: 'hover:bg-amber-50 hover:border-amber-200', action: () => {
+            { icon: <PenLine className="w-6 h-6 text-rose-400" />, title: '写日记', desc: '记录今天', bg: 'hover:bg-rose-50 hover:border-rose-200', action: () => navigate('/diaries/new') },
+            { icon: <BookOpen className="w-6 h-6 text-violet-400" />, title: '日记本', desc: '浏览记录', bg: 'hover:bg-violet-50 hover:border-violet-200', action: () => navigate('/diaries') },
+            { icon: <Clock className="w-6 h-6 text-emerald-400" />, title: '时间轴', desc: '回顾历程', bg: 'hover:bg-emerald-50 hover:border-emerald-200', action: () => navigate('/timeline') },
+            { icon: <Sparkles className="w-6 h-6 text-amber-400" />, title: 'AI 分析', desc: '心理洞察', bg: 'hover:bg-amber-50 hover:border-amber-200', action: () => {
               if (diaries.length > 0) navigate(`/analysis/${diaries[0].id}`)
               else toast('请先创建一篇日记', 'info')
             }},
@@ -244,7 +245,7 @@ export default function Dashboard() {
               onClick={item.action}
               className={`group card-warm p-5 text-left ${item.bg} transition-all duration-200 active:scale-[0.97]`}
             >
-              <span className="text-2xl block mb-3">{item.icon}</span>
+              <span className="block mb-3">{item.icon}</span>
               <p className="text-sm font-semibold text-stone-700">{item.title}</p>
               <p className="text-xs text-stone-400 mt-0.5">{item.desc}</p>
             </button>
@@ -255,7 +256,7 @@ export default function Dashboard() {
         {localEmotionStats.length > 0 && (
           <div className="card-warm p-6">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">💭</span>
+              <MessageCircle className="w-4.5 h-4.5 text-rose-400" />
               <h2 className="text-sm font-semibold text-stone-700">情绪分布</h2>
             </div>
             <p className="text-xs text-stone-400 mb-4 ml-7">近 30 天的情绪变化</p>
@@ -268,7 +269,7 @@ export default function Dashboard() {
           <div className="card-warm overflow-hidden">
             <div className="flex justify-between items-center px-6 pt-6 pb-4">
               <div className="flex items-center gap-2">
-                <span className="text-lg">📝</span>
+                <FileText className="w-4.5 h-4.5 text-rose-400" />
                 <div>
                   <h2 className="text-sm font-semibold text-stone-700">最近日记</h2>
                   <p className="text-xs text-stone-400">你最近的记录</p>
@@ -311,7 +312,7 @@ export default function Dashboard() {
         {/* 空状态 */}
         {diaries.length === 0 && !isLoading && (
           <div className="text-center py-16">
-            <p className="text-5xl mb-4 animate-float">🌱</p>
+            <Sprout className="w-12 h-12 text-emerald-300 mx-auto mb-4 animate-float" />
             <p className="text-stone-500 text-sm mb-1.5">还没有任何日记</p>
             <p className="text-stone-300 text-xs mb-6">点击上方按钮，开始你的第一篇吧</p>
           </div>

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
 import { toast } from '@/components/ui/toast'
+import { Briefcase, Smile, Laugh, Award, Handshake, Moon, Monitor, BookOpen, Rocket, Palette, TreePalm, Plane, Sparkles } from 'lucide-react'
 
 const MBTI_TYPES = [
   'INTJ', 'INTP', 'ENTJ', 'ENTP',
@@ -13,22 +14,22 @@ const MBTI_TYPES = [
 ]
 
 const SOCIAL_STYLES = [
-  { value: 'formal', label: '正式', emoji: '👔' },
-  { value: 'casual', label: '随意', emoji: '😎' },
-  { value: 'humorous', label: '幽默', emoji: '😄' },
-  { value: 'professional', label: '专业', emoji: '💼' },
-  { value: 'friendly', label: '友好', emoji: '🤝' },
-  { value: 'reserved', label: '内敛', emoji: '🌙' },
+  { value: 'formal', label: '正式', icon: <Briefcase className="w-3.5 h-3.5" /> },
+  { value: 'casual', label: '随意', icon: <Smile className="w-3.5 h-3.5" /> },
+  { value: 'humorous', label: '幽默', icon: <Laugh className="w-3.5 h-3.5" /> },
+  { value: 'professional', label: '专业', icon: <Award className="w-3.5 h-3.5" /> },
+  { value: 'friendly', label: '友好', icon: <Handshake className="w-3.5 h-3.5" /> },
+  { value: 'reserved', label: '内敛', icon: <Moon className="w-3.5 h-3.5" /> },
 ]
 
 const CURRENT_STATES = [
-  { value: '工作', emoji: '💻' },
-  { value: '学习', emoji: '📚' },
-  { value: '创业', emoji: '🚀' },
-  { value: '自由职业', emoji: '🎨' },
-  { value: '退休', emoji: '🌴' },
-  { value: '间隔年', emoji: '✈️' },
-  { value: '其他', emoji: '✨' },
+  { value: '工作', icon: <Monitor className="w-3.5 h-3.5" /> },
+  { value: '学习', icon: <BookOpen className="w-3.5 h-3.5" /> },
+  { value: '创业', icon: <Rocket className="w-3.5 h-3.5" /> },
+  { value: '自由职业', icon: <Palette className="w-3.5 h-3.5" /> },
+  { value: '退休', icon: <TreePalm className="w-3.5 h-3.5" /> },
+  { value: '间隔年', icon: <Plane className="w-3.5 h-3.5" /> },
+  { value: '其他', icon: <Sparkles className="w-3.5 h-3.5" /> },
 ]
 
 const gradientBtn = { background: 'linear-gradient(135deg, #fb7185, #c084fc)' }
@@ -119,7 +120,7 @@ export default function ProfileSettings() {
       })
       // 同步更新authStore中的user
       useAuthStore.setState({ user: updatedUser })
-      toast('设置已保存 🌸', 'success')
+      toast('设置已保存', 'success')
       navigate('/')
     } catch (err: any) {
       console.error('保存失败:', err)
@@ -276,7 +277,7 @@ export default function ProfileSettings() {
                   }`}
                   style={socialStyle === style.value ? gradientBtn : undefined}
                 >
-                  <span>{style.emoji}</span>
+                  {style.icon}
                   {style.label}
                 </button>
               ))}
@@ -299,7 +300,7 @@ export default function ProfileSettings() {
                   }`}
                   style={currentState === state.value ? gradientBtn : undefined}
                 >
-                  <span>{state.emoji}</span>
+                  {state.icon}
                   {state.value}
                 </button>
               ))}
@@ -374,7 +375,7 @@ export default function ProfileSettings() {
             >
               {isSaving
                 ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                : '保存设置 🌸'}
+                : '保存设置'}
             </button>
           </div>
         </form>

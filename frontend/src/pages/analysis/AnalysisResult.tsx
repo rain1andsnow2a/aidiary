@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/toast'
 import type { AnalysisResponse, Diary } from '@/types'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { Sparkles, Calendar, Snowflake, Heart, FileText } from 'lucide-react'
 
 const warmBg = { background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #f5f3ff 100%)' }
 const gradientBtn = { background: 'linear-gradient(135deg, #fb7185, #c084fc)' }
@@ -31,19 +32,9 @@ export default function AnalysisResult() {
   const loadData = async (diaryId: number) => {
     setIsLoading(true)
     setError(null)
-
     try {
       const diaryData = await diaryService.get(diaryId)
       setDiary(diaryData)
-
-      if (diaryData.is_analyzed) {
-        try {
-          const analysisData = await aiService.analyze({ diary_id: diaryId })
-          setAnalysis(analysisData)
-        } catch (err) {
-          console.log('No analysis data found')
-        }
-      }
     } catch (err: any) {
       setError(err.message || '加载数据失败')
     } finally {
@@ -70,7 +61,7 @@ export default function AnalysisResult() {
 
   const copyPost = (content: string) => {
     navigator.clipboard.writeText(content)
-    toast('已复制到剪贴板 ✨', 'success')
+    toast('已复制到剪贴板', 'success')
   }
 
   const emotionTags = diary?.emotion_tags ?? []
@@ -112,7 +103,7 @@ export default function AnalysisResult() {
             >
               ← 返回日记
             </button>
-            <span className="text-sm font-semibold text-stone-600">🤖 AI 分析</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-400" /> AI 分析</span>
             <div className="w-16" />
           </div>
         </div>
@@ -124,7 +115,7 @@ export default function AnalysisResult() {
           <div className="card-warm p-5">
             <h2 className="text-base font-bold text-stone-700 mb-1">{diary.title}</h2>
             <p className="text-xs text-stone-400 mb-3">
-              📅 {format(new Date(diary.diary_date), 'yyyy年MM月dd日', { locale: zhCN })}
+              <Calendar className="w-3.5 h-3.5 inline-block mr-1" />{format(new Date(diary.diary_date), 'yyyy年MM月dd日', { locale: zhCN })}
             </p>
             <p className="text-sm text-stone-500 line-clamp-3 leading-6">{diary.content}</p>
             {emotionTags.length > 0 && (
@@ -146,14 +137,24 @@ export default function AnalysisResult() {
         {/* 触发分析 */}
         {!analysis && !isAnalyzing && (
           <div className="card-warm p-10 text-center">
-            <p className="text-3xl mb-3">🤖</p>
-            <p className="text-stone-400 text-sm mb-5">还没有 AI 分析结果</p>
+            <Sparkles className="w-8 h-8 text-violet-400 mx-auto mb-3" />
+            {diary?.is_analyzed ? (
+              <>
+                <p className="text-stone-400 text-sm mb-1">已完成分析</p>
+                <p className="text-xs text-stone-300 mb-5">点击下方重新运行以查看最新结果</p>
+              </>
+            ) : (
+              <>
+                <p className="text-stone-400 text-sm mb-1">还没有 AI 分析结果</p>
+                <p className="text-xs text-stone-300 mb-5">如果刚刚保存日记，分析可能正在后台运行中</p>
+              </>
+            )}
             <button
               onClick={handleAnalyze}
               className="h-11 px-8 rounded-2xl text-sm font-semibold text-white shadow-md transition-all active:scale-[0.97]"
               style={gradientBtn}
             >
-              开始 AI 分析
+              {diary?.is_analyzed ? '查看分析结果' : '开始 AI 分析'}
             </button>
           </div>
         )}
@@ -174,7 +175,7 @@ export default function AnalysisResult() {
             {analysis.timeline_event && (
               <div className="card-warm p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base">📅</span>
+                  <Calendar className="w-4 h-4 text-rose-400" />
                   <h3 className="text-sm font-semibold text-stone-600">时间轴事件</h3>
                 </div>
                 <p className="text-sm text-stone-600 leading-6 mb-4">{analysis.timeline_event.event_summary}</p>
@@ -196,7 +197,7 @@ export default function AnalysisResult() {
             {analysis.satir_analysis && (
               <div className="card-warm p-5">
                 <div className="flex items-center gap-2 mb-5">
-                  <span className="text-base">🧊</span>
+                  <Snowflake className="w-4 h-4 text-violet-400" />
                   <h3 className="text-sm font-semibold text-stone-600">萨提亚冰山模型</h3>
                   <span className="text-xs text-stone-300 ml-auto">深度心理分析</span>
                 </div>
@@ -269,7 +270,7 @@ export default function AnalysisResult() {
               <div className="card-warm overflow-hidden">
                 <div className="p-5" style={{ background: 'linear-gradient(135deg, rgba(251,113,133,0.06), rgba(192,132,252,0.06))' }}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-base">�</span>
+                    <Heart className="w-4 h-4 text-rose-400" />
                     <h3 className="text-sm font-semibold text-stone-600">疗愈回复</h3>
                     <span className="text-xs text-stone-300 ml-auto">来自 AI 心理咨询师</span>
                   </div>
@@ -284,7 +285,7 @@ export default function AnalysisResult() {
             {analysis.social_posts && analysis.social_posts.length > 0 && (
               <div className="card-warm p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base">📝</span>
+                  <FileText className="w-4 h-4 text-rose-400" />
                   <h3 className="text-sm font-semibold text-stone-600">朋友圈文案</h3>
                   <span className="text-xs text-stone-300 ml-auto">选择最适合你的</span>
                 </div>

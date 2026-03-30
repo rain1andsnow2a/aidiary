@@ -132,7 +132,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-stone-800">创建账号 ✨</h1>
+            <h1 className="text-2xl font-bold text-stone-800">创建账号</h1>
             <p className="text-stone-400 text-sm mt-1.5">
               {step === 1 ? '输入邮箱，开始你的心灵之旅' : '完善信息，完成注册'}
             </p>
@@ -280,7 +280,7 @@ export default function RegisterPage() {
               >
                 {isLoading
                   ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                  : '完成注册 🎉'}
+                  : '完成注册'}
               </button>
             )}
 

@@ -1,12 +1,16 @@
 """
 日记相关API端点
 """
+import os
+import uuid
 from typing import Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads", "diary_images")
 from app.schemas.diary import (
     DiaryCreate,
     DiaryUpdate,
@@ -167,6 +171,44 @@ async def get_diaries_by_date(
     )
 
     return [DiaryResponse.model_validate(d) for d in diaries]
+
+
+# ==================== 图片上传 ====================
+
+@router.post("/upload-image", summary="上传日记图片")
+async def upload_diary_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    上传日记图片，返回图片URL
+
+    - 支持 jpg/jpeg/png/gif/webp 格式
+    - 最大 10MB
+    """
+    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="只支持 jpg/png/gif/webp 格式的图片"
+        )
+
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="图片大小不能超过 10MB"
+        )
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
+    filename = f"{current_user.id}_{uuid.uuid4().hex[:12]}.{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    return {"url": f"/uploads/diary_images/{filename}"}
 
 
 # ==================== 时间轴 ====================

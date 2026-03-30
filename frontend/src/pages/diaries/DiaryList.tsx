@@ -6,6 +6,7 @@ import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { BookOpen, Sprout, Star } from 'lucide-react'
 
 const EMOTION_FILTERS = ['全部', '开心', '平静', '焦虑', '成就感', '满足', '担忧', '疲惫']
 
@@ -51,7 +52,7 @@ export default function DiaryList() {
             <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">
               ← 返回
             </button>
-            <span className="text-sm font-semibold text-stone-600">📖 我的日记</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-rose-400" /> 我的日记</span>
             <button
               onClick={() => navigate('/diaries/new')}
               className="h-8 px-4 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
@@ -88,14 +89,14 @@ export default function DiaryList() {
         {/* 日记列表 */}
         {diaries.length === 0 ? (
           <div className="card-warm p-12 text-center">
-            <p className="text-4xl mb-3">🌱</p>
+            <Sprout className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
             <p className="text-stone-400 text-sm mb-5">还没有日记，开始写第一篇吧</p>
             <button
               onClick={() => navigate('/diaries/new')}
               className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md"
               style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
             >
-              ✍️ 写日记
+              写日记
             </button>
           </div>
         ) : (
@@ -116,8 +117,8 @@ export default function DiaryList() {
                           {format(new Date(diary.diary_date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
                         </p>
                       </div>
-                      <span className="text-xs font-medium text-rose-400 shrink-0 ml-3">
-                        ⭐ {diary.importance_score}/10
+                      <span className="text-xs font-medium text-rose-400 shrink-0 ml-3 flex items-center gap-1">
+                        <Star className="w-3 h-3" /> {diary.importance_score}/10
                       </span>
                     </div>
 

@@ -6,6 +6,7 @@ import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { BookOpen, Calendar, Star, MessageCircle, FileText, Sparkles, Loader2, Brain } from 'lucide-react'
 
 export default function DiaryDetail() {
   const { id } = useParams<{ id: string }>()
@@ -50,6 +51,28 @@ export default function DiaryDetail() {
   }
 
   const emotionTags = currentDiary?.emotion_tags ?? []
+  const [analyzing, setAnalyzing] = useState(false)
+
+  // 如果日记未分析，轮询直到分析完成
+  useEffect(() => {
+    if (!currentDiary || currentDiary.is_analyzed) {
+      setAnalyzing(false)
+      return
+    }
+    setAnalyzing(true)
+    let attempts = 0
+    const timer = setInterval(async () => {
+      attempts++
+      try {
+        await fetchDiary(currentDiary.id)
+      } catch {}
+      if (attempts >= 24) {
+        clearInterval(timer)
+        setAnalyzing(false)
+      }
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [currentDiary?.id, currentDiary?.is_analyzed])
 
   if (isLoading) {
     return (
@@ -63,7 +86,7 @@ export default function DiaryDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #f5f3ff 100%)' }}>
         <div className="card-warm p-8 text-center max-w-sm">
-          <p className="text-stone-400 mb-4">📖 日记不存在</p>
+          <p className="text-stone-400 mb-4 flex items-center justify-center gap-1.5"><BookOpen className="w-4 h-4" /> 日记不存在</p>
           <button
             onClick={() => navigate('/diaries')}
             className="h-10 px-6 rounded-xl text-sm font-medium text-white shadow-sm"
@@ -88,7 +111,7 @@ export default function DiaryDetail() {
             >
               ← 返回
             </button>
-            <span className="text-sm font-semibold text-stone-600">📖 日记详情</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-rose-400" /> 日记详情</span>
             <div className="w-12" />
           </div>
         </div>
@@ -103,19 +126,19 @@ export default function DiaryDetail() {
             <h1 className="text-xl font-bold text-stone-700 mb-3">{currentDiary.title}</h1>
             <div className="flex flex-wrap items-center gap-3 text-sm text-stone-400">
               <span className="flex items-center gap-1">
-                📅 {format(new Date(currentDiary.diary_date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
+                <Calendar className="w-3.5 h-3.5" /> {format(new Date(currentDiary.diary_date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
               </span>
               <span className="text-stone-200">·</span>
               <span>{currentDiary.word_count} 字</span>
               <span className="text-stone-200">·</span>
-              <span className="text-rose-400 font-medium">⭐ 重要性 {currentDiary.importance_score}/10</span>
+              <span className="text-rose-400 font-medium flex items-center gap-1"><Star className="w-3.5 h-3.5" /> 重要性 {currentDiary.importance_score}/10</span>
             </div>
           </div>
 
           {/* 情绪标签 */}
           {emotionTags.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-stone-400 mb-2">💭 心情标签</p>
+              <p className="text-xs font-medium text-stone-400 mb-2 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> 心情标签</p>
               <div className="flex flex-wrap gap-2">
                 {emotionTags.map((tag, index) => (
                   <span
@@ -132,7 +155,7 @@ export default function DiaryDetail() {
 
           {/* 日记正文 */}
           <div>
-            <p className="text-xs font-medium text-stone-400 mb-2">📝 日记内容</p>
+            <p className="text-xs font-medium text-stone-400 mb-2 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> 日记内容</p>
             <div className="p-5 rounded-2xl bg-rose-50/40 border border-rose-100/50">
               <p className="whitespace-pre-wrap leading-7 text-stone-600 text-sm">{currentDiary.content}</p>
             </div>
@@ -151,8 +174,13 @@ export default function DiaryDetail() {
         <div className="card-warm overflow-hidden">
           <div className="p-6" style={{ background: 'linear-gradient(135deg, rgba(251,113,133,0.08), rgba(192,132,252,0.08))' }}>
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">🤖</span>
+              <Brain className="w-4 h-4 text-violet-400" />
               <h3 className="text-sm font-semibold text-stone-600">AI 深度分析</h3>
+              {analyzing && (
+                <span className="ml-auto flex items-center gap-1 text-xs text-violet-400">
+                  <Loader2 className="w-3 h-3 animate-spin" /> 分析中...
+                </span>
+              )}
             </div>
             <p className="text-xs text-stone-400 mb-4 leading-5">
               基于萨提亚冰山模型，深入了解你的情绪、认知和深层渴望
@@ -160,13 +188,16 @@ export default function DiaryDetail() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleAnalyze}
-                className="h-9 px-5 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
+                disabled={analyzing && !currentDiary.is_analyzed}
+                className="h-9 px-5 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97] disabled:opacity-60"
                 style={{ background: 'linear-gradient(135deg, #fb7185, #c084fc)' }}
               >
-                {currentDiary.is_analyzed ? '查看分析结果' : '开始 AI 分析'}
+                {currentDiary.is_analyzed ? '查看分析结果' : analyzing ? '等待分析完成...' : '开始 AI 分析'}
               </button>
-              {!currentDiary.is_analyzed && (
-                <span className="text-xs text-stone-300">还未分析</span>
+              {currentDiary.is_analyzed && (
+                <span className="text-xs text-emerald-400 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> 已分析
+                </span>
               )}
             </div>
           </div>

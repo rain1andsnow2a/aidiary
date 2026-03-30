@@ -2,6 +2,7 @@
 AI Agent 系统 - Agent实现
 """
 import json
+import re
 import time
 from typing import Dict, List, Any
 from langchain_openai import ChatOpenAI
@@ -292,7 +293,36 @@ class SocialContentCreatorAgent:
             ]
 
             response = await self.llm.ainvoke(messages)
-            result = json.loads(response.content)
+            raw = response.content.strip()
+
+            # 尝试多种方式解析JSON
+            result = None
+            # 1. 直接解析
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError:
+                pass
+
+            # 2. 提取markdown代码块中的JSON
+            if result is None:
+                json_match = re.search(r'```(?:json)?\s*\n?(\{.*?\})\s*```', raw, re.DOTALL)
+                if json_match:
+                    try:
+                        result = json.loads(json_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+
+            # 3. 提取第一个 { ... } 块
+            if result is None:
+                brace_match = re.search(r'(\{.*\})', raw, re.DOTALL)
+                if brace_match:
+                    try:
+                        result = json.loads(brace_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+
+            if result is None:
+                raise ValueError(f"无法解析JSON响应: {raw[:200]}")
 
             state["social_posts"] = result.get("posts", [])
             print(f"[Agent C] 文案生成完成: {len(state['social_posts'])}个版本")

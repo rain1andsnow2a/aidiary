@@ -80,4 +80,14 @@ export const diaryService = {
     })
     return response.data
   },
+
+  // 上传日记图片
+  uploadImage: async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<{ url: string }>('/api/v1/diaries/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data.url
+  },
 }
