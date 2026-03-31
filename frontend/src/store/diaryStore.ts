@@ -1,6 +1,6 @@
 // 日记状态管理
 import { create } from 'zustand'
-import type { Diary, TimelineEvent, EmotionStats } from '@/types/diary'
+import type { Diary, TimelineEvent, EmotionStats, DiaryCreate, DiaryUpdate } from '@/types/diary'
 import { diaryService } from '@/services/diary.service'
 
 interface DiaryState {
@@ -24,14 +24,8 @@ interface DiaryState {
     emotionTag?: string
   }) => Promise<void>
   fetchDiary: (id: number) => Promise<void>
-  createDiary: (data: {
-    title: string
-    content: string
-    diaryDate?: string
-    emotionTags?: string[]
-    importanceScore?: number
-  }) => Promise<Diary>
-  updateDiary: (id: number, data: Partial<Diary>) => Promise<void>
+  createDiary: (data: DiaryCreate) => Promise<Diary>
+  updateDiary: (id: number, data: DiaryUpdate) => Promise<void>
   deleteDiary: (id: number) => Promise<void>
   fetchTimelineEvents: (days?: number) => Promise<void>
   fetchEmotionStats: (days?: number) => Promise<void>
@@ -110,7 +104,7 @@ export const useDiaryStore = create<DiaryState>((set, _get) => ({
     }
   },
 
-  updateDiary: async (id: number, data: Partial<Diary>) => {
+  updateDiary: async (id: number, data: DiaryUpdate) => {
     set({ isLoading: true, error: null })
     try {
       const updatedDiary = await diaryService.update(id, data)

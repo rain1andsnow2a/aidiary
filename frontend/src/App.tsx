@@ -14,7 +14,7 @@ const DiaryDetail = lazy(() => import('@/pages/diaries/DiaryDetail'))
 const DiaryEditor = lazy(() => import('@/pages/diaries/DiaryEditor'))
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'))
 const Timeline = lazy(() => import('@/pages/timeline/Timeline'))
-const AnalysisResult = lazy(() => import('@/pages/analysis/AnalysisResult'))
+const AnalysisOverview = lazy(() => import('@/pages/analysis/AnalysisOverview'))
 const ProfileSettings = lazy(() => import('@/pages/settings/ProfileSettings'))
 
 // 私有路由组件
@@ -133,12 +133,16 @@ function App() {
             }
           />
           <Route
-            path="/analysis/:id"
+            path="/analysis"
             element={
               <PrivateRoute>
-                <AnalysisResult />
+                <AnalysisOverview />
               </PrivateRoute>
             }
+          />
+          <Route
+            path="/analysis/:id"
+            element={<Navigate to="/analysis" replace />}
           />
           <Route
             path="/settings"

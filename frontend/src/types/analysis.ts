@@ -6,6 +6,41 @@ export interface AnalysisRequest {
   max_diaries?: number
 }
 
+export interface ComprehensiveAnalysisRequest {
+  window_days?: number
+  max_diaries?: number
+  focus?: string
+}
+
+export interface EvidenceItem {
+  diary_id: number
+  diary_date: string
+  title: string
+  snippet: string
+  reason: string
+  score: number
+}
+
+export interface ComprehensiveAnalysisResponse {
+  summary: string
+  key_themes: string[]
+  emotion_trends: string[]
+  continuity_signals: string[]
+  turning_points: string[]
+  growth_suggestions: string[]
+  evidence: EvidenceItem[]
+  metadata: {
+    analysis_scope: string
+    window_days: number
+    analyzed_diary_count: number
+    retrieved_chunk_count: number
+    period: {
+      start_date: string
+      end_date: string
+    }
+  }
+}
+
 export interface TimelineEventAnalysis {
   event_summary: string
   emotion_tag: string

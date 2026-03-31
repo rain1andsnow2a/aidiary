@@ -100,16 +100,16 @@ export default function DiaryEditor() {
           diary_date: diaryDate,
           emotion_tags: emotionTags.length > 0 ? emotionTags : [],
           importance_score: importanceScore,
-        } as any)
+        })
         toast('日记更新成功', 'success')
         navigate(`/diaries/${id}`)
       } else {
         const diary = await createDiary({
           title: title.trim(),
           content: content.trim(),
-          diaryDate,
-          emotionTags: emotionTags.length > 0 ? emotionTags : undefined,
-          importanceScore,
+          diary_date: diaryDate,
+          emotion_tags: emotionTags.length > 0 ? emotionTags : undefined,
+          importance_score: importanceScore,
         })
         toast('日记保存成功', 'success')
         // 后台自动触发AI分析

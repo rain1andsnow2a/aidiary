@@ -13,6 +13,8 @@ from app.schemas.ai import (
     AnalysisResponse,
     TitleSuggestionRequest,
     TitleSuggestionResponse,
+    ComprehensiveAnalysisRequest,
+    ComprehensiveAnalysisResponse,
 )
 from app.agents.orchestrator import agent_orchestrator
 from app.agents.llm import deepseek_client
@@ -21,8 +23,42 @@ from app.models.database import User
 from app.models.diary import Diary, TimelineEvent, AIAnalysis
 from app.schemas.diary import TimelineEventCreate
 from app.services.diary_service import diary_service, timeline_service
+from app.services.rag_service import diary_rag_service
 
 router = APIRouter(prefix="/ai", tags=["AI分析"])
+
+
+def _safe_parse_json(raw: str) -> dict:
+    import json
+    import re
+
+    text = (raw or "").strip()
+    if not text:
+        raise ValueError("模型返回为空")
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text, re.IGNORECASE)
+    if match:
+        try:
+            parsed = json.loads(match.group(1).strip())
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+    dec = json.JSONDecoder()
+    start = text.find("{")
+    if start != -1:
+        parsed, _ = dec.raw_decode(text[start:])
+        if isinstance(parsed, dict):
+            return parsed
+
+    raise ValueError("无法解析模型JSON输出")
 
 
 @router.post("/generate-title", response_model=TitleSuggestionResponse, summary="AI生成日记标题")
@@ -68,6 +104,134 @@ async def generate_title(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"标题生成失败: {str(e)}"
         )
+
+
+@router.post("/comprehensive-analysis", response_model=ComprehensiveAnalysisResponse, summary="用户级综合分析（RAG）")
+async def comprehensive_analysis(
+    request: ComprehensiveAnalysisRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    使用RAG检索用户历史日记片段，进行综合分析（非单篇）。
+    """
+    from datetime import date, timedelta
+    from sqlalchemy import and_, desc
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=request.window_days - 1)
+
+    diaries_result = await db.execute(
+        select(Diary).where(
+            and_(
+                Diary.user_id == current_user.id,
+                Diary.diary_date >= start_date,
+                Diary.diary_date <= end_date,
+            )
+        ).order_by(desc(Diary.diary_date), desc(Diary.created_at)).limit(request.max_diaries)
+    )
+    diaries = list(diaries_result.scalars().all())
+
+    if not diaries:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="暂无可分析内容，请先写几篇日记"
+        )
+
+    diaries_sorted = list(sorted(diaries, key=lambda d: (d.diary_date, d.created_at)))
+    raw_docs = [
+        {
+            "id": d.id,
+            "diary_date": str(d.diary_date),
+            "title": d.title or "无标题",
+            "content": d.content or "",
+        }
+        for d in diaries_sorted
+    ]
+    chunks = diary_rag_service.build_chunks(raw_docs)
+
+    queries = [
+        ("情绪趋势", "最近情绪变化 波动 反复 焦虑 平静 开心 低落"),
+        ("连续事件", "连续 多天 重复 出现 的 困扰 问题"),
+        ("关键转折", "关键 转折 决定 变化 契机"),
+        ("成长线索", "成长 进步 反思 改变"),
+        ("关系主题", "朋友 家人 同事 导师 关系 冲突 支持"),
+    ]
+
+    evidence = []
+    seen = set()
+    for reason, q in queries:
+        for item in diary_rag_service.retrieve(chunks, q, top_k=4):
+            key = (item["diary_id"], item["snippet"])
+            if key in seen:
+                continue
+            seen.add(key)
+            evidence.append({**item, "reason": reason})
+            if len(evidence) >= 18:
+                break
+        if len(evidence) >= 18:
+            break
+
+    evidence_text = "\n".join(
+        [
+            f"[{i+1}] 日期:{e['diary_date']} diary_id:{e['diary_id']} 标题:{e['title']} 相关性:{e['score']} 用途:{e['reason']}\n片段:{e['snippet']}"
+            for i, e in enumerate(evidence)
+        ]
+    )
+
+    system_prompt = (
+        "你是严谨又温暖的心理成长分析师。"
+        "你必须只基于给定证据做归纳，不能编造。"
+        "输出JSON，不要附加解释。"
+    )
+    user_prompt = (
+        f"用户：{current_user.username or '用户'}\n"
+        f"分析窗口：{start_date} 到 {end_date}，共 {len(diaries_sorted)} 篇日记\n"
+        f"关注点：{request.focus or '综合'}\n\n"
+        "证据片段如下：\n"
+        f"{evidence_text}\n\n"
+        "请输出JSON：\n"
+        "{\n"
+        '  "summary": "100-180字综合总结",\n'
+        '  "key_themes": ["主题1","主题2","主题3"],\n'
+        '  "emotion_trends": ["趋势1","趋势2","趋势3"],\n'
+        '  "continuity_signals": ["连续信号1","连续信号2"],\n'
+        '  "turning_points": ["转折点1","转折点2"],\n'
+        '  "growth_suggestions": ["建议1","建议2","建议3"]\n'
+        "}\n"
+        "要求：简洁具体，可执行，避免空话。"
+    )
+
+    try:
+        raw = await deepseek_client.chat_with_system(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.4,
+            response_format="json",
+        )
+        parsed = _safe_parse_json(raw)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"综合分析失败: {str(e)}"
+        )
+
+    return ComprehensiveAnalysisResponse(
+        summary=parsed.get("summary", "暂无总结"),
+        key_themes=parsed.get("key_themes", []),
+        emotion_trends=parsed.get("emotion_trends", []),
+        continuity_signals=parsed.get("continuity_signals", []),
+        turning_points=parsed.get("turning_points", []),
+        growth_suggestions=parsed.get("growth_suggestions", []),
+        evidence=evidence,
+        metadata={
+            "analysis_scope": "comprehensive_rag",
+            "window_days": request.window_days,
+            "analyzed_diary_count": len(diaries_sorted),
+            "retrieved_chunk_count": len(evidence),
+            "period": {"start_date": str(start_date), "end_date": str(end_date)},
+        },
+    )
 
 
 @router.post("/analyze", response_model=AnalysisResponse, summary="分析日记（异步）")

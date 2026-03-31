@@ -3,7 +3,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useDiaryStore } from '@/store/diaryStore'
-import { toast } from '@/components/ui/toast'
 import EmotionChart from '@/components/common/EmotionChart'
 import { PenLine, BookOpen, Settings, LogOut, Sprout, BookMarked, Moon, Heart, Clock, Sparkles, MessageCircle, FileText } from 'lucide-react'
 
@@ -238,10 +237,7 @@ export default function Dashboard() {
             { icon: <PenLine className="w-6 h-6 text-[#b56f61]" />, title: '写日记', desc: '记录今天', bg: 'hover:bg-[#f5efea] hover:border-[#d8c7bc]', action: () => navigate('/diaries/new') },
             { icon: <BookOpen className="w-6 h-6 text-violet-400" />, title: '日记本', desc: '浏览记录', bg: 'hover:bg-violet-50 hover:border-violet-200', action: () => navigate('/diaries') },
             { icon: <Clock className="w-6 h-6 text-emerald-400" />, title: '时间轴', desc: '回顾历程', bg: 'hover:bg-emerald-50 hover:border-emerald-200', action: () => navigate('/timeline') },
-            { icon: <Sparkles className="w-6 h-6 text-amber-400" />, title: 'AI 分析', desc: '心理洞察', bg: 'hover:bg-amber-50 hover:border-amber-200', action: () => {
-              if (diaries.length > 0) navigate(`/analysis/${diaries[0].id}`)
-              else toast('请先创建一篇日记', 'info')
-            }},
+            { icon: <Sparkles className="w-6 h-6 text-amber-400" />, title: '综合分析', desc: '长期洞察', bg: 'hover:bg-amber-50 hover:border-amber-200', action: () => navigate('/analysis') },
           ].map((item) => (
             <button
               key={item.title}

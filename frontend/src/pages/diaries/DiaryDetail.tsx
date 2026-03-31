@@ -4,10 +4,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useDiaryStore } from '@/store/diaryStore'
 import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
+import { aiService } from '@/services/ai.service'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { BookOpen, Calendar, Star, MessageCircle, FileText, Sparkles, Loader2, Brain } from 'lucide-react'
+import { BookOpen, Calendar, Star, MessageCircle, FileText, Loader2, FilePenLine } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { SocialPost } from '@/types/analysis'
 
 function renderInline(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean)
@@ -103,35 +105,28 @@ export default function DiaryDetail() {
     }
   }
 
-  const handleAnalyze = () => {
-    if (id) {
-      navigate(`/analysis/${id}`)
+  const emotionTags = currentDiary?.emotion_tags ?? []
+  const [isGeneratingPosts, setIsGeneratingPosts] = useState(false)
+  const [socialPosts, setSocialPosts] = useState<SocialPost[]>([])
+
+  const handleGenerateSocialPosts = async () => {
+    if (!currentDiary) return
+    try {
+      setIsGeneratingPosts(true)
+      const result = await aiService.generateSocialPosts(currentDiary.id)
+      setSocialPosts(result.social_posts || [])
+      toast('已生成今日朋友圈文案', 'success')
+    } catch (e: any) {
+      toast(e?.response?.data?.detail || '生成文案失败', 'error')
+    } finally {
+      setIsGeneratingPosts(false)
     }
   }
 
-  const emotionTags = currentDiary?.emotion_tags ?? []
-  const [analyzing, setAnalyzing] = useState(false)
-
-  // 如果日记未分析，轮询直到分析完成
-  useEffect(() => {
-    if (!currentDiary || currentDiary.is_analyzed) {
-      setAnalyzing(false)
-      return
-    }
-    setAnalyzing(true)
-    let attempts = 0
-    const timer = setInterval(async () => {
-      attempts++
-      try {
-        await fetchDiary(currentDiary.id)
-      } catch {}
-      if (attempts >= 24) {
-        clearInterval(timer)
-        setAnalyzing(false)
-      }
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [currentDiary?.id, currentDiary?.is_analyzed])
+  const copyPost = (content: string) => {
+    navigator.clipboard.writeText(content)
+    toast('已复制到剪贴板', 'success')
+  }
 
   if (isLoading) {
     return (
@@ -229,36 +224,54 @@ export default function DiaryDetail() {
           </div>
         </div>
 
-        {/* AI分析卡片 */}
+        {/* 今日朋友圈文案 */}
         <div className="card-warm overflow-hidden">
           <div className="p-6" style={{ background: 'linear-gradient(135deg, rgba(232,143,123,0.10), rgba(160,154,184,0.10))' }}>
             <div className="flex items-center gap-2 mb-3">
-              <Brain className="w-4 h-4 text-violet-400" />
-              <h3 className="text-sm font-semibold text-stone-600">AI 深度分析</h3>
-              {analyzing && (
+              <FilePenLine className="w-4 h-4 text-[#b56f61]" />
+              <h3 className="text-sm font-semibold text-stone-600">今日朋友圈文案</h3>
+              {isGeneratingPosts && (
                 <span className="ml-auto flex items-center gap-1 text-xs text-violet-400">
-                  <Loader2 className="w-3 h-3 animate-spin" /> 分析中...
+                  <Loader2 className="w-3 h-3 animate-spin" /> 生成中...
                 </span>
               )}
             </div>
             <p className="text-xs text-stone-400 mb-4 leading-5">
-              基于萨提亚冰山模型，深入了解你的情绪、认知和深层渴望
+              基于这篇日记，生成适合今天发布的多版本文案
             </p>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleAnalyze}
-                disabled={analyzing && !currentDiary.is_analyzed}
+                onClick={handleGenerateSocialPosts}
+                disabled={isGeneratingPosts}
                 className="h-9 px-5 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97] disabled:opacity-60"
                 style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
               >
-                {currentDiary.is_analyzed ? '查看分析结果' : analyzing ? '等待分析完成...' : '开始 AI 分析'}
+                {isGeneratingPosts ? '正在生成...' : '生成今日朋友圈文案'}
               </button>
-              {currentDiary.is_analyzed && (
-                <span className="text-xs text-emerald-400 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> 已分析
-                </span>
-              )}
+              <button
+                onClick={() => navigate('/analysis')}
+                className="h-9 px-4 rounded-xl text-xs font-medium text-[#b56f61] bg-white border border-[#e7dbd5] hover:bg-[#f5efea] transition-all"
+              >
+                去综合分析
+              </button>
             </div>
+
+            {socialPosts.length > 0 && (
+              <div className="mt-5 space-y-3">
+                {socialPosts.map((post, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-white/70 border border-[#e7dbd5]">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#f5efea] text-[#b56f61]">{post.version}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-400">{post.style}</span>
+                      </div>
+                      <button onClick={() => copyPost(post.content)} className="text-xs text-[#b56f61] hover:text-[#a45f52]">复制</button>
+                    </div>
+                    <p className="text-sm text-stone-600 leading-6">{post.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

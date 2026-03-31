@@ -3,6 +3,8 @@ import api from './api'
 import type {
   AnalysisRequest,
   AnalysisResponse,
+  ComprehensiveAnalysisRequest,
+  ComprehensiveAnalysisResponse,
   SatirAnalysis,
   SocialPost,
 } from '@/types/analysis'
@@ -29,10 +31,16 @@ export const aiService = {
   },
 
   // 生成朋友圈文案
-  generateSocialPosts: async (diaryId: number): Promise<SocialPost[]> => {
-    const response = await api.post<SocialPost[]>('/api/v1/ai/social-posts', {
+  generateSocialPosts: async (diaryId: number): Promise<{ diary_id: number; social_posts: SocialPost[]; metadata?: Record<string, any> }> => {
+    const response = await api.post<{ diary_id: number; social_posts: SocialPost[]; metadata?: Record<string, any> }>('/api/v1/ai/social-posts', {
       diary_id: diaryId,
     })
+    return response.data
+  },
+
+  // 用户级综合分析（RAG）
+  comprehensiveAnalysis: async (data: ComprehensiveAnalysisRequest): Promise<ComprehensiveAnalysisResponse> => {
+    const response = await api.post<ComprehensiveAnalysisResponse>('/api/v1/ai/comprehensive-analysis', data)
     return response.data
   },
 
