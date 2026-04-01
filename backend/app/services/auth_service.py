@@ -58,6 +58,14 @@ class AuthService:
             if existing_user.scalar_one_or_none():
                 return False, "该邮箱已注册"
 
+        # 如果是重置密码，检查邮箱是否已注册
+        if code_type == "reset":
+            existing_user = await db.execute(
+                select(User).where(User.email == email)
+            )
+            if not existing_user.scalar_one_or_none():
+                return False, "该邮箱未注册"
+
         # 生成验证码
         code = email_service.generate_code()
 
@@ -274,6 +282,60 @@ class AuthService:
             return False, "邮箱或密码错误", None
 
         return True, "登录成功", user
+
+    async def reset_password(
+        self,
+        db: AsyncSession,
+        email: str,
+        code: str,
+        new_password: str
+    ) -> Tuple[bool, str]:
+        """
+        重置密码
+
+        Args:
+            db: 数据库会话
+            email: 邮箱地址
+            code: 验证码
+            new_password: 新密码
+
+        Returns:
+            Tuple[bool, str]: (是否成功, 消息)
+        """
+        # 验证验证码
+        success, message = await self.verify_code(db, email, code, "reset")
+        if not success:
+            return False, message
+
+        # 查找用户
+        result = await db.execute(
+            select(User).where(User.email == email)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return False, "用户不存在"
+
+        # 更新密码
+        user.password_hash = get_password_hash(new_password)
+        await db.commit()
+
+        # 标记验证码为已使用
+        verification_code_result = await db.execute(
+            select(VerificationCode).where(
+                and_(
+                    VerificationCode.email == email,
+                    VerificationCode.code == code,
+                    VerificationCode.type == "reset"
+                )
+            )
+        )
+        verification_code = verification_code_result.scalar_one_or_none()
+        if verification_code:
+            verification_code.used = True
+            await db.commit()
+
+        return True, "密码重置成功"
 
     def create_token(self, user: User) -> str:
         """

@@ -45,6 +45,18 @@ export const authService = {
     return response.data
   },
 
+  // 发送重置密码验证码
+  sendResetPasswordCode: async (email: string) => {
+    const response = await api.post('/api/v1/auth/reset-password/send-code', { email, type: 'reset' })
+    return response.data
+  },
+
+  // 重置密码
+  resetPassword: async (email: string, code: string, newPassword: string) => {
+    const response = await api.post('/api/v1/auth/reset-password', { email, code, new_password: newPassword })
+    return response.data
+  },
+
   // 登出
   logout: async () => {
     const response = await api.post('/api/v1/auth/logout')

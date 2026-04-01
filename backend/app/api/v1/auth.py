@@ -11,6 +11,7 @@ from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     PasswordLoginRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserResponse
 )
@@ -214,6 +215,61 @@ async def login_with_password(
         token_type="bearer",
         user=UserResponse.model_validate(user)
     )
+
+
+@router.post("/reset-password/send-code", summary="发送重置密码验证码")
+async def send_reset_password_code(
+    request: SendCodeRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    发送重置密码验证码
+
+    - **email**: 邮箱地址
+    - **type**: 必须为 "reset"
+    """
+    if request.type != "reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="类型必须为reset"
+        )
+
+    success, message = await auth_service.send_verification_code(
+        db, request.email, request.type
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
+
+    return {"success": True, "message": message}
+
+
+@router.post("/reset-password", summary="重置密码")
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    重置密码
+
+    - **email**: 邮箱地址
+    - **code**: 6位验证码
+    - **new_password**: 新密码（至少6位）
+    """
+    success, message = await auth_service.reset_password(
+        db, request.email, request.code, request.new_password
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
+
+    return {"success": True, "message": message}
 
 
 @router.post("/logout", summary="用户登出")

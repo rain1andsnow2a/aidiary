@@ -5,6 +5,8 @@ import { useAuthStore } from '@/store/authStore'
 import { ToastProvider } from '@/components/ui/toast'
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
+import LandingPage from '@/pages/LandingPage'
 
 // 懒加载页面组件
 import { lazy, Suspense } from 'react'
@@ -16,6 +18,9 @@ const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'))
 const Timeline = lazy(() => import('@/pages/timeline/Timeline'))
 const AnalysisOverview = lazy(() => import('@/pages/analysis/AnalysisOverview'))
 const ProfileSettings = lazy(() => import('@/pages/settings/ProfileSettings'))
+const PrivacyPolicy = lazy(() => import('@/pages/legal/PrivacyPolicy'))
+const TermsOfService = lazy(() => import('@/pages/legal/TermsOfService'))
+const RefundPolicy = lazy(() => import('@/pages/legal/RefundPolicy'))
 
 // 私有路由组件
 function PrivateRoute({ children }: { children: React.ReactElement }) {
@@ -30,7 +35,7 @@ function PrivateRoute({ children }: { children: React.ReactElement }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/welcome" replace />
   }
 
   return children
@@ -67,6 +72,14 @@ function App() {
         <Routes>
           {/* 公开路由 */}
           <Route
+            path="/welcome"
+            element={
+              <PublicRoute>
+                <LandingPage />
+              </PublicRoute>
+            }
+          />
+          <Route
             path="/login"
             element={
               <PublicRoute>
@@ -82,6 +95,19 @@ function App() {
               </PublicRoute>
             }
           />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPasswordPage />
+              </PublicRoute>
+            }
+          />
+
+          {/* 法律政策页面（无需登录） */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/refund" element={<RefundPolicy />} />
 
           {/* 私有路由 */}
           <Route
@@ -154,7 +180,7 @@ function App() {
           />
 
           {/* 404页面 */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

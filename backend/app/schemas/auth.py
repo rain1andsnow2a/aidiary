@@ -10,14 +10,14 @@ from datetime import datetime
 class SendCodeRequest(BaseModel):
     """发送验证码请求"""
     email: EmailStr = Field(..., description="邮箱地址")
-    type: str = Field(..., pattern="^(register|login)$", description="验证码类型：register或login")
+    type: str = Field(..., pattern="^(register|login|reset)$", description="验证码类型：register、login或reset")
 
 
 class VerifyCodeRequest(BaseModel):
     """验证码验证请求"""
     email: EmailStr = Field(..., description="邮箱地址")
     code: str = Field(..., min_length=6, max_length=6, description="6位验证码")
-    type: str = Field(..., pattern="^(register|login)$", description="验证码类型：register或login")
+    type: str = Field(..., pattern="^(register|login|reset)$", description="验证码类型：register、login或reset")
 
 
 class RegisterRequest(BaseModel):
@@ -78,6 +78,13 @@ class ProfileUpdateRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     """用户信息更新请求"""
     username: Optional[str] = Field(None, max_length=50, description="用户名")
+
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求"""
+    email: EmailStr = Field(..., description="邮箱地址")
+    code: str = Field(..., min_length=6, max_length=6, description="6位验证码")
+    new_password: str = Field(..., min_length=6, max_length=50, description="新密码")
 
 
 class ErrorResponse(BaseModel):

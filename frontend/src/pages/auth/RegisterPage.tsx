@@ -1,9 +1,10 @@
 // 注册页面 - 温暖柔和心理日记风格
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
 import { toast } from '@/components/ui/toast'
+import { Check } from 'lucide-react'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ export default function RegisterPage() {
   const [code, setCode] = useState('')
   const [countdown, setCountdown] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   const handleSendCode = async () => {
     if (!email || !email.includes('@')) {
@@ -45,6 +47,10 @@ export default function RegisterPage() {
 
     if (!email || !password || !code) {
       toast('请填写完整信息', 'error')
+      return
+    }
+    if (!agreedToTerms) {
+      toast('请先同意服务条款和隐私政策', 'error')
       return
     }
     if (password !== confirmPassword) {
@@ -145,11 +151,37 @@ export default function RegisterPage() {
           </div>
 
           {/* 步骤进度条 */}
-          <div className="flex gap-2 mb-7">
-            <div className={`h-1.5 rounded-full transition-all duration-500 ${step >= 1 ? 'flex-1' : 'w-8'}`}
-              style={{ background: step >= 1 ? 'linear-gradient(90deg, #e88f7b, #a09ab8)' : '#e5e7eb' }} />
-            <div className={`h-1.5 rounded-full transition-all duration-500 ${step >= 2 ? 'flex-1' : 'w-8 bg-stone-100'}`}
-              style={{ background: step >= 2 ? 'linear-gradient(90deg, #9b95b3, #8b9bb1)' : undefined }} />
+          <div className="flex items-center gap-3 mb-7">
+            {/* 步骤1 */}
+            <div className="flex items-center gap-2">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                step >= 2 ? 'bg-emerald-400 text-white' : 'text-white'
+              }`}
+                style={step < 2 ? { background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' } : undefined}
+              >
+                {step >= 2 ? <Check className="w-3.5 h-3.5" /> : '1'}
+              </div>
+              <span className={`text-xs font-medium hidden sm:inline ${step >= 1 ? 'text-stone-600' : 'text-stone-300'}`}>验证邮箱</span>
+            </div>
+            {/* 连接线 */}
+            <div className="flex-1 h-1 rounded-full overflow-hidden bg-stone-100">
+              <div className={`h-full rounded-full transition-all duration-500 ease-out`}
+                style={{
+                  width: step >= 2 ? '100%' : '0%',
+                  background: 'linear-gradient(90deg, #e88f7b, #a09ab8)'
+                }} />
+            </div>
+            {/* 步骤2 */}
+            <div className="flex items-center gap-2">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                step >= 2 ? 'text-white' : 'bg-stone-100 text-stone-300'
+              }`}
+                style={step >= 2 ? { background: 'linear-gradient(135deg, #a09ab8, #8b9bb1)' } : undefined}
+              >
+                2
+              </div>
+              <span className={`text-xs font-medium hidden sm:inline ${step >= 2 ? 'text-stone-600' : 'text-stone-300'}`}>完善信息</span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -278,16 +310,41 @@ export default function RegisterPage() {
             )}
 
             {step === 2 && (
-              <button
-                type="submit"
-                disabled={!code || !password || password !== confirmPassword || isLoading}
-                className="w-full h-12 rounded-2xl text-sm font-semibold text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] shadow-md mt-1"
-                style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
-              >
-                {isLoading
-                  ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                  : '完成注册'}
-              </button>
+              <>
+                {/* 同意条款 */}
+                <label className="flex items-start gap-2.5 cursor-pointer group mt-1">
+                  <div className="relative mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded border-2 transition-all duration-200 flex items-center justify-center ${
+                      agreedToTerms ? 'border-[#e88f7b] bg-[#e88f7b]' : 'border-stone-300 group-hover:border-stone-400'
+                    }`}>
+                      {agreedToTerms && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </div>
+                  <span className="text-xs text-stone-400 leading-relaxed">
+                    我已阅读并同意
+                    <Link to="/terms" className="text-[#b56f61] hover:underline mx-0.5">服务条款</Link>
+                    和
+                    <Link to="/privacy" className="text-[#b56f61] hover:underline mx-0.5">隐私政策</Link>
+                  </span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={!code || !password || password !== confirmPassword || !agreedToTerms || isLoading}
+                  className="w-full h-12 rounded-2xl text-sm font-semibold text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] shadow-md mt-1"
+                  style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
+                >
+                  {isLoading
+                    ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
+                    : '完成注册'}
+                </button>
+              </>
             )}
 
             <div className="flex items-center gap-4">

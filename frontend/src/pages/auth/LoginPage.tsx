@@ -164,7 +164,16 @@ export default function LoginPage() {
 
             {mode === 'password' ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-stone-500">密码</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-stone-500">密码</label>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/forgot-password')}
+                    className="text-xs text-[#b56f61] hover:text-[#a45f52] hover:underline transition-colors"
+                  >
+                    忘记密码？
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
