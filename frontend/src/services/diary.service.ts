@@ -7,6 +7,7 @@ import type {
   DiaryListResponse,
   TimelineEvent,
   EmotionStats,
+  TerrainResponse,
 } from '@/types/diary'
 
 export const diaryService = {
@@ -76,6 +77,14 @@ export const diaryService = {
   // 获取情绪统计
   getEmotionStats: async (days: number = 30): Promise<EmotionStats[]> => {
     const response = await api.get<EmotionStats[]>('/api/v1/diaries/stats/emotions', {
+      params: { days },
+    })
+    return response.data
+  },
+
+  // 获取情绪地形图数据
+  getTerrainData: async (days: number = 30): Promise<TerrainResponse> => {
+    const response = await api.get<TerrainResponse>('/api/v1/diaries/timeline/terrain', {
       params: { days },
     })
     return response.data

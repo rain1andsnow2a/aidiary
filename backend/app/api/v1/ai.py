@@ -547,7 +547,8 @@ async def analyze_diary(
                 target_diary = anchor_diary or diaries_sorted[-1]
                 existing_event_result = await db.execute(
                     select(TimelineEvent).where(
-                        TimelineEvent.diary_id == target_diary.id
+                        TimelineEvent.diary_id == target_diary.id,
+                        TimelineEvent.user_id == current_user.id
                     ).limit(1)
                 )
                 existing_event = existing_event_result.scalar_one_or_none()

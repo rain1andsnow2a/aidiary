@@ -269,3 +269,22 @@ async def get_timeline_by_date(
     )
 
     return [TimelineEventResponse.model_validate(e) for e in events]
+
+
+# ==================== 情绪地形图 ====================
+
+from app.services.terrain_service import terrain_service as _terrain_service
+
+@router.get("/timeline/terrain", summary="获取情绪地形图数据")
+async def get_terrain_data(
+    days: int = Query(30, ge=7, le=365, description="天数范围"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取情绪地形图数据：按天聚合的能量/愉悦度/事件密度 + 峰谷洞察
+    """
+    data = await _terrain_service.get_terrain_data(
+        db, current_user.id, days=days
+    )
+    return data

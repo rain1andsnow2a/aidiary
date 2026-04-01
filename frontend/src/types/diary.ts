@@ -61,3 +61,56 @@ export interface EmotionStats {
   count: number
   percentage: number
 }
+
+export interface TerrainEvent {
+  id: number | null
+  diary_id: number
+  summary: string
+  emotion_tag: string | null
+  importance_score: number
+  event_type: EventType | null
+}
+
+export interface TerrainPoint {
+  date: string
+  energy: number | null
+  valence: number | null
+  density: number
+  events: TerrainEvent[]
+}
+
+export interface TerrainPeak {
+  date: string
+  value: number
+  label: string
+  summary: string
+}
+
+export interface TerrainValley {
+  date_range: [string, string]
+  min_value: number
+  days: number
+  label: string
+  summary: string
+}
+
+export interface TerrainInsights {
+  peaks: TerrainPeak[]
+  valleys: TerrainValley[]
+  trend: 'ascending' | 'descending' | 'stable' | 'overall' | string
+  trend_description: string
+}
+
+export interface TerrainMeta {
+  start_date: string
+  end_date: string
+  total_events: number
+  days_with_data: number
+  total_days: number
+}
+
+export interface TerrainResponse {
+  points: TerrainPoint[]
+  insights: TerrainInsights
+  meta: TerrainMeta
+}

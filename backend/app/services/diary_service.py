@@ -3,7 +3,7 @@
 """
 from typing import Optional, List, Tuple
 from datetime import date, datetime
-from sqlalchemy import select, func, desc, and_
+from sqlalchemy import select, func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.diary import Diary, TimelineEvent
@@ -245,6 +245,20 @@ class TimelineService:
         Returns:
             TimelineEvent: 创建的事件对象
         """
+        # 防御性校验：若绑定了 diary_id，必须属于当前用户，避免跨用户脏数据
+        if event_data.diary_id is not None:
+            diary_result = await db.execute(
+                select(Diary.id).where(
+                    and_(
+                        Diary.id == event_data.diary_id,
+                        Diary.user_id == user_id
+                    )
+                ).limit(1)
+            )
+            diary_exists = diary_result.scalar_one_or_none()
+            if diary_exists is None:
+                raise ValueError("diary_id 不属于当前用户，拒绝创建时间轴事件")
+
         event = TimelineEvent(
             user_id=user_id,
             diary_id=event_data.diary_id,
@@ -283,7 +297,17 @@ class TimelineService:
         Returns:
             List[TimelineEvent]: 事件列表
         """
-        conditions = [TimelineEvent.user_id == user_id]
+        # 双重隔离：
+        # 1) timeline_events.user_id 必须匹配
+        # 2) 若事件关联 diary_id，则 diary 也必须属于当前用户
+        diary_owner_subquery = select(Diary.id).where(Diary.user_id == user_id)
+        conditions = [
+            TimelineEvent.user_id == user_id,
+            or_(
+                TimelineEvent.diary_id.is_(None),
+                TimelineEvent.diary_id.in_(diary_owner_subquery),
+            ),
+        ]
 
         if start_date:
             conditions.append(TimelineEvent.event_date >= start_date)
@@ -320,7 +344,13 @@ class TimelineService:
             select(TimelineEvent).where(
                 and_(
                     TimelineEvent.user_id == user_id,
-                    TimelineEvent.event_date == target_date
+                    TimelineEvent.event_date == target_date,
+                    or_(
+                        TimelineEvent.diary_id.is_(None),
+                        TimelineEvent.diary_id.in_(
+                            select(Diary.id).where(Diary.user_id == user_id)
+                        ),
+                    ),
                 )
             ).order_by(desc(TimelineEvent.importance_score))
         )
