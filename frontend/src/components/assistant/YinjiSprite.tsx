@@ -123,6 +123,7 @@ export default function YinjiSprite() {
   const DRAG_THRESHOLD = 5
 
   const beginDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return
     setShowMenu(false)
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     dragRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, started: false }
@@ -158,6 +159,7 @@ export default function YinjiSprite() {
   }
 
   const beginPanelDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
     if ((e.target as HTMLElement).closest('button')) return
     setPanelDragging(true)
     const rect = panelRef.current?.getBoundingClientRect()

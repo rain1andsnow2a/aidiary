@@ -259,7 +259,7 @@ export default function Dashboard() {
               <h2 className="text-sm font-semibold text-stone-700">情绪分布</h2>
             </div>
             <p className="text-xs text-stone-400 mb-4 ml-7">近 30 天的情绪变化</p>
-            <EmotionChart data={localEmotionStats} type="bar" />
+            <EmotionChart data={localEmotionStats} type="bubble" />
           </div>
         )}
 
