@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { ToastProvider } from '@/components/ui/toast'
+import YinjiSprite from '@/components/assistant/YinjiSprite'
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
@@ -229,6 +230,7 @@ function App() {
           {/* 404页面 */}
           <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
+        <YinjiSprite />
       </Suspense>
     </BrowserRouter>
     </ToastProvider>

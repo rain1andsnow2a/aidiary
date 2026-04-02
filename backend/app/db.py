@@ -52,6 +52,7 @@ async def init_db():
         from app.models.database import User, VerificationCode
         from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample
         from app.models.community import CommunityPost, PostComment, PostLike, PostCollect, PostView
+        from app.models.assistant import AssistantProfile, AssistantSession, AssistantMessage
 
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)

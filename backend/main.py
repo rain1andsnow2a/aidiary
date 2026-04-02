@@ -64,6 +64,10 @@ app.include_router(users.router, prefix="/api/v1", tags=["用户"])
 from app.api.v1 import community
 app.include_router(community.router, prefix="/api/v1", tags=["社区"])
 
+# 导入并注册映记精灵路由
+from app.api.v1 import assistant
+app.include_router(assistant.router, prefix="/api/v1", tags=["映记精灵"])
+
 # 挂载静态文件目录
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(os.path.join(UPLOADS_DIR, "avatars"), exist_ok=True)

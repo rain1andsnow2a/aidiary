@@ -69,6 +69,24 @@ class Settings(BaseSettings):
         description="DeepSeek API地址"
     )
 
+    # ==================== Qdrant 向量检索配置 ====================
+    qdrant_url: str = Field(
+        default="",
+        description="Qdrant 集群地址，如 https://xxx.qdrant.io"
+    )
+    qdrant_api_key: str = Field(
+        default="",
+        description="Qdrant API Key"
+    )
+    qdrant_collection: str = Field(
+        default="yinji_diary_memory",
+        description="Qdrant 集合名"
+    )
+    qdrant_vector_dim: int = Field(
+        default=256,
+        description="Qdrant 向量维度（需与编码函数一致）"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
