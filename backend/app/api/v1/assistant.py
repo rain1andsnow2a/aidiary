@@ -343,18 +343,17 @@ async def chat_stream(
     async def event_gen() -> AsyncGenerator[str, None]:
         yield _safe_json_sse("meta", {"session_id": session_id, "user_message_id": user_msg.id})
         try:
-            full_answer = await deepseek_client.chat_with_system(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                temperature=0.75,
-            )
-            answer = (full_answer or "").strip() or "我在呢。你愿意再多说一点点吗？"
-            # 用分片模拟流式，保证前端逐段展示
-            chunk_size = 24
-            for i in range(0, len(answer), chunk_size):
-                piece = answer[i:i + chunk_size]
-                yield _safe_json_sse("chunk", {"text": piece})
-                await asyncio.sleep(0.02)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+
+            full_answer_parts: list[str] = []
+            async for token in deepseek_client.stream_chat(messages, temperature=0.75):
+                full_answer_parts.append(token)
+                yield _safe_json_sse("chunk", {"text": token})
+
+            answer = "".join(full_answer_parts).strip() or "我在呢。你愿意再多说一点点吗？"
 
             ai_msg = AssistantMessage(
                 user_id=current_user.id,

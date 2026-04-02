@@ -5,7 +5,7 @@ DeepSeek API 客户端
 import os
 import httpx
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, AsyncGenerator
 
 from app.core.config import settings
 
@@ -90,6 +90,56 @@ class DeepSeekClient:
         ]
 
         return await self.chat(messages, temperature, response_format=response_format)
+
+    async def stream_chat(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+    ) -> AsyncGenerator[str, None]:
+        """
+        调用 DeepSeek 流式聊天 API，逐 token yield
+
+        Args:
+            messages: 消息列表
+            temperature: 温度参数
+
+        Yields:
+            str: 每个 token 的文本片段
+        """
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True
+        }
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except Exception:
+                        continue
 
 
 # 创建全局实例

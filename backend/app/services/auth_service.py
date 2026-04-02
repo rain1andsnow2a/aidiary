@@ -74,7 +74,7 @@ class AuthService:
             minutes=settings.verification_code_expire_minutes
         )
 
-        # 保存验证码到数据库
+        # 先写入事务，再发送邮件；发送失败则回滚，避免无效验证码占用频率额度
         verification_code = VerificationCode(
             email=email,
             code=code,
@@ -82,7 +82,7 @@ class AuthService:
             expires_at=expires_at
         )
         db.add(verification_code)
-        await db.commit()
+        await db.flush()
 
         # 发送邮件
         email_sent = await email_service.send_verification_email(
@@ -90,8 +90,10 @@ class AuthService:
         )
 
         if not email_sent:
+            await db.rollback()
             return False, "发送邮件失败，请稍后重试"
 
+        await db.commit()
         return True, "验证码已发送到您的邮箱"
 
     async def verify_code(

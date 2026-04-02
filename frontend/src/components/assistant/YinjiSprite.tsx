@@ -120,24 +120,41 @@ export default function YinjiSprite() {
     return { left: clamp(left, 10, window.innerWidth - width - 10), top: clamp(top, 10, window.innerHeight - height - 10) }
   }, [position.x, position.y, panelPosition])
 
+  const DRAG_THRESHOLD = 5
+
   const beginDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
     setShowMenu(false)
-    setDragging(true)
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    dragRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top }
+    dragRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, started: false }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
 
   const onDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragging) return
-    const x = clamp(e.clientX - dragRef.current.offsetX, 0, window.innerWidth - 72)
-    const y = clamp(e.clientY - dragRef.current.offsetY, 0, window.innerHeight - 72)
-    setPosition({ x, y })
+    const dx = e.clientX - dragRef.current.offsetX - position.x
+    const dy = e.clientY - dragRef.current.offsetY - position.y
+    const moved = Math.sqrt(dx * dx + dy * dy)
+
+    if (!dragRef.current.started && moved < DRAG_THRESHOLD) return
+
+    if (!dragRef.current.started && moved >= DRAG_THRESHOLD) {
+      dragRef.current.started = true
+      setDragging(true)
+    }
+
+    if (dragRef.current.started) {
+      const x = clamp(e.clientX - dragRef.current.offsetX, 0, window.innerWidth - 72)
+      const y = clamp(e.clientY - dragRef.current.offsetY, 0, window.innerHeight - 72)
+      setPosition({ x, y })
+    }
   }
 
   const endDrag = () => {
+    const wasDragging = dragRef.current.started
+    dragRef.current.started = false
     setDragging(false)
-    localStorage.setItem(STORAGE_POS, JSON.stringify(position))
+    if (wasDragging) {
+      localStorage.setItem(STORAGE_POS, JSON.stringify(position))
+    }
   }
 
   const beginPanelDrag = (e: React.PointerEvent<HTMLDivElement>) => {

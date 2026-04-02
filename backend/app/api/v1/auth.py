@@ -31,21 +31,22 @@ async def send_register_code(
     发送注册验证码
 
     - **email**: 邮箱地址
-    - **type**: 必须为 "register"
+    - **type**: 可选，传入时必须为 "register"
     """
-    if request.type != "register":
+    if request.type and request.type != "register":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="类型必须为register"
         )
 
     success, message = await auth_service.send_verification_code(
-        db, request.email, request.type
+        db, request.email, "register"
     )
 
     if not success:
+        status_code = status.HTTP_429_TOO_MANY_REQUESTS if "请求过于频繁" in message else status.HTTP_400_BAD_REQUEST
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status_code,
             detail=message
         )
 
@@ -62,21 +63,22 @@ async def verify_register_code(
 
     - **email**: 邮箱地址
     - **code**: 6位验证码
-    - **type**: 必须为 "register"
+    - **type**: 可选，传入时必须为 "register"
     """
-    if request.type != "register":
+    if request.type and request.type != "register":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="类型必须为register"
         )
 
     success, message = await auth_service.verify_code(
-        db, request.email, request.code, request.type
+        db, request.email, request.code, "register"
     )
 
     if not success:
+        status_code = status.HTTP_429_TOO_MANY_REQUESTS if "请求过于频繁" in message else status.HTTP_400_BAD_REQUEST
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status_code,
             detail=message
         )
 
@@ -107,8 +109,9 @@ async def register(
     )
 
     if not success:
+        status_code = status.HTTP_429_TOO_MANY_REQUESTS if "请求过于频繁" in message else status.HTTP_400_BAD_REQUEST
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status_code,
             detail=message
         )
 
@@ -131,16 +134,16 @@ async def send_login_code(
     发送登录验证码
 
     - **email**: 邮箱地址
-    - **type**: 必须为 "login"
+    - **type**: 可选，传入时必须为 "login"
     """
-    if request.type != "login":
+    if request.type and request.type != "login":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="类型必须为login"
         )
 
     success, message = await auth_service.send_verification_code(
-        db, request.email, request.type
+        db, request.email, "login"
     )
 
     if not success:
@@ -226,16 +229,16 @@ async def send_reset_password_code(
     发送重置密码验证码
 
     - **email**: 邮箱地址
-    - **type**: 必须为 "reset"
+    - **type**: 可选，传入时必须为 "reset"
     """
-    if request.type != "reset":
+    if request.type and request.type != "reset":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="类型必须为reset"
         )
 
     success, message = await auth_service.send_verification_code(
-        db, request.email, request.type
+        db, request.email, "reset"
     )
 
     if not success:

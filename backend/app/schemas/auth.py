@@ -10,14 +10,22 @@ from datetime import datetime
 class SendCodeRequest(BaseModel):
     """发送验证码请求"""
     email: EmailStr = Field(..., description="邮箱地址")
-    type: str = Field(..., pattern="^(register|login|reset)$", description="验证码类型：register、login或reset")
+    type: Optional[str] = Field(
+        None,
+        pattern="^(register|login|reset)$",
+        description="验证码类型：register、login或reset（兼容字段，可不传）"
+    )
 
 
 class VerifyCodeRequest(BaseModel):
     """验证码验证请求"""
     email: EmailStr = Field(..., description="邮箱地址")
     code: str = Field(..., min_length=6, max_length=6, description="6位验证码")
-    type: str = Field(..., pattern="^(register|login|reset)$", description="验证码类型：register、login或reset")
+    type: Optional[str] = Field(
+        None,
+        pattern="^(register|login|reset)$",
+        description="验证码类型：register、login或reset（兼容字段，可不传）"
+    )
 
 
 class RegisterRequest(BaseModel):
