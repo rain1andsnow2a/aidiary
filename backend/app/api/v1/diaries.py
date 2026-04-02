@@ -8,6 +8,7 @@ from typing import Optional
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, desc
 
 from app.db import get_db, async_session_maker
 
@@ -20,8 +21,10 @@ from app.schemas.diary import (
     TimelineEventResponse
 )
 from app.services.diary_service import diary_service, timeline_service
+from app.agents.llm import deepseek_client
 from app.core.deps import get_current_active_user
 from app.models.database import User
+from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight
 
 router = APIRouter(prefix="/diaries", tags=["日记"])
 
@@ -347,3 +350,151 @@ async def get_terrain_data(
         db, current_user.id, days=days
     )
     return data
+
+
+def _trim_cn_text(text: str, max_len: int = 20) -> str:
+    txt = " ".join((text or "").split())
+    if not txt:
+        return "这一天有新的记录"
+    return txt[:max_len]
+
+
+def _guess_primary_emotion(events: list[TimelineEvent], diaries: list[Diary]) -> str:
+    for ev in events:
+        if ev.emotion_tag:
+            return ev.emotion_tag.strip()
+    for d in diaries:
+        if d.emotion_tags:
+            for tag in d.emotion_tags:
+                if (tag or "").strip():
+                    return tag.strip()
+    return "平静"
+
+
+def _fallback_daily_summary(events: list[TimelineEvent], diaries: list[Diary]) -> str:
+    if events:
+        best = max(events, key=lambda x: x.importance_score or 0)
+        return _trim_cn_text(best.event_summary or "这一天有新的记录")
+    if diaries:
+        best_d = max(diaries, key=lambda x: x.importance_score or 0)
+        if (best_d.title or "").strip():
+            return _trim_cn_text(best_d.title)
+        return _trim_cn_text(best_d.content or "这一天有新的记录")
+    return "这一天有新的记录"
+
+
+@router.get("/growth/daily-insight", summary="获取某日成长悬浮洞察（首次生成后缓存）")
+async def get_growth_daily_insight(
+    target_date: date = Query(..., description="目标日期"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    仅当某日有内容（日记或事件）时，首次 hover 触发生成并缓存洞察。
+    后续直接读取数据库缓存，不重复生成。
+    """
+    existing_result = await db.execute(
+        select(GrowthDailyInsight).where(
+            and_(
+                GrowthDailyInsight.user_id == current_user.id,
+                GrowthDailyInsight.insight_date == target_date,
+            )
+        )
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing:
+        return {
+            "date": target_date.isoformat(),
+            "primary_emotion": existing.primary_emotion or "平静",
+            "summary": existing.summary,
+            "has_content": True,
+            "cached": True,
+            "source": existing.source,
+        }
+
+    events_result = await db.execute(
+        select(TimelineEvent).where(
+            and_(
+                TimelineEvent.user_id == current_user.id,
+                TimelineEvent.event_date == target_date,
+            )
+        ).order_by(desc(TimelineEvent.importance_score), desc(TimelineEvent.created_at))
+    )
+    events = list(events_result.scalars().all())
+
+    diaries_result = await db.execute(
+        select(Diary).where(
+            and_(
+                Diary.user_id == current_user.id,
+                Diary.diary_date == target_date,
+            )
+        ).order_by(desc(Diary.importance_score), desc(Diary.created_at))
+    )
+    diaries = list(diaries_result.scalars().all())
+
+    if not events and not diaries:
+        return {
+            "date": target_date.isoformat(),
+            "has_content": False,
+            "cached": False,
+            "message": "当日无记录",
+        }
+
+    primary_emotion = _guess_primary_emotion(events, diaries)
+    fallback_summary = _fallback_daily_summary(events, diaries)
+
+    diary_context = "\n".join(
+        [
+            f"- 标题：{d.title or '无标题'}；内容：{(d.content or '')[:180]}"
+            for d in diaries[:3]
+        ]
+    ) or "无"
+    event_context = "\n".join(
+        [
+            f"- 事件：{e.event_summary}；情绪：{e.emotion_tag or '未标注'}；重要性：{e.importance_score}/10"
+            for e in events[:3]
+        ]
+    ) or "无"
+
+    summary = fallback_summary
+    source = "fallback"
+    try:
+        raw = await deepseek_client.chat_with_system(
+            system_prompt=(
+                "你是映记精灵。请输出一句自然、温暖、具体的当日总结，长度不超过20个中文字符。"
+                "不要加引号，不要分段，不要解释。"
+            ),
+            user_prompt=(
+                f"日期：{target_date.isoformat()}\n"
+                f"主要情绪：{primary_emotion}\n"
+                f"日记上下文：\n{diary_context}\n"
+                f"事件上下文：\n{event_context}\n"
+                "请输出1句总结。"
+            ),
+            temperature=0.65,
+        )
+        ai_summary = _trim_cn_text((raw or "").replace("\n", " ").strip(), 20)
+        if ai_summary:
+            summary = ai_summary
+            source = "ai"
+    except Exception:
+        pass
+
+    row = GrowthDailyInsight(
+        user_id=current_user.id,
+        insight_date=target_date,
+        primary_emotion=primary_emotion,
+        summary=summary,
+        source=source,
+    )
+    db.add(row)
+    await db.commit()
+
+    return {
+        "date": target_date.isoformat(),
+        "primary_emotion": primary_emotion,
+        "summary": summary,
+        "has_content": True,
+        "cached": False,
+        "source": source,
+    }

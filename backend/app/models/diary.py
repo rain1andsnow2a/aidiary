@@ -3,7 +3,7 @@
 """
 from datetime import datetime, date
 from typing import Optional
-from sqlalchemy import String, Text, Integer, Boolean, DateTime, Date, JSON, ForeignKey, func
+from sqlalchemy import String, Text, Integer, Boolean, DateTime, Date, JSON, ForeignKey, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
@@ -151,3 +151,35 @@ class SocialPostSample(Base):
 
     def __repr__(self) -> str:
         return f"<SocialPostSample(id={self.id}, user_id={self.user_id})>"
+
+
+class GrowthDailyInsight(Base):
+    """成长中心：某日悬浮洞察（首次生成后缓存）"""
+    __tablename__ = "growth_daily_insights"
+    __table_args__ = (
+        UniqueConstraint("user_id", "insight_date", name="uq_growth_daily_user_date"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    insight_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    primary_emotion: Mapped[Optional[str]] = mapped_column(String(50))
+    summary: Mapped[str] = mapped_column(String(120), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), default="fallback", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<GrowthDailyInsight(user_id={self.user_id}, date={self.insight_date})>"

@@ -115,3 +115,13 @@ export interface TerrainResponse {
   insights: TerrainInsights
   meta: TerrainMeta
 }
+
+export interface GrowthDailyInsight {
+  date: string
+  primary_emotion?: string
+  summary?: string
+  has_content: boolean
+  cached: boolean
+  source?: string
+  message?: string
+}

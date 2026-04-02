@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loading } from '@/components/common/Loading'
 import { diaryService } from '@/services/diary.service'
-import type { TerrainEvent, TerrainPoint, TerrainResponse } from '@/types/diary'
+import type { GrowthDailyInsight, TerrainEvent, TerrainPoint, TerrainResponse } from '@/types/diary'
 
 type DayWindow = 7 | 30 | 90
 
@@ -125,6 +125,9 @@ export default function Timeline() {
   const [selectedPoint, setSelectedPoint] = useState<TerrainPoint | null>(null)
   const [markerSummary, setMarkerSummary] = useState<{ icon: string; summary: string; diaryId: number | null } | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(monthStart(new Date()))
+  const [hoveredDay, setHoveredDay] = useState<{ key: string; x: number; y: number } | null>(null)
+  const [dailyInsightMap, setDailyInsightMap] = useState<Record<string, GrowthDailyInsight>>({})
+  const [dailyLoadingMap, setDailyLoadingMap] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const loadTerrain = async () => {
@@ -202,6 +205,22 @@ export default function Timeline() {
     }
   }, [terrain])
 
+  const loadDailyInsight = async (dayKey: string) => {
+    if (dailyInsightMap[dayKey] || dailyLoadingMap[dayKey]) return
+    setDailyLoadingMap((prev) => ({ ...prev, [dayKey]: true }))
+    try {
+      const res = await diaryService.getGrowthDailyInsight(dayKey)
+      setDailyInsightMap((prev) => ({ ...prev, [dayKey]: res }))
+    } catch {
+      setDailyInsightMap((prev) => ({
+        ...prev,
+        [dayKey]: { date: dayKey, has_content: false, cached: false, message: '获取失败' },
+      }))
+    } finally {
+      setDailyLoadingMap((prev) => ({ ...prev, [dayKey]: false }))
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -273,8 +292,8 @@ export default function Timeline() {
                     const point = pointMap.get(key)
                     const color = point ? getMoodColor(point) : '#E8E6E2'
                     const opacity = getMoodOpacity(point)
-                    const summary = point?.events[0]?.summary || '暂无记录'
                     const diaryId = point?.events[0]?.diary_id || null
+                    const hasContent = !!point && point.events.length > 0
                     return (
                       <button
                         key={key}
@@ -282,9 +301,15 @@ export default function Timeline() {
                         onClick={() => {
                           if (diaryId) navigate(`/diaries/${diaryId}`)
                         }}
+                        onMouseEnter={(e) => {
+                          if (!inMonth || !hasContent) return
+                          const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                          setHoveredDay({ key, x: rect.left + rect.width / 2, y: rect.top - 10 })
+                          void loadDailyInsight(key)
+                        }}
+                        onMouseLeave={() => setHoveredDay((prev) => (prev?.key === key ? null : prev))}
                         className={`relative w-full aspect-square rounded-full border border-white/80 transition-all duration-300 hover:scale-105 ${inMonth ? '' : 'opacity-45'}`}
                         style={{ backgroundColor: color, opacity, cursor: diaryId ? 'pointer' : 'default' }}
-                        title={`${format(date, 'M月d日')} · ${getPrimaryEmotion(point || { date: key, energy: null, valence: null, density: 0, events: [] })} · ${summary}`}
                       >
                         <span className="absolute inset-0 flex items-center justify-center text-[10px] text-stone-700/75">
                           {date.getDate()}
@@ -293,6 +318,26 @@ export default function Timeline() {
                     )
                   })}
                 </div>
+                {hoveredDay && (
+                  <div
+                    className="fixed z-[80] pointer-events-none -translate-x-1/2 -translate-y-full"
+                    style={{ left: hoveredDay.x, top: hoveredDay.y }}
+                  >
+                    <div className="w-[260px] rounded-2xl border border-[#eaded6] bg-[linear-gradient(150deg,rgba(255,251,247,0.98),rgba(249,245,252,0.98))] px-3.5 py-3 shadow-[0_16px_32px_rgba(114,92,107,0.2)] backdrop-blur-sm">
+                      <div className="text-[12px] text-stone-500 mb-1">
+                        {format(new Date(hoveredDay.key), 'M月d日')} ·{' '}
+                        {dailyInsightMap[hoveredDay.key]?.primary_emotion || getPrimaryEmotion(pointMap.get(hoveredDay.key) || {
+                          date: hoveredDay.key, energy: null, valence: null, density: 0, events: [],
+                        })}
+                      </div>
+                      <div className="text-[13px] leading-6 text-stone-700 font-medium">
+                        {dailyLoadingMap[hoveredDay.key]
+                          ? '映记精灵正在整理这一天的片段...'
+                          : (dailyInsightMap[hoveredDay.key]?.summary || '这一天留下了值得回看的记录。')}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -537,4 +582,3 @@ export default function Timeline() {
     </div>
   )
 }
-

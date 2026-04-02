@@ -8,6 +8,7 @@ import type {
   TimelineEvent,
   EmotionStats,
   TerrainResponse,
+  GrowthDailyInsight,
 } from '@/types/diary'
 
 export const diaryService = {
@@ -86,6 +87,14 @@ export const diaryService = {
   getTerrainData: async (days: number = 30): Promise<TerrainResponse> => {
     const response = await api.get<TerrainResponse>('/api/v1/diaries/timeline/terrain', {
       params: { days },
+    })
+    return response.data
+  },
+
+  // 获取某日成长悬浮洞察（首次会在后端生成并缓存）
+  getGrowthDailyInsight: async (targetDate: string): Promise<GrowthDailyInsight> => {
+    const response = await api.get<GrowthDailyInsight>('/api/v1/diaries/growth/daily-insight', {
+      params: { target_date: targetDate },
     })
     return response.data
   },
