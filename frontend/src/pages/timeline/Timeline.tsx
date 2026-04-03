@@ -9,28 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loading } from '@/components/common/Loading'
 import { diaryService } from '@/services/diary.service'
+import { getEmotionColor } from '@/components/common/EmotionChart'
 import type { GrowthDailyInsight, TerrainEvent, TerrainPoint, TerrainResponse } from '@/types/diary'
 
 type DayWindow = 7 | 30 | 90
 
 type SatirLayer = 'behavior' | 'emotion' | 'cognition' | 'belief' | 'desire'
 
-const EMOTION_COLOR: Record<string, string> = {
-  开心: '#F5C842',
-  兴奋: '#F5C842',
-  满足: '#F5C842',
-  平静: '#F5C842',
-  成长: '#7BC47F',
-  积极: '#7BC47F',
-  焦虑: '#8AAFC8',
-  担忧: '#8AAFC8',
-  压力: '#8AAFC8',
-  困惑: '#B8A9D4',
-  低落: '#B8A9D4',
-  失落: '#B8A9D4',
-  愤怒: '#E8856A',
-  激动: '#E8856A',
-}
+const EMPTY_DAY_COLOR = '#E8E6E2'
 
 const SATIR_LAYER_STYLE: Record<
   SatirLayer,
@@ -65,16 +51,26 @@ function getPrimaryEmotion(point: TerrainPoint): string {
 }
 
 function getMoodColor(point: TerrainPoint): string {
-  const emotion = getPrimaryEmotion(point)
-  return EMOTION_COLOR[emotion] || '#E8E6E2'
+  const tag = point.events[0]?.emotion_tag
+  return tag ? getEmotionColor(tag) : EMPTY_DAY_COLOR
 }
 
-function getMoodOpacity(point?: TerrainPoint): number {
-  if (!point || point.events.length === 0) return 0.15
+/** Compute ring visual params from a terrain point */
+function getRingParams(point?: TerrainPoint) {
+  if (!point || point.events.length === 0) {
+    return { outerColor: EMPTY_DAY_COLOR, innerBrightness: 0, ringWidth: 2.5, opacity: 0.18, hasData: false }
+  }
+  const outerColor = getMoodColor(point)
+  // energy 1-10 → brightness 0.3-1.0
   const energy = point.energy ?? 5
-  const density = point.density ?? 0
+  const innerBrightness = 0.3 + (Math.min(10, Math.max(1, energy)) - 1) / 9 * 0.7
+  // density 1-4+ → ring width 2.5-5.5
+  const density = point.density ?? 1
+  const ringWidth = 2.5 + Math.min(density, 4) / 4 * 3
+  // overall opacity
   const score = Math.max(0, Math.min(1, energy / 10 * 0.7 + Math.min(density, 4) / 4 * 0.3))
-  return 0.5 + score * 0.5
+  const opacity = 0.55 + score * 0.45
+  return { outerColor, innerBrightness, ringWidth, opacity, hasData: true }
 }
 
 function monthStart(date: Date): Date {
@@ -286,20 +282,22 @@ export default function Timeline() {
                     <div key={w} className="text-center">{w}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
                   {calendarCells.map(({ date, inMonth }) => {
                     const key = dateKey(date)
                     const point = pointMap.get(key)
-                    const color = point ? getMoodColor(point) : '#E8E6E2'
-                    const opacity = getMoodOpacity(point)
+                    const ring = getRingParams(point)
                     const diaryId = point?.events[0]?.diary_id || null
-                    const hasContent = !!point && point.events.length > 0
+                    const hasContent = ring.hasData
+                    const isHovered = hoveredDay?.key === key
+                    const isToday = key === dateKey(new Date())
                     return (
                       <button
                         key={key}
                         type="button"
                         onClick={() => {
                           if (diaryId) navigate(`/diaries/${diaryId}`)
+                          else if (hasContent && point) setSelectedPoint(point)
                         }}
                         onMouseEnter={(e) => {
                           if (!inMonth || !hasContent) return
@@ -308,16 +306,90 @@ export default function Timeline() {
                           void loadDailyInsight(key)
                         }}
                         onMouseLeave={() => setHoveredDay((prev) => (prev?.key === key ? null : prev))}
-                        className={`relative w-full aspect-square rounded-full border border-white/80 transition-all duration-300 hover:scale-105 ${inMonth ? '' : 'opacity-45'}`}
-                        style={{ backgroundColor: color, opacity, cursor: diaryId ? 'pointer' : 'default' }}
+                        className={`relative w-full aspect-square transition-all duration-300 ${
+                          isHovered ? 'scale-110 z-10' : 'hover:scale-105'
+                        } ${inMonth ? '' : 'opacity-35'}`}
+                        style={{ cursor: hasContent ? 'pointer' : 'default' }}
                       >
-                        <span className="absolute inset-0 flex items-center justify-center text-[10px] text-stone-700/75">
-                          {date.getDate()}
-                        </span>
+                        <svg viewBox="0 0 44 44" className="w-full h-full">
+                          {hasContent ? (
+                            <>
+                              {/* Inner fill — energy brightness */}
+                              <circle
+                                cx="22" cy="22"
+                                r={20 - ring.ringWidth}
+                                fill={ring.outerColor}
+                                fillOpacity={ring.innerBrightness * ring.opacity}
+                              />
+                              {/* Outer ring — emotion color, width = density */}
+                              <circle
+                                cx="22" cy="22"
+                                r={20 - ring.ringWidth / 2}
+                                fill="none"
+                                stroke={ring.outerColor}
+                                strokeWidth={ring.ringWidth}
+                                strokeOpacity={ring.opacity}
+                              />
+                              {/* Subtle highlight */}
+                              <ellipse
+                                cx="19" cy="17"
+                                rx="7" ry="4.5"
+                                fill="white"
+                                fillOpacity={0.15}
+                              />
+                            </>
+                          ) : (
+                            /* Empty day — ghost circle */
+                            <circle cx="22" cy="22" r="18" fill={EMPTY_DAY_COLOR} fillOpacity={0.18} />
+                          )}
+                          {/* Today indicator ring */}
+                          {isToday && (
+                            <circle
+                              cx="22" cy="22" r="21"
+                              fill="none"
+                              stroke="#b56f61"
+                              strokeWidth="1.5"
+                              strokeDasharray="3 2"
+                              strokeOpacity={0.6}
+                            />
+                          )}
+                          {/* Date number */}
+                          <text
+                            x="22" y="24"
+                            textAnchor="middle"
+                            fontSize="11"
+                            fontWeight={isToday ? 700 : 500}
+                            fill={hasContent ? '#ffffff' : '#9e9a96'}
+                            fillOpacity={hasContent ? 0.92 : 0.7}
+                            style={{ textShadow: hasContent ? '0 1px 2px rgba(0,0,0,0.15)' : 'none' }}
+                          >
+                            {date.getDate()}
+                          </text>
+                        </svg>
                       </button>
                     )
                   })}
                 </div>
+                {/* Legend */}
+                <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 mt-3 pt-3 border-t border-stone-100">
+                  <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
+                    <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="7" fill="none" stroke="#E2A54E" strokeWidth="3" strokeOpacity="0.85" /><circle cx="9" cy="9" r="5" fill="#E2A54E" fillOpacity="0.5" /></svg>
+                    环色 = 情绪
+                  </span>
+                  <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
+                    <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="7" fill="#7DB8A8" fillOpacity="0.85" /></svg>
+                    明暗 = 能量
+                  </span>
+                  <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
+                    <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="5" fill="none" stroke="#9590B3" strokeWidth="5" strokeOpacity="0.7" /></svg>
+                    粗细 = 事件数
+                  </span>
+                  <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
+                    <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="7.5" fill="none" stroke="#b56f61" strokeWidth="1.2" strokeDasharray="2.5 1.5" strokeOpacity="0.6" /></svg>
+                    今天
+                  </span>
+                </div>
+
                 {hoveredDay && (
                   <div
                     className="fixed z-[80] pointer-events-none -translate-x-1/2 -translate-y-full"

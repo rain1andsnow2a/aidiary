@@ -3,6 +3,7 @@
 FastAPI主应用
 """
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,7 @@ from app.core.config import settings
 from app.db import init_db
 from app.api.v1 import auth
 from app.api.v1.auth import router as auth_router
+from app.services.scheduler_service import scheduler_loop
 
 
 @asynccontextmanager
@@ -22,9 +24,18 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("[INFO] Database initialized successfully")
 
+    # 启动每日定时分析任务
+    scheduler_task = asyncio.create_task(scheduler_loop())
+    print("[INFO] Daily scheduler started")
+
     yield
 
-    # 关闭时的清理工作
+    # 关闭时取消定时任务
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
     print("[INFO] Application shutdown")
 
 

@@ -1,0 +1,129 @@
+"""
+每日定时任务服务
+- 每天 0:00 自动检查当天有更新的日记
+- 对未分析的日记调用大模型进行时间轴事件精炼
+- 更新成长中心数据
+"""
+import asyncio
+from datetime import datetime, date, timedelta, time as dtime
+
+from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import async_session_maker
+from app.models.database import User
+from app.models.diary import Diary, TimelineEvent
+
+
+async def _analyze_user_diaries_for_date(
+    db: AsyncSession,
+    user_id: int,
+    target_date: date,
+) -> int:
+    """
+    对指定用户在 target_date 当天新增/修改且尚未被AI精炼的日记，
+    逐篇调用 refine_event_from_diary_with_ai 进行分析。
+    返回处理的日记数。
+    """
+    from app.services.diary_service import timeline_service
+
+    # 查找该用户当天创建或更新的日记
+    result = await db.execute(
+        select(Diary).where(
+            and_(
+                Diary.user_id == user_id,
+                Diary.diary_date == target_date,
+            )
+        )
+    )
+    diaries = list(result.scalars().all())
+    if not diaries:
+        return 0
+
+    processed = 0
+    for diary in diaries:
+        # 检查是否已经有 AI 精炼过的时间轴事件
+        ev_result = await db.execute(
+            select(TimelineEvent).where(
+                and_(
+                    TimelineEvent.user_id == user_id,
+                    TimelineEvent.diary_id == diary.id,
+                )
+            ).limit(1)
+        )
+        existing_event = ev_result.scalar_one_or_none()
+
+        # 如果已有 AI 精炼结果，跳过
+        if existing_event:
+            source = (existing_event.related_entities or {}).get("source", "")
+            if source == "ai_analysis":
+                continue
+
+        try:
+            await timeline_service.refine_event_from_diary_with_ai(
+                db=db,
+                user_id=user_id,
+                diary_id=diary.id,
+            )
+            processed += 1
+            print(f"  [Scheduler] ✓ user={user_id} diary={diary.id} refined")
+        except Exception as e:
+            print(f"  [Scheduler] ✗ user={user_id} diary={diary.id} error: {e}")
+
+    return processed
+
+
+async def run_daily_analysis():
+    """
+    扫描所有用户，对昨天有日记记录的用户执行AI精炼。
+    """
+    yesterday = date.today() - timedelta(days=1)
+    print(f"\n[Scheduler] === 每日分析任务开始 === 目标日期: {yesterday}")
+
+    async with async_session_maker() as db:
+        # 找出昨天有日记的所有用户
+        user_result = await db.execute(
+            select(Diary.user_id).where(
+                Diary.diary_date == yesterday
+            ).distinct()
+        )
+        user_ids = [row[0] for row in user_result.all()]
+
+        if not user_ids:
+            print("[Scheduler] 昨天无用户写日记，跳过")
+            return
+
+        total = 0
+        for uid in user_ids:
+            count = await _analyze_user_diaries_for_date(db, uid, yesterday)
+            total += count
+
+        print(f"[Scheduler] === 每日分析完成 === 用户数: {len(user_ids)}, 处理日记: {total}")
+
+
+def _seconds_until_midnight() -> float:
+    """计算距离下一个午夜 (00:00) 的秒数"""
+    now = datetime.now()
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (tomorrow - now).total_seconds()
+
+
+async def scheduler_loop():
+    """
+    无限循环调度器：每天 0:00 执行 run_daily_analysis。
+    首次启动时等待到下一个午夜。
+    """
+    while True:
+        wait = _seconds_until_midnight()
+        print(f"[Scheduler] 下次执行在 {wait/3600:.1f} 小时后 (午夜 0:00)")
+        await asyncio.sleep(wait)
+
+        try:
+            await run_daily_analysis()
+        except Exception as e:
+            print(f"[Scheduler] 任务异常: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # 任务执行完后，额外等 60 秒避免在同一分钟内重复触发
+        await asyncio.sleep(60)

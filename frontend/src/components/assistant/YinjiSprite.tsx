@@ -37,7 +37,8 @@ export default function YinjiSprite() {
   const [panelDragging, setPanelDragging] = useState(false)
   const [panelPosition, setPanelPosition] = useState<Pos | null>(null)
 
-  const dragRef = useRef({ offsetX: 0, offsetY: 0, started: false })
+  const dragRef = useRef({ offsetX: 0, offsetY: 0, started: false, pressing: false, liveX: 0, liveY: 0, rafId: 0 })
+  const spriteRef = useRef<HTMLButtonElement>(null)
   const panelDragRef = useRef({ offsetX: 0, offsetY: 0 })
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -120,41 +121,64 @@ export default function YinjiSprite() {
     return { left: clamp(left, 10, window.innerWidth - width - 10), top: clamp(top, 10, window.innerHeight - height - 10) }
   }, [position.x, position.y, panelPosition])
 
-  const DRAG_THRESHOLD = 5
+  const DRAG_THRESHOLD = 3
 
   const beginDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return
     setShowMenu(false)
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    dragRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, started: false }
+    dragRef.current = {
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      started: false,
+      pressing: true,
+      liveX: position.x,
+      liveY: position.y,
+      rafId: 0,
+    }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
 
   const onDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const dx = e.clientX - dragRef.current.offsetX - position.x
-    const dy = e.clientY - dragRef.current.offsetY - position.y
-    const moved = Math.sqrt(dx * dx + dy * dy)
+    if (!dragRef.current.pressing) return
 
-    if (!dragRef.current.started && moved < DRAG_THRESHOLD) return
+    const newX = clamp(e.clientX - dragRef.current.offsetX, 0, window.innerWidth - 72)
+    const newY = clamp(e.clientY - dragRef.current.offsetY, 0, window.innerHeight - 72)
 
-    if (!dragRef.current.started && moved >= DRAG_THRESHOLD) {
+    if (!dragRef.current.started) {
+      const dx = newX - dragRef.current.liveX
+      const dy = newY - dragRef.current.liveY
+      if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return
       dragRef.current.started = true
       setDragging(true)
     }
 
-    if (dragRef.current.started) {
-      const x = clamp(e.clientX - dragRef.current.offsetX, 0, window.innerWidth - 72)
-      const y = clamp(e.clientY - dragRef.current.offsetY, 0, window.innerHeight - 72)
-      setPosition({ x, y })
-    }
+    // Bypass React — write directly to DOM for zero-lag dragging
+    dragRef.current.liveX = newX
+    dragRef.current.liveY = newY
+    if (dragRef.current.rafId) cancelAnimationFrame(dragRef.current.rafId)
+    dragRef.current.rafId = requestAnimationFrame(() => {
+      const el = spriteRef.current
+      if (el) {
+        el.style.left = `${newX}px`
+        el.style.top = `${newY}px`
+      }
+    })
   }
 
   const endDrag = () => {
-    const wasDragging = dragRef.current.started
-    dragRef.current.started = false
+    const d = dragRef.current
+    const wasDragging = d.started
+    d.started = false
+    d.pressing = false
+    if (d.rafId) { cancelAnimationFrame(d.rafId); d.rafId = 0 }
     setDragging(false)
+
     if (wasDragging) {
-      localStorage.setItem(STORAGE_POS, JSON.stringify(position))
+      // Sync final position to React state + persist
+      const finalPos = { x: d.liveX, y: d.liveY }
+      setPosition(finalPos)
+      localStorage.setItem(STORAGE_POS, JSON.stringify(finalPos))
     }
   }
 
@@ -315,6 +339,7 @@ export default function YinjiSprite() {
   return (
     <>
       <button
+        ref={spriteRef}
         onPointerDown={beginDrag}
         onPointerMove={onDrag}
         onPointerUp={endDrag}
@@ -322,20 +347,24 @@ export default function YinjiSprite() {
           e.preventDefault()
           setShowMenu((v) => !v)
         }}
-        onClick={() => {
-          if (dragging) return
+        onClick={(e) => {
+          if (dragRef.current.started) {
+            e.preventDefault()
+            e.stopPropagation()
+            return
+          }
           if (muted) {
             toggleMuted(false)
             return
           }
           setOpen((v) => !v)
         }}
-        className={`fixed z-[9999] select-none overflow-hidden transition-all duration-200 ${dragging ? 'scale-95' : 'hover:scale-[1.03]'} ${
+        className={`fixed z-[9999] select-none overflow-hidden ${dragging ? 'scale-95 !transition-none' : 'transition-all duration-200 hover:scale-[1.03]'} ${
           muted
             ? 'w-12 h-12 rounded-full shadow-lg border border-white/70 bg-white/90 backdrop-blur-md'
             : 'w-[88px] h-[88px] bg-transparent border-none shadow-none rounded-none'
         }`}
-        style={{ left: position.x, top: position.y }}
+        style={{ left: position.x, top: position.y, touchAction: 'none' }}
       >
         {muted ? (
           <span className="text-stone-600 text-xs font-semibold">AI</span>
@@ -346,7 +375,9 @@ export default function YinjiSprite() {
             loop
             muted
             playsInline
-            className="w-full h-full object-contain drop-shadow-[0_8px_18px_rgba(95,84,128,0.32)]"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            className="w-full h-full object-contain pointer-events-none drop-shadow-[0_8px_18px_rgba(95,84,128,0.32)]"
             onError={(e) => {
               const v = e.currentTarget
               if (v.src.endsWith('.webm')) v.src = '/Video 1.mp4'
@@ -356,7 +387,9 @@ export default function YinjiSprite() {
           <img
             src="/Image 1.png"
             alt="映记精灵"
-            className="w-full h-full object-contain bg-transparent drop-shadow-[0_8px_18px_rgba(95,84,128,0.28)]"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            className="w-full h-full object-contain bg-transparent pointer-events-none drop-shadow-[0_8px_18px_rgba(95,84,128,0.28)]"
           />
         )}
       </button>
