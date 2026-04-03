@@ -41,6 +41,72 @@ class ComprehensiveAnalysisResponse(BaseModel):
     metadata: Dict
 
 
+# ── 冰山综合分析响应 ──────────────────────────────────
+
+class IcebergBehaviorPattern(BaseModel):
+    behavior: str
+    frequency: str
+    evidence_dates: List[str] = []
+
+class IcebergBehaviorLayer(BaseModel):
+    patterns: List[IcebergBehaviorPattern] = []
+    summary: str = ""
+
+class EmotionPhase(BaseModel):
+    phase: str
+    dominant_emotion: str
+    color: str = "neutral"
+    description: str = ""
+
+class EmotionTurningPoint(BaseModel):
+    date: str
+    description: str
+
+class IcebergEmotionLayer(BaseModel):
+    emotion_flow: List[EmotionPhase] = []
+    turning_points: List[EmotionTurningPoint] = []
+    summary: str = ""
+
+class ThoughtPattern(BaseModel):
+    pattern: str
+    trigger: str = ""
+    evidence_snippet: str = ""
+
+class IcebergCognitionLayer(BaseModel):
+    thought_patterns: List[ThoughtPattern] = []
+    summary: str = ""
+
+class CoreBelief(BaseModel):
+    belief: str
+    origin_hint: str = ""
+    impact: str = ""
+
+class IcebergBeliefLayer(BaseModel):
+    core_beliefs: List[CoreBelief] = []
+    self_narrative: str = ""
+    summary: str = ""
+
+class Yearning(BaseModel):
+    yearning: str
+    connection: str = ""
+
+class IcebergYearningLayer(BaseModel):
+    yearnings: List[Yearning] = []
+    life_energy: str = ""
+    summary: str = ""
+
+class IcebergAnalysisResponse(BaseModel):
+    """冰山综合分析响应"""
+    behavior_layer: IcebergBehaviorLayer
+    emotion_layer: IcebergEmotionLayer
+    cognition_layer: IcebergCognitionLayer
+    belief_layer: IcebergBeliefLayer
+    yearning_layer: IcebergYearningLayer
+    letter: str = Field(description="致你的一封信")
+    evidence: List[EvidenceItem] = []
+    metadata: Dict
+
+
 class DailyGuidanceResponse(BaseModel):
     """每日AI引导问题响应"""
     question: str

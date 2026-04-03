@@ -129,6 +129,170 @@ class AgentOrchestrator:
             # 返回错误状态
             return state
 
+    async def analyze_iceberg(
+        self,
+        username: str,
+        period: str,
+        diary_count: int,
+        evidence_text: str,
+    ) -> Dict:
+        """
+        综合冰山分析：基于 RAG 证据，逐层调用大模型完成五层冰山 + 疗愈信。
+
+        Returns:
+            Dict with keys: behavior_layer, emotion_layer, cognition_layer,
+                            belief_layer, yearning_layer, letter, agent_runs
+        """
+        import json as _json
+        from app.agents.llm import deepseek_client
+        from app.agents.prompts import (
+            ICEBERG_BEHAVIOR_PROMPT,
+            ICEBERG_EMOTION_PROMPT,
+            ICEBERG_COGNITION_PROMPT,
+            ICEBERG_BELIEF_PROMPT,
+            ICEBERG_YEARNING_PROMPT,
+            ICEBERG_LETTER_PROMPT,
+        )
+
+        agent_runs: List[Dict] = []
+        start_time = time.time()
+
+        def _record(code: str, name: str, ok: bool, t0: float, error: str = ""):
+            run = {
+                "agent_code": code,
+                "agent_name": name,
+                "status": "success" if ok else "error",
+                "duration_ms": int((time.time() - t0) * 1000),
+            }
+            if error:
+                run["error"] = error
+            agent_runs.append(run)
+
+        async def _call_json(prompt: str, step_code: str, step_name: str) -> Dict:
+            t0 = time.time()
+            try:
+                raw = await deepseek_client.chat_with_system(
+                    system_prompt="你是萨提亚冰山模型专家。只输出JSON，不要附加解释。",
+                    user_prompt=prompt,
+                    temperature=0.4,
+                    response_format="json",
+                )
+                from app.api.v1.ai import _safe_parse_json
+                result = _safe_parse_json(raw)
+                _record(step_code, step_name, True, t0)
+                print(f"[Iceberg {step_code}] {step_name} 完成 ({int((time.time()-t0)*1000)}ms)")
+                return result
+            except Exception as e:
+                _record(step_code, step_name, False, t0, str(e))
+                print(f"[Iceberg {step_code}] {step_name} 失败: {e}")
+                return {}
+
+        print(f"\n{'='*60}")
+        print(f"印记 - 冰山综合分析")
+        print(f"用户: {username} | 窗口: {period} | 日记数: {diary_count}")
+        print(f"{'='*60}\n")
+
+        # ── Step A: 行为层 ──
+        behavior_result = await _call_json(
+            ICEBERG_BEHAVIOR_PROMPT.format(
+                username=username, period=period,
+                diary_count=diary_count, evidence_text=evidence_text,
+            ),
+            "A", "行为模式识别",
+        )
+
+        # ── Step B: 情绪层 ──
+        emotion_result = await _call_json(
+            ICEBERG_EMOTION_PROMPT.format(
+                username=username, period=period,
+                behavior_result=_json.dumps(behavior_result, ensure_ascii=False),
+                evidence_text=evidence_text,
+            ),
+            "B", "情绪层分析",
+        )
+
+        # ── Step C: 认知层 ──
+        cognition_result = await _call_json(
+            ICEBERG_COGNITION_PROMPT.format(
+                username=username,
+                behavior_result=_json.dumps(behavior_result, ensure_ascii=False),
+                emotion_result=_json.dumps(emotion_result, ensure_ascii=False),
+                evidence_text=evidence_text,
+            ),
+            "C", "认知层分析",
+        )
+
+        # ── Step D: 信念层 ──
+        belief_result = await _call_json(
+            ICEBERG_BELIEF_PROMPT.format(
+                username=username,
+                behavior_result=_json.dumps(behavior_result, ensure_ascii=False),
+                emotion_result=_json.dumps(emotion_result, ensure_ascii=False),
+                cognition_result=_json.dumps(cognition_result, ensure_ascii=False),
+                evidence_text=evidence_text,
+            ),
+            "D", "信念层分析",
+        )
+
+        # ── Step E: 渴望层 ──
+        all_layers = _json.dumps({
+            "behavior": behavior_result,
+            "emotion": emotion_result,
+            "cognition": cognition_result,
+            "belief": belief_result,
+        }, ensure_ascii=False, indent=2)
+
+        yearning_result = await _call_json(
+            ICEBERG_YEARNING_PROMPT.format(
+                username=username,
+                all_layers=all_layers,
+                evidence_text=evidence_text,
+            ),
+            "E", "渴望层分析",
+        )
+
+        # ── Step F: 致你的一封信 ──
+        all_layers_with_yearning = _json.dumps({
+            "behavior": behavior_result,
+            "emotion": emotion_result,
+            "cognition": cognition_result,
+            "belief": belief_result,
+            "yearning": yearning_result,
+        }, ensure_ascii=False, indent=2)
+
+        letter = ""
+        t0 = time.time()
+        try:
+            letter = await deepseek_client.chat_with_system(
+                system_prompt="你是用户最温暖的日记伙伴。写一封真挚的信。",
+                user_prompt=ICEBERG_LETTER_PROMPT.format(
+                    username=username,
+                    period=period,
+                    all_layers=all_layers_with_yearning,
+                ),
+                temperature=0.8,
+            )
+            letter = (letter or "").strip()
+            _record("F", "疗愈信生成", True, t0)
+            print(f"[Iceberg F] 疗愈信生成 完成 ({int((time.time()-t0)*1000)}ms)")
+        except Exception as e:
+            _record("F", "疗愈信生成", False, t0, str(e))
+            letter = f"亲爱的{username}：\n\n感谢你愿意记录下这段旅程。你的每一次书写，都是在靠近真实的自己。\n\n你的日记伙伴"
+
+        total_ms = int((time.time() - start_time) * 1000)
+        print(f"\n冰山分析完成！总耗时: {total_ms}ms\n")
+
+        return {
+            "behavior_layer": behavior_result,
+            "emotion_layer": emotion_result,
+            "cognition_layer": cognition_result,
+            "belief_layer": belief_result,
+            "yearning_layer": yearning_result,
+            "letter": letter,
+            "agent_runs": agent_runs,
+            "processing_time": total_ms / 1000,
+        }
+
     def format_result(self, state: AnalysisState) -> Dict:
         """
         格式化分析结果用于返回

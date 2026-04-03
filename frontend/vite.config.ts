@@ -5,6 +5,9 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    sourcemap: false, // 生产环境禁用 source map，防止源码泄露
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

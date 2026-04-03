@@ -15,6 +15,7 @@ from app.schemas.ai import (
     TitleSuggestionResponse,
     ComprehensiveAnalysisRequest,
     ComprehensiveAnalysisResponse,
+    IcebergAnalysisResponse,
     DailyGuidanceResponse,
     SocialStyleSamplesRequest,
     SocialStyleSamplesResponse,
@@ -264,14 +265,17 @@ async def upsert_social_style_samples(
     )
 
 
-@router.post("/comprehensive-analysis", response_model=ComprehensiveAnalysisResponse, summary="用户级综合分析（RAG）")
+@router.post("/comprehensive-analysis", response_model=IcebergAnalysisResponse, summary="冰山综合分析（多智能体）")
 async def comprehensive_analysis(
     request: ComprehensiveAnalysisRequest,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    使用RAG检索用户历史日记片段，进行综合分析（非单篇）。
+    使用 RAG 检索 + 多智能体萨提亚冰山分析。
+    Phase 1: RAG 证据收集
+    Phase 2: 五层冰山逐层分析（行为→情绪→认知→信念→渴望）
+    Phase 3: 生成「致你的一封信」
     """
     from datetime import date, timedelta
     from sqlalchemy import and_, desc
@@ -296,6 +300,7 @@ async def comprehensive_analysis(
             detail="暂无可分析内容，请先写几篇日记"
         )
 
+    # ── Phase 1: RAG 证据收集 ──
     diaries_sorted = list(sorted(diaries, key=lambda d: (d.diary_date, d.created_at)))
     raw_docs = [
         {
@@ -346,58 +351,38 @@ async def comprehensive_analysis(
         ]
     )
 
-    system_prompt = (
-        "你是严谨又温暖的心理成长分析师。"
-        "你必须只基于给定证据做归纳，不能编造。"
-        "输出JSON，不要附加解释。"
-    )
-    user_prompt = (
-        f"用户：{current_user.username or '用户'}\n"
-        f"分析窗口：{start_date} 到 {end_date}，共 {len(diaries_sorted)} 篇日记\n"
-        f"关注点：{request.focus or '综合'}\n\n"
-        "证据片段如下：\n"
-        f"{evidence_text}\n\n"
-        "请输出JSON：\n"
-        "{\n"
-        '  "summary": "100-180字综合总结",\n'
-        '  "key_themes": ["主题1","主题2","主题3"],\n'
-        '  "emotion_trends": ["趋势1","趋势2","趋势3"],\n'
-        '  "continuity_signals": ["连续信号1","连续信号2"],\n'
-        '  "turning_points": ["转折点1","转折点2"],\n'
-        '  "growth_suggestions": ["建议1","建议2","建议3"]\n'
-        "}\n"
-        "要求：简洁具体，可执行，避免空话。"
-    )
+    # ── Phase 2 + 3: 多智能体冰山分析 ──
+    period = f"{start_date} 至 {end_date}"
+    username = current_user.username or "用户"
 
     try:
-        raw = await deepseek_client.chat_with_system(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            temperature=0.4,
-            response_format="json",
+        iceberg = await agent_orchestrator.analyze_iceberg(
+            username=username,
+            period=period,
+            diary_count=len(diaries_sorted),
+            evidence_text=evidence_text,
         )
-        parsed = _safe_parse_json(raw)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"综合分析失败: {str(e)}"
+            detail=f"冰山分析失败: {str(e)}"
         )
 
-    return ComprehensiveAnalysisResponse(
-        summary=parsed.get("summary", "暂无总结"),
-        key_themes=parsed.get("key_themes", []),
-        emotion_trends=parsed.get("emotion_trends", []),
-        continuity_signals=parsed.get("continuity_signals", []),
-        turning_points=parsed.get("turning_points", []),
-        growth_suggestions=parsed.get("growth_suggestions", []),
+    return IcebergAnalysisResponse(
+        behavior_layer=iceberg.get("behavior_layer", {}),
+        emotion_layer=iceberg.get("emotion_layer", {}),
+        cognition_layer=iceberg.get("cognition_layer", {}),
+        belief_layer=iceberg.get("belief_layer", {}),
+        yearning_layer=iceberg.get("yearning_layer", {}),
+        letter=iceberg.get("letter", ""),
         evidence=evidence,
         metadata={
-            "analysis_scope": "comprehensive_rag",
+            "analysis_scope": "iceberg_multi_agent",
             "window_days": request.window_days,
             "analyzed_diary_count": len(diaries_sorted),
             "retrieved_chunk_count": len(evidence),
-            "retrieval_strategy": "hybrid_lexical_weighted(raw+summary)",
-            "ranking_formula": "final=bm25+recency+importance+emotion_intensity+repetition+people_hit",
+            "processing_time": iceberg.get("processing_time", 0),
+            "agent_runs": iceberg.get("agent_runs", []),
             "period": {"start_date": str(start_date), "end_date": str(end_date)},
         },
     )

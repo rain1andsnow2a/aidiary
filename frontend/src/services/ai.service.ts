@@ -4,7 +4,7 @@ import type {
   AnalysisRequest,
   AnalysisResponse,
   ComprehensiveAnalysisRequest,
-  ComprehensiveAnalysisResponse,
+  IcebergAnalysisResponse,
   DailyGuidanceResponse,
   SatirAnalysis,
   SocialPost,
@@ -40,9 +40,9 @@ export const aiService = {
     return response.data
   },
 
-  // 用户级综合分析（RAG）
-  comprehensiveAnalysis: async (data: ComprehensiveAnalysisRequest): Promise<ComprehensiveAnalysisResponse> => {
-    const response = await api.post<ComprehensiveAnalysisResponse>('/api/v1/ai/comprehensive-analysis', data)
+  // 冰山综合分析（多智能体萨提亚）
+  comprehensiveAnalysis: async (data: ComprehensiveAnalysisRequest): Promise<IcebergAnalysisResponse> => {
+    const response = await api.post<IcebergAnalysisResponse>('/api/v1/ai/comprehensive-analysis', data)
     return response.data
   },
 

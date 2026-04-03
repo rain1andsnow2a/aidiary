@@ -43,6 +43,101 @@ export interface ComprehensiveAnalysisResponse {
   }
 }
 
+// ── 冰山综合分析类型 ──────────────────────────────────
+
+export interface IcebergBehaviorPattern {
+  behavior: string
+  frequency: string
+  evidence_dates: string[]
+}
+
+export interface IcebergBehaviorLayer {
+  patterns: IcebergBehaviorPattern[]
+  summary: string
+}
+
+export interface EmotionPhase {
+  phase: string
+  dominant_emotion: string
+  color: 'warm' | 'cool' | 'neutral' | string
+  description: string
+}
+
+export interface EmotionTurningPoint {
+  date: string
+  description: string
+}
+
+export interface IcebergEmotionLayer {
+  emotion_flow: EmotionPhase[]
+  turning_points: EmotionTurningPoint[]
+  summary: string
+}
+
+export interface ThoughtPattern {
+  pattern: string
+  trigger: string
+  evidence_snippet: string
+}
+
+export interface IcebergCognitionLayer {
+  thought_patterns: ThoughtPattern[]
+  summary: string
+}
+
+export interface IcebergCoreBelief {
+  belief: string
+  origin_hint: string
+  impact: string
+}
+
+export interface IcebergBeliefLayer {
+  core_beliefs: IcebergCoreBelief[]
+  self_narrative: string
+  summary: string
+}
+
+export interface IcebergYearning {
+  yearning: string
+  connection: string
+}
+
+export interface IcebergYearningLayer {
+  yearnings: IcebergYearning[]
+  life_energy: string
+  summary: string
+}
+
+export interface IcebergAgentRun {
+  agent_code: string
+  agent_name: string
+  status: 'success' | 'error'
+  duration_ms: number
+  error?: string
+}
+
+export interface IcebergAnalysisResponse {
+  behavior_layer: IcebergBehaviorLayer
+  emotion_layer: IcebergEmotionLayer
+  cognition_layer: IcebergCognitionLayer
+  belief_layer: IcebergBeliefLayer
+  yearning_layer: IcebergYearningLayer
+  letter: string
+  evidence: EvidenceItem[]
+  metadata: {
+    analysis_scope: string
+    window_days: number
+    analyzed_diary_count: number
+    retrieved_chunk_count: number
+    processing_time: number
+    agent_runs: IcebergAgentRun[]
+    period: {
+      start_date: string
+      end_date: string
+    }
+  }
+}
+
 export interface DailyGuidanceResponse {
   question: string
   source: 'ai' | 'fallback' | string
