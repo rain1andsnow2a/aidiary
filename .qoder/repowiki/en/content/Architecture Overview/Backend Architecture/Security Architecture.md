@@ -8,13 +8,24 @@
 - [deps.py](file://backend/app/core/deps.py)
 - [auth.py](file://backend/app/api/v1/auth.py)
 - [auth_service.py](file://backend/app/services/auth_service.py)
+- [captcha_service.py](file://backend/app/services/captcha_service.py)
+- [rate_limit.py](file://backend/app/core/rate_limit.py)
 - [database.py](file://backend/app/models/database.py)
 - [auth_schemas.py](file://backend/app/schemas/auth.py)
 - [email_service.py](file://backend/app/services/email_service.py)
 - [db.py](file://backend/app/db.py)
 - [requirements.txt](file://backend/requirements.txt)
 - [test_security.py](file://backend/tests/test_security.py)
+- [SliderCaptcha.tsx](file://frontend/src/components/common/SliderCaptcha.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive sliding puzzle captcha integration with HMAC signing and anti-bot measures
+- Enhanced rate limiting with dual-layer protection (IP-based and captcha-based)
+- Implemented refresh token authentication with cookie-based session management
+- Added security headers middleware for enhanced protection
+- Improved API security measures with mandatory captcha verification for sensitive operations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -22,29 +33,33 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Enhanced Security Features](#enhanced-security-features)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document presents the security architecture of the 映记 backend system. It focuses on the JWT-based authentication system, password hashing with bcrypt, session management, user authorization patterns, CORS configuration, CSRF protection posture, input validation strategies, dependency injection patterns for security services, middleware implementation, rate limiting, brute force protection, and security headers configuration. It also provides examples of secure API endpoint implementation, error handling for security violations, and security best practices for development and deployment.
+This document presents the enhanced security architecture of the 映记 backend system. The system now features a comprehensive security framework including JWT-based authentication with refresh tokens, custom sliding puzzle captcha integration, advanced rate limiting, enhanced API security measures, and robust protection against automated attacks. The architecture focuses on multi-layered security controls including human verification, anti-bot measures, session management, user authorization patterns, CORS configuration, CSRF protection posture, input validation strategies, dependency injection patterns for security services, middleware implementation, rate limiting, brute force protection, and security headers configuration.
 
 ## Project Structure
 The security-relevant parts of the backend are organized around:
-- Application entry and middleware configuration (CORS)
-- Core security utilities (JWT and bcrypt)
+- Application entry and middleware configuration (CORS and security headers)
+- Core security utilities (JWT, bcrypt, and captcha services)
+- Enhanced rate limiting with dual protection layers
 - Dependency injection for authentication and authorization
-- Authentication API endpoints and service logic
-- Data models for users and verification codes
+- Authentication API endpoints with captcha integration
+- Service layer with captcha verification and enhanced security
+- Data models for users, verification codes, and captcha tokens
 - Email service for verification code delivery
 - Configuration management for secrets and policies
+- Frontend captcha component integration
 - Tests validating security primitives
 
 ```mermaid
 graph TB
-A["main.py<br/>Application entry & CORS"] --> B["app/api/v1/auth.py<br/>Auth endpoints"]
+A["main.py<br/>Application entry & security headers"] --> B["app/api/v1/auth.py<br/>Auth endpoints with captcha"]
 B --> C["app/services/auth_service.py<br/>Auth business logic"]
 C --> D["app/models/database.py<br/>User & VerificationCode"]
 C --> E["app/services/email_service.py<br/>Verification emails"]
@@ -54,55 +69,65 @@ H["app/core/config.py<br/>Settings & policies"] --> A
 H --> F
 H --> C
 I["app/db.py<br/>DB session factory"] --> C
+J["app/services/captcha_service.py<br/>Sliding puzzle captcha"] --> B
+K["app/core/rate_limit.py<br/>Enhanced rate limiting"] --> B
+L["frontend/SliderCaptcha.tsx<br/>Frontend captcha UI"] --> B
 ```
 
 **Diagram sources**
-- [main.py:43-87](file://backend/main.py#L43-L87)
-- [auth.py:22-316](file://backend/app/api/v1/auth.py#L22-L316)
+- [main.py:61-73](file://backend/main.py#L61-L73)
+- [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
 - [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
-- [database.py:13-70](file://backend/app/models/database.py#L13-L70)
-- [email_service.py:25-226](file://backend/app/services/email_service.py#L25-L226)
-- [security.py:1-92](file://backend/app/core/security.py#L1-L92)
-- [deps.py:18-103](file://backend/app/core/deps.py#L18-L103)
-- [config.py:10-105](file://backend/app/core/config.py#L10-L105)
-- [db.py:31-59](file://backend/app/db.py#L31-L59)
+- [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
+- [rate_limit.py:10-58](file://backend/app/core/rate_limit.py#L10-L58)
+- [SliderCaptcha.tsx:58-255](file://frontend/src/components/common/SliderCaptcha.tsx#L58-L255)
 
 **Section sources**
-- [main.py:43-87](file://backend/main.py#L43-L87)
+- [main.py:61-73](file://backend/main.py#L61-L73)
 - [config.py:10-105](file://backend/app/core/config.py#L10-L105)
 
 ## Core Components
-- JWT-based authentication: token creation, decoding, and expiration handling.
-- Password hashing: bcrypt via passlib.
-- Session management: FastAPI async SQLAlchemy sessions.
-- Authorization: bearer token extraction and user resolution.
-- Rate limiting: per-user verification code requests.
-- Brute force protection: account lockout via user activation flag and verification code expiry.
-- Input validation: Pydantic schemas with field constraints.
-- CORS: configured origins from settings.
-- CSRF protection: absence of CSRF middleware; client-side CSRF protection recommended.
-- Security headers: absence of security headers; recommended additions included in best practices.
+- **JWT-based authentication**: token creation, decoding, and expiration handling with refresh token support.
+- **Password hashing**: bcrypt via passlib.
+- **Session management**: FastAPI async SQLAlchemy sessions with cookie-based refresh token storage.
+- **Authorization**: bearer token extraction and user resolution with enhanced security checks.
+- **Enhanced rate limiting**: Dual-layer protection with IP-based sliding window and captcha-based verification.
+- **Sliding puzzle captcha**: Custom implementation with HMAC signing, anti-bot measures, and token validation.
+- **Brute force protection**: Account lockout via user activation flag, verification code expiry, and captcha token replay prevention.
+- **Input validation**: Pydantic schemas with field constraints and captcha verification.
+- **CORS**: configured origins from settings.
+- **CSRF protection**: Enhanced via captcha requirement and secure cookie handling.
+- **Security headers**: Comprehensive protection headers including CSP, X-Frame-Options, X-Content-Type-Options, and Permissions-Policy.
 
 **Section sources**
-- [security.py:16-92](file://backend/app/core/security.py#L16-L92)
+- [security.py:16-87](file://backend/app/core/security.py#L16-L87)
 - [auth_service.py:19-358](file://backend/app/services/auth_service.py#L19-L358)
-- [deps.py:18-103](file://backend/app/core/deps.py#L18-L103)
-- [auth_schemas.py:10-106](file://backend/app/schemas/auth.py#L10-L106)
-- [main.py:50-57](file://backend/main.py#L50-L57)
+- [captcha_service.py:15-29](file://backend/app/services/captcha_service.py#L15-L29)
+- [rate_limit.py:10-58](file://backend/app/core/rate_limit.py#L10-L58)
+- [auth_schemas.py:10-21](file://backend/app/schemas/auth.py#L10-L21)
+- [main.py:61-73](file://backend/main.py#L61-L73)
 
 ## Architecture Overview
-The authentication flow integrates FastAPI routing, dependency injection, service-layer logic, and persistence. The diagram below maps the end-to-end authentication flow from request to response.
+The enhanced authentication flow integrates FastAPI routing, dependency injection, service-layer logic, captcha verification, and persistence. The diagram below maps the end-to-end authentication flow from request to response with the new captcha integration.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant API as "Auth Endpoints (auth.py)"
+participant Captcha as "Captcha Service"
 participant Deps as "Auth Dependencies (deps.py)"
 participant Service as "AuthService (auth_service.py)"
 participant Security as "Security Utils (security.py)"
 participant DB as "Database (models/database.py)"
 participant Email as "EmailService (email_service.py)"
+Client->>API : "POST /api/v1/auth/captcha"
+API->>Captcha : "generate()"
+Captcha-->>API : "Captcha data with token"
+API-->>Client : "Captcha parameters"
 Client->>API : "POST /api/v1/auth/register/send-code"
+API->>Captcha : "_verify_captcha_from_request()"
+Captcha->>Captcha : "verify(token, slide_x, duration)"
+Captcha-->>API : "Validation result"
 API->>Service : "send_verification_code(email, type)"
 Service->>DB : "Query recent unused codes (rate limit)"
 Service->>Email : "send_verification_email(email, code, type)"
@@ -115,31 +140,35 @@ Client->>API : "POST /api/v1/auth/register"
 API->>Service : "register(email, password, code)"
 Service->>DB : "Verify code, check uniqueness, create User"
 Service->>DB : "Mark code used"
-Service->>Security : "create_token(user)"
+Service->>Security : "create_access_token(user)"
 Security-->>Service : "JWT access_token"
 Service-->>API : "TokenResponse"
-API-->>Client : "200 OK with token"
+API-->>Client : "200 OK with token and cookies"
 ```
 
 **Diagram sources**
-- [auth.py:25-126](file://backend/app/api/v1/auth.py#L25-L126)
-- [auth_service.py:19-201](file://backend/app/services/auth_service.py#L19-L201)
-- [security.py:43-71](file://backend/app/core/security.py#L43-L71)
-- [database.py:13-70](file://backend/app/models/database.py#L13-L70)
-- [email_service.py:48-155](file://backend/app/services/email_service.py#L48-L155)
+- [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
+- [auth.py:64-81](file://backend/app/api/v1/auth.py#L64-L81)
+- [captcha_service.py:46-70](file://backend/app/services/captcha_service.py#L46-L70)
+- [auth_service.py:19-98](file://backend/app/services/auth_service.py#L19-L98)
+- [security.py:48-65](file://backend/app/core/security.py#L48-L65)
 
 ## Detailed Component Analysis
 
 ### JWT Authentication System
-- Token generation: Uses HS256 with a secret key from settings. Expiration is configurable in minutes.
-- Token decoding: Validates signature and checks expiration; returns None on failure.
-- Token consumption: Bearer scheme via HTTPBearer dependency; resolves user by sub claim.
+- **Token generation**: Uses HS256 with a secret key from settings. Expiration is configurable in minutes with separate access and refresh token configurations.
+- **Token decoding**: Validates signature and checks expiration; returns None on failure.
+- **Token consumption**: Bearer scheme via HTTPBearer dependency; resolves user by sub claim.
+- **Refresh token support**: Enhanced with cookie-based refresh token storage and automatic refresh endpoint.
 
 ```mermaid
 flowchart TD
 Start(["Token Creation"]) --> Build["Build payload with user data"]
-Build --> Expire["Set expiration from settings"]
-Expire --> Encode["Encode with secret_key + algorithm"]
+Build --> Type{"Token Type?"}
+Type --> |Access| AccessExpire["Set access expiration from settings"]
+Type --> |Refresh| RefreshExpire["Set refresh expiration (7 days)"]
+AccessExpire --> Encode["Encode with secret_key + algorithm"]
+RefreshExpire --> Encode
 Encode --> Return["Return JWT string"]
 DecodeStart(["Token Decoding"]) --> TryDecode["Try decode with secret_key + algorithm"]
 TryDecode --> Valid{"Valid & not expired?"}
@@ -148,11 +177,11 @@ Valid --> |No| Fail["Return None"]
 ```
 
 **Diagram sources**
-- [security.py:43-92](file://backend/app/core/security.py#L43-L92)
+- [security.py:48-87](file://backend/app/core/security.py#L48-L87)
 - [config.py:28-38](file://backend/app/core/config.py#L28-L38)
 
 **Section sources**
-- [security.py:43-92](file://backend/app/core/security.py#L43-L92)
+- [security.py:48-87](file://backend/app/core/security.py#L48-L87)
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
 - [auth_service.py:342-354](file://backend/app/services/auth_service.py#L342-L354)
 
@@ -176,16 +205,17 @@ SecurityUtils <.. TestPasswordHashing : "tested by"
 ```
 
 **Diagram sources**
-- [security.py:16-41](file://backend/app/core/security.py#L16-L41)
+- [security.py:21-45](file://backend/app/core/security.py#L21-L45)
 - [test_security.py:15-46](file://backend/tests/test_security.py#L15-L46)
 
 **Section sources**
-- [security.py:16-41](file://backend/app/core/security.py#L16-L41)
+- [security.py:21-45](file://backend/app/core/security.py#L21-L45)
 - [test_security.py:15-46](file://backend/tests/test_security.py#L15-L46)
 
 ### Session Management
 - Asynchronous SQLAlchemy sessions are provided via a dependency factory.
 - Sessions are created per-request and closed automatically.
+- **Enhanced**: Cookie-based refresh token storage with secure, httpOnly flags.
 
 ```mermaid
 sequenceDiagram
@@ -209,6 +239,7 @@ DBDep->>Session : "Close session"
 - Bearer token extraction via HTTPBearer.
 - Current user resolution validates token and loads user from DB.
 - Active user check denies access for disabled accounts.
+- **Enhanced**: Refresh token validation with automatic cookie refresh.
 
 ```mermaid
 flowchart TD
@@ -223,7 +254,7 @@ Active --> |Yes| Authorized["Proceed to handler"]
 
 **Diagram sources**
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
-- [security.py:73-92](file://backend/app/core/security.py#L73-L92)
+- [security.py:68-87](file://backend/app/core/security.py#L68-L87)
 
 **Section sources**
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
@@ -241,28 +272,36 @@ Parse --> Apply["CORSMiddleware(origins, allow_credentials, allow_methods, allow
 **Diagram sources**
 - [config.py:17-20](file://backend/app/core/config.py#L17-L20)
 - [config.py:98-100](file://backend/app/core/config.py#L98-L100)
-- [main.py:50-57](file://backend/main.py#L50-L57)
+- [main.py:51-58](file://backend/main.py#L51-L58)
 
 **Section sources**
 - [config.py:17-20](file://backend/app/core/config.py#L17-L20)
 - [config.py:98-100](file://backend/app/core/config.py#L98-L100)
-- [main.py:50-57](file://backend/main.py#L50-L57)
+- [main.py:51-58](file://backend/main.py#L51-L58)
 
 ### CSRF Protection
-- No CSRF middleware is configured in the application.
-- Recommendation: Add CSRF middleware or rely on token-based auth with strict SameSite cookies and origin checks.
+- **Enhanced**: Implemented via mandatory sliding puzzle captcha for all sensitive operations.
+- **Cookie-based CSRF protection**: Secure, httpOnly cookies with SameSite lax policy.
+- **Token-based protection**: HMAC-signed captcha tokens prevent tampering.
 
-[No sources needed since this section provides general guidance]
+**Section sources**
+- [auth.py:64-81](file://backend/app/api/v1/auth.py#L64-L81)
+- [captcha_service.py:24-34](file://backend/app/services/captcha_service.py#L24-L34)
+- [auth.py:36-55](file://backend/app/api/v1/auth.py#L36-L55)
 
 ### Input Validation Strategies
 - Pydantic schemas enforce field types, lengths, and optional patterns.
-- Examples include email validation, fixed-length verification codes, and minimum password lengths.
+- **Enhanced**: Captcha verification integrated into request validation.
+- Examples include email validation, fixed-length verification codes, captcha token validation, and minimum password lengths.
 
 ```mermaid
 classDiagram
 class SendCodeRequest {
 +email : EmailStr
 +type : Optional["register|login|reset"]
++captcha_token : Optional[str]
++captcha_x : Optional[float]
++captcha_duration : Optional[int]
 }
 class VerifyCodeRequest {
 +email : EmailStr
@@ -278,15 +317,16 @@ class RegisterRequest {
 ```
 
 **Diagram sources**
-- [auth_schemas.py:10-37](file://backend/app/schemas/auth.py#L10-L37)
+- [auth_schemas.py:10-40](file://backend/app/schemas/auth.py#L10-L40)
 
 **Section sources**
-- [auth_schemas.py:10-37](file://backend/app/schemas/auth.py#L10-L37)
+- [auth_schemas.py:10-40](file://backend/app/schemas/auth.py#L10-L40)
 - [test_security.py:113-164](file://backend/tests/test_security.py#L113-L164)
 
 ### Dependency Injection Patterns for Security Services
 - Centralized dependencies for bearer auth and current user retrieval.
 - Service layer encapsulates business logic and interacts with models and external services.
+- **Enhanced**: Captcha service integration and rate limiting dependencies.
 
 ```mermaid
 graph TB
@@ -295,39 +335,52 @@ Deps --> API["api/v1/auth.py"]
 API --> Service["services/auth_service.py"]
 Service --> Models["models/database.py"]
 Service --> Email["services/email_service.py"]
+Service --> Captcha["services/captcha_service.py"]
+RateLimit["core/rate_limit.py"] --> API
 Config["core/config.py"] --> API
 Config --> Service
 Config --> Sec
+Config --> Captcha
 ```
 
 **Diagram sources**
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
-- [auth.py:22-316](file://backend/app/api/v1/auth.py#L22-L316)
+- [auth.py:22-504](file://backend/app/api/v1/auth.py#L22-L504)
 - [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
-- [database.py:13-70](file://backend/app/models/database.py#L13-L70)
-- [email_service.py:25-226](file://backend/app/services/email_service.py#L25-L226)
-- [config.py:10-105](file://backend/app/core/config.py#L10-L105)
+- [captcha_service.py:132-137](file://backend/app/services/captcha_service.py#L132-L137)
+- [rate_limit.py:52-58](file://backend/app/core/rate_limit.py#L52-L58)
 
 **Section sources**
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
-- [auth.py:22-316](file://backend/app/api/v1/auth.py#L22-L316)
+- [auth.py:22-504](file://backend/app/api/v1/auth.py#L22-L504)
 - [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
 
 ### Middleware Implementation
 - CORS middleware is registered at application startup.
-- No additional security middleware (e.g., CSRF) is present.
+- **Enhanced**: Security headers middleware with comprehensive protection headers.
+- **Enhanced**: Rate limiting middleware integrated into authentication endpoints.
 
 **Section sources**
-- [main.py:50-57](file://backend/main.py#L50-L57)
+- [main.py:51-58](file://backend/main.py#L51-L58)
+- [main.py:61-73](file://backend/main.py#L61-L73)
 
 ### Rate Limiting and Brute Force Protection
-- Verification code requests are rate-limited per email and type within a rolling 5-minute window.
+- **Enhanced**: Dual-layer rate limiting with IP-based sliding window and captcha-based verification.
+- **IP-based rate limiting**: 5 requests per minute for verification code operations.
+- **Captcha-based rate limiting**: Additional protection against automated captcha solving.
 - Verification codes expire after a short period, mitigating brute force reuse.
 - User account status (active) blocks access for disabled users.
+- **Enhanced**: Captcha token replay prevention with memory-based tracking.
 
 ```mermaid
 flowchart TD
-Start(["Send Code Request"]) --> CheckRecent["Count recent unused codes (5 min window)"]
+Start(["Send Code Request"]) --> CheckIP["Check IP rate limit (5/min)"]
+CheckIP --> WithinIP{"Within IP limit?"}
+WithinIP --> |No| ThrottleIP["Return 429 Too Many Requests"]
+WithinIP --> |Yes| VerifyCaptcha["Verify sliding puzzle captcha"]
+VerifyCaptcha --> CaptchaValid{"Captcha valid?"}
+CaptchaValid --> |No| CaptchaError["Return 400 Bad Request"]
+CaptchaValid --> |Yes| CheckRecent["Count recent unused codes (5 min window)"]
 CheckRecent --> WithinLimit{"Within limit?"}
 WithinLimit --> |No| Throttle["Return 429 Too Many Requests"]
 WithinLimit --> |Yes| CreateCode["Generate code & set expiry"]
@@ -339,65 +392,158 @@ Commit --> Done(["Success"])
 
 **Diagram sources**
 - [auth_service.py:19-98](file://backend/app/services/auth_service.py#L19-L98)
-- [config.py:52-60](file://backend/app/core/config.py#L52-L60)
+- [rate_limit.py:38-49](file://backend/app/core/rate_limit.py#L38-L49)
+- [auth.py:130-131](file://backend/app/api/v1/auth.py#L130-L131)
 
 **Section sources**
 - [auth_service.py:19-98](file://backend/app/services/auth_service.py#L19-L98)
-- [config.py:52-60](file://backend/app/core/config.py#L52-L60)
+- [rate_limit.py:38-49](file://backend/app/core/rate_limit.py#L38-L49)
+- [auth.py:130-131](file://backend/app/api/v1/auth.py#L130-L131)
 
 ### Security Headers Configuration
-- Not currently configured in the application.
-- Recommended additions include Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, and HSTS.
+- **Enhanced**: Comprehensive security headers including Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, and Permissions-Policy.
+- Headers are applied globally via middleware for all responses.
 
-[No sources needed since this section provides general guidance]
+**Section sources**
+- [main.py:61-73](file://backend/main.py#L61-L73)
 
 ### Secure API Endpoint Implementation Example
-- Registration flow demonstrates secure handling of verification codes, password hashing, and token issuance.
-- Login endpoints support both code-based and password-based authentication.
+- **Enhanced**: Registration flow demonstrates secure handling of verification codes, password hashing, captcha verification, and token issuance with cookie storage.
+- **Enhanced**: Login endpoints support both code-based and password-based authentication with captcha verification.
+- **Enhanced**: Refresh token endpoint handles automatic token renewal via cookie-based authentication.
 - Error responses use appropriate HTTP status codes and messages.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant API as "Auth Endpoints"
+participant Captcha as "Captcha Service"
 participant Service as "AuthService"
 participant DB as "Database"
 participant Security as "Security Utils"
+Client->>API : "POST /auth/captcha"
+API->>Captcha : "generate()"
+Captcha-->>API : "Captcha data"
+API-->>Client : "Captcha parameters"
 Client->>API : "POST /auth/register"
+API->>Captcha : "_verify_captcha_from_request()"
 API->>Service : "register(email, password, code)"
 Service->>DB : "Verify code, check uniqueness"
 Service->>Security : "get_password_hash(password)"
 Service->>DB : "Create User"
 Service->>DB : "Mark code used"
-Service->>Security : "create_token(user)"
-Service-->>API : "TokenResponse"
-API-->>Client : "200 OK"
+Service->>Security : "create_access_token(user)"
+Service->>Security : "create_refresh_token(user)"
+Service-->>API : "TokenResponse with cookies"
+API-->>Client : "200 OK with tokens"
 ```
 
 **Diagram sources**
-- [auth.py:88-126](file://backend/app/api/v1/auth.py#L88-L126)
+- [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
+- [auth.py:64-81](file://backend/app/api/v1/auth.py#L64-L81)
 - [auth_service.py:142-201](file://backend/app/services/auth_service.py#L142-L201)
-- [security.py:30-41](file://backend/app/core/security.py#L30-L41)
-- [security.py:43-71](file://backend/app/core/security.py#L43-L71)
+- [security.py:35-65](file://backend/app/core/security.py#L35-L65)
 
 **Section sources**
-- [auth.py:88-126](file://backend/app/api/v1/auth.py#L88-L126)
+- [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
+- [auth.py:64-81](file://backend/app/api/v1/auth.py#L64-L81)
 - [auth_service.py:142-201](file://backend/app/services/auth_service.py#L142-L201)
 
 ### Error Handling for Security Violations
 - Authentication failures return 401 with WWW-Authenticate header.
 - Disabled or inactive users receive 403.
 - Verification errors return 400; rate-limit exceeded returns 429.
+- **Enhanced**: Captcha validation errors return 400 with specific error messages.
+- **Enhanced**: Captcha token replay attempts return 400 with "already used" message.
 - Tests validate proper error responses and validation behavior.
 
 **Section sources**
 - [deps.py:35-66](file://backend/app/core/deps.py#L35-L66)
 - [auth.py:36-53](file://backend/app/api/v1/auth.py#L36-L53)
 - [auth_service.py:131-140](file://backend/app/services/auth_service.py#L131-L140)
+- [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
 - [test_security.py:113-164](file://backend/tests/test_security.py#L113-L164)
 
+## Enhanced Security Features
+
+### Sliding Puzzle Captcha Integration
+The system now implements a custom sliding puzzle captcha with comprehensive anti-bot measures:
+
+- **Custom puzzle generation**: Random gap positions with geometric constraints
+- **HMAC signing**: Tokens signed with server secret for tamper prevention
+- **Anti-bot validation**: Minimum sliding duration (300ms) prevents automation
+- **Precision checking**: ±6 pixel tolerance for human-like accuracy
+- **Replay protection**: Memory-based token tracking with automatic cleanup
+- **Expiration handling**: 120-second token lifetime with cleanup mechanism
+
+```mermaid
+flowchart TD
+Start(["Captcha Generation"]) --> RandGap["Generate random gap position"]
+RandGap --> Sign["HMAC-SHA256 sign payload"]
+Sign --> Token["Create token with signature"]
+Token --> Return["Return captcha data"]
+VerifyStart(["Captcha Verification"]) --> Parse["Parse token components"]
+Parse --> VerifySig["Verify HMAC signature"]
+VerifySig --> Expired{"Token expired?"}
+Expired --> |Yes| ExpError["Return expired error"]
+Expired --> |No| Replay{"Already used?"}
+Replay --> |Yes| ReplayError["Return replay error"]
+Replay --> |No| Duration{"Min duration met?"}
+Duration --> |No| SpeedError["Return speed error"]
+Duration --> |Yes| Precision{"Within tolerance?"}
+Precision --> |No| Fail["Return fail"]
+Precision --> |Yes| Success["Return success"]
+```
+
+**Diagram sources**
+- [captcha_service.py:46-70](file://backend/app/services/captcha_service.py#L46-L70)
+- [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
+
+**Section sources**
+- [captcha_service.py:15-29](file://backend/app/services/captcha_service.py#L15-L29)
+- [captcha_service.py:46-70](file://backend/app/services/captcha_service.py#L46-L70)
+- [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
+
+### Enhanced Rate Limiting System
+The system implements a dual-layer rate limiting strategy:
+
+- **IP-based sliding window**: 5 requests per minute per IP address
+- **Captcha-based protection**: Additional layer preventing automated captcha solving
+- **Memory-based tracking**: Efficient in-memory tracking with automatic cleanup
+- **Distributed considerations**: Ready for Redis migration in multi-instance deployments
+
+**Section sources**
+- [rate_limit.py:10-58](file://backend/app/core/rate_limit.py#L10-L58)
+- [auth.py:130-131](file://backend/app/api/v1/auth.py#L130-L131)
+- [auth.py:165-166](file://backend/app/api/v1/auth.py#L165-L166)
+
+### Refresh Token Authentication
+The system implements comprehensive refresh token management:
+
+- **Cookie-based storage**: Secure, httpOnly refresh tokens stored in cookies
+- **Automatic renewal**: Seamless token refresh without user intervention
+- **Enhanced security**: Separate access and refresh token lifetimes
+- **Graceful degradation**: Automatic logout on refresh token invalidation
+
+**Section sources**
+- [auth.py:36-55](file://backend/app/api/v1/auth.py#L36-L55)
+- [auth.py:415-464](file://backend/app/api/v1/auth.py#L415-L464)
+- [security.py:58-65](file://backend/app/core/security.py#L58-L65)
+
+### Frontend Captcha Integration
+The frontend implements a sophisticated sliding puzzle interface:
+
+- **Canvas-based rendering**: Dynamic puzzle generation with gradient backgrounds
+- **Realistic physics**: Smooth sliding with momentum and shadow effects
+- **Visual feedback**: Success/failure animations and retry mechanisms
+- **Responsive design**: Adaptive sizing for different screen dimensions
+- **Performance optimization**: Device pixel ratio scaling for crisp rendering
+
+**Section sources**
+- [SliderCaptcha.tsx:58-255](file://frontend/src/components/common/SliderCaptcha.tsx#L58-L255)
+
 ## Dependency Analysis
-External dependencies relevant to security include FastAPI, python-jose for JWT, passlib for bcrypt, and pydantic/pydantic-settings for configuration and validation.
+External dependencies relevant to security include FastAPI, python-jose for JWT, passlib for bcrypt, pydantic/pydantic-settings for configuration and validation, and cryptography libraries for HMAC signing.
 
 ```mermaid
 graph TB
@@ -406,6 +552,7 @@ App --> JWT["python-jose[cryptography]"]
 App --> Bcrypt["passlib[bcrypt]"]
 App --> Pydantic["pydantic + pydantic-settings"]
 App --> SMTP["aiosmtplib (optional)"]
+App --> Cryptography["cryptography (for HMAC)"]
 ```
 
 **Diagram sources**
@@ -419,8 +566,9 @@ App --> SMTP["aiosmtplib (optional)"]
 - bcrypt hashing cost can be tuned via passlib configuration if needed.
 - Database queries for verification codes and users should leverage indexes on email and verification code fields.
 - Email sending is asynchronous when available; otherwise executed in thread pool.
-
-[No sources needed since this section provides general guidance]
+- **Enhanced**: Captcha service uses memory-based tracking for efficient token validation.
+- **Enhanced**: Rate limiter implements sliding window algorithm with O(1) cleanup complexity.
+- **Enhanced**: Security headers middleware adds minimal overhead to response processing.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -429,26 +577,28 @@ Common issues and resolutions:
 - Verification code errors: Validate code length and type; ensure code is not expired or already used.
 - Rate limit exceeded: Implement client-side backoff and reduce request frequency.
 - CORS issues: Verify allowed origins and credentials configuration.
+- **Enhanced**: Captcha validation failures: Check minimum duration (≥300ms) and precision tolerance (±6px).
+- **Enhanced**: Captcha token replay: Ensure tokens are not reused; check memory cleanup mechanism.
+- **Enhanced**: Refresh token issues: Verify cookie storage and automatic renewal flow.
 
 **Section sources**
-- [security.py:73-92](file://backend/app/core/security.py#L73-L92)
+- [security.py:68-87](file://backend/app/core/security.py#L68-L87)
 - [deps.py:35-66](file://backend/app/core/deps.py#L35-L66)
 - [auth_service.py:118-140](file://backend/app/services/auth_service.py#L118-L140)
+- [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
 - [config.py:98-100](file://backend/app/core/config.py#L98-L100)
 
 ## Conclusion
-The 映记 backend implements a robust JWT-based authentication system with bcrypt password hashing, strong input validation, and rate limiting for verification codes. Authorization relies on bearer tokens resolved to active users. While CORS is configured, CSRF protection and security headers are not yet implemented and should be added. The modular design with dependency injection supports maintainable security practices.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The 映记 backend implements a comprehensive security architecture with robust multi-layered protection. The enhanced system features custom sliding puzzle captcha integration with HMAC signing and anti-bot measures, dual-layer rate limiting with IP-based and captcha-based protection, refresh token authentication with cookie-based session management, and comprehensive security headers. The modular design with dependency injection supports maintainable security practices while providing strong protection against automated attacks and brute force attempts.
 
 ## Appendices
 
 ### Best Practices Checklist
-- Enforce CSRF protection via middleware or token-based strategies.
-- Add security headers (CSP, X-Frame-Options, X-Content-Type-Options, HSTS).
-- Reduce access token lifetime and introduce refresh token rotation.
-- Strengthen password policy (minimum 8 characters, mixed character sets).
-- Harden verification code storage and comparison to prevent timing attacks.
-- Monitor and log authentication events for anomaly detection.
-
-[No sources needed since this section provides general guidance]
+- **Enhanced**: Implement CSRF protection via mandatory captcha for sensitive operations.
+- **Enhanced**: Add comprehensive security headers (CSP, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy).
+- **Enhanced**: Configure HTTPS-only cookies with secure flag in production environments.
+- **Enhanced**: Implement rate limiting for all public endpoints beyond captcha verification.
+- **Enhanced**: Consider Redis-based distributed rate limiting for multi-instance deployments.
+- **Enhanced**: Regular monitoring and logging of security events for anomaly detection.
+- **Enhanced**: Implement token rotation for refresh tokens in high-security scenarios.
+- **Enhanced**: Consider adding additional CAPTCHA challenges for suspicious activities.
