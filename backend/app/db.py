@@ -53,6 +53,7 @@ async def init_db():
         from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight
         from app.models.community import CommunityPost, PostComment, PostLike, PostCollect, PostView
         from app.models.assistant import AssistantProfile, AssistantSession, AssistantMessage
+        from app.models.integration import ExternalIntegrationToken
 
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)

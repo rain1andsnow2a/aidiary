@@ -3,8 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
+import { integrationService, type OpenClawIntegrationStatus } from '@/services/integration.service'
 import { toast } from '@/components/ui/toast'
-import { Briefcase, Smile, Laugh, Award, Handshake, Moon, Monitor, BookOpen, Rocket, Palette, TreePalm, Plane, Sparkles } from 'lucide-react'
+import { Briefcase, Smile, Laugh, Award, Handshake, Moon, Monitor, BookOpen, Rocket, Palette, TreePalm, Plane, Sparkles, Link2, Copy, RefreshCw, PlugZap, Shield, Trash2 } from 'lucide-react'
 
 const MBTI_TYPES = [
   'INTJ', 'INTP', 'ENTJ', 'ENTP',
@@ -47,6 +48,9 @@ export default function ProfileSettings() {
   const [newCatchphrase, setNewCatchphrase] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url || null)
+  const [openClawStatus, setOpenClawStatus] = useState<OpenClawIntegrationStatus | null>(null)
+  const [plainToken, setPlainToken] = useState('')
+  const [isTokenLoading, setIsTokenLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const displayName = username || user?.username || user?.email?.split('@')[0] || '用户'
@@ -56,13 +60,17 @@ export default function ProfileSettings() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const profile = await authService.getProfile()
+        const [profile, openClaw] = await Promise.all([
+          authService.getProfile(),
+          integrationService.getOpenClawStatus().catch(() => null),
+        ])
         setUsername(profile.username || '')
         setMbti(profile.mbti || '')
         setSocialStyle(profile.social_style || '')
         setCurrentState(profile.current_state || '')
         setCatchphrases(profile.catchphrases || [])
         if (profile.avatar_url) setAvatarPreview(profile.avatar_url)
+        if (openClaw) setOpenClawStatus(openClaw)
       } catch (err) {
         console.error('加载画像失败:', err)
       }
@@ -129,6 +137,62 @@ export default function ProfileSettings() {
       setIsSaving(false)
     }
   }
+
+  const copyText = async (text: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast(successMessage, 'success')
+    } catch (err) {
+      console.error('复制失败:', err)
+      toast('复制失败，请手动复制', 'error')
+    }
+  }
+
+  const handleCreateOpenClawToken = async () => {
+    setIsTokenLoading(true)
+    try {
+      const next = await integrationService.createOpenClawToken()
+      setOpenClawStatus(next)
+      setPlainToken(next.token)
+      toast('已生成新的小龙虾接入令牌', 'success')
+    } catch (err) {
+      console.error('生成接入令牌失败:', err)
+      toast('生成接入令牌失败', 'error')
+    } finally {
+      setIsTokenLoading(false)
+    }
+  }
+
+  const handleRevokeOpenClawToken = async () => {
+    setIsTokenLoading(true)
+    try {
+      await integrationService.revokeOpenClawToken()
+      setPlainToken('')
+      setOpenClawStatus((prev) => prev ? { ...prev, connected: false, token_hint: null, last_used_at: null } : prev)
+      toast('已关闭小龙虾接入', 'success')
+    } catch (err) {
+      console.error('关闭接入失败:', err)
+      toast('关闭接入失败', 'error')
+    } finally {
+      setIsTokenLoading(false)
+    }
+  }
+
+  const openClawSnippet = openClawStatus ? [
+    '当我说“记一下”或“帮我写日记”时，请调用这个接口把内容写入映记：',
+    `POST ${openClawStatus.ingest_url}`,
+    plainToken || openClawStatus.token_hint
+      ? `Authorization: Bearer ${plainToken || '请填入你刚生成的令牌'}`
+      : 'Authorization: Bearer {你的映记接入令牌}',
+    'Content-Type: application/json',
+    '',
+    '{',
+    '  "content": "用户刚刚说的内容",',
+    '  "mode": "append_today"',
+    '}',
+    '',
+    '如果用户明确说“单独存一篇”，就把 mode 改为 create。',
+  ].join('\n') : ''
 
   const SectionCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
     <div className={`card-warm p-6 ${className}`}>{children}</div>
@@ -356,6 +420,137 @@ export default function ProfileSettings() {
             {catchphrases.length === 0 && (
               <p className="text-xs text-stone-300 text-center py-3">还没有添加口头禅</p>
             )}
+          </SectionCard>
+
+          <SectionCard className="overflow-hidden">
+            <div className="relative -mx-6 -mt-6 px-6 py-5 mb-5 border-b border-rose-100/60 bg-gradient-to-r from-[#fff9f3] via-[#fff7fb] to-[#f7f3ff]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/85 border border-rose-100 text-[11px] font-semibold text-rose-500 mb-3">
+                    <PlugZap className="w-3.5 h-3.5" />
+                    OpenClaw 小龙虾速记接入
+                  </div>
+                  <h3 className="text-base font-semibold text-stone-700">让小龙虾帮你把手机里的碎片想法写进映记</h3>
+                  <p className="text-xs text-stone-400 mt-1 leading-6">
+                    生成一枚专属接入令牌后，你就可以把它交给 OpenClaw 的技能或工作流。
+                    之后在手机上随手发一句话，小龙虾就能替你创建或追加今天的日记。
+                  </p>
+                </div>
+                <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/80 border border-white shadow-sm items-center justify-center">
+                  <Shield className="w-5 h-5 text-violet-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
+                  <p className="text-[11px] text-stone-400 mb-1">当前状态</p>
+                  <p className={`text-sm font-semibold ${openClawStatus?.connected ? 'text-emerald-500' : 'text-stone-500'}`}>
+                    {openClawStatus?.connected ? '已接入' : '未接入'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
+                  <p className="text-[11px] text-stone-400 mb-1">令牌指纹</p>
+                  <p className="text-sm font-semibold text-stone-600">{openClawStatus?.token_hint || '尚未生成'}</p>
+                </div>
+                <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
+                  <p className="text-[11px] text-stone-400 mb-1">最近写入</p>
+                  <p className="text-sm font-semibold text-stone-600">{openClawStatus?.last_used_at ? new Date(openClawStatus.last_used_at).toLocaleString('zh-CN') : '还没有使用'}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCreateOpenClawToken}
+                  disabled={isTokenLoading}
+                  className="h-10 px-4 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 inline-flex items-center gap-2"
+                  style={gradientBtn}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isTokenLoading ? 'animate-spin' : ''}`} />
+                  {openClawStatus?.connected ? '重置接入令牌' : '生成接入令牌'}
+                </button>
+
+                {plainToken && (
+                  <button
+                    type="button"
+                    onClick={() => copyText(plainToken, '令牌已复制')}
+                    className="h-10 px-4 rounded-xl text-xs font-semibold border border-rose-100 bg-white text-rose-500 hover:bg-rose-50 transition-all inline-flex items-center gap-2"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    复制令牌
+                  </button>
+                )}
+
+                {openClawStatus?.ingest_url && (
+                  <button
+                    type="button"
+                    onClick={() => copyText(openClawStatus.ingest_url, '接入地址已复制')}
+                    className="h-10 px-4 rounded-xl text-xs font-semibold border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-all inline-flex items-center gap-2"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    复制接入地址
+                  </button>
+                )}
+
+                {openClawStatus?.connected && (
+                  <button
+                    type="button"
+                    onClick={handleRevokeOpenClawToken}
+                    disabled={isTokenLoading}
+                    className="h-10 px-4 rounded-xl text-xs font-semibold border border-rose-100 bg-white text-rose-400 hover:bg-rose-50 transition-all inline-flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    关闭接入
+                  </button>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50/70 to-rose-50/70 px-4 py-3">
+                <p className="text-xs font-medium text-stone-600">
+                  令牌只会完整展示这一次。为了安全，映记后台只保存哈希值，不保存明文。
+                </p>
+              </div>
+
+              {plainToken && (
+                <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
+                  <p className="text-xs font-medium text-violet-500 mb-2">刚刚生成的新令牌</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded-xl bg-white px-3 py-2 text-[12px] text-stone-700 break-all border border-violet-100">{plainToken}</code>
+                    <button
+                      type="button"
+                      onClick={() => copyText(plainToken, '令牌已复制')}
+                      className="h-10 px-3 rounded-xl bg-white border border-violet-100 text-violet-500 hover:bg-violet-50 transition-colors"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-stone-100 bg-[#fffdfb] p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-700">推荐给 OpenClaw 的技能提示词</p>
+                    <p className="text-xs text-stone-400 mt-1">可以直接复制给小龙虾的工作流或技能配置</p>
+                  </div>
+                  {openClawSnippet && (
+                    <button
+                      type="button"
+                      onClick={() => copyText(openClawSnippet, 'OpenClaw 配置提示词已复制')}
+                      className="text-xs px-3 py-1.5 rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      复制
+                    </button>
+                  )}
+                </div>
+                <pre className="whitespace-pre-wrap rounded-2xl bg-stone-950/[0.03] border border-stone-100 px-4 py-3 text-[12px] leading-6 text-stone-600 overflow-x-auto">
+{openClawSnippet || '先生成一枚接入令牌，这里会自动出现推荐给 OpenClaw 的配置提示词。'}
+                </pre>
+              </div>
+            </div>
           </SectionCard>
 
           {/* 底部操作 */}

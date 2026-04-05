@@ -3,5 +3,6 @@
 """
 from app.models.database import User, VerificationCode
 from app.models.diary import Diary, TimelineEvent, AIAnalysis
+from app.models.integration import ExternalIntegrationToken
 
-__all__ = ["User", "VerificationCode", "Diary", "TimelineEvent", "AIAnalysis"]
+__all__ = ["User", "VerificationCode", "Diary", "TimelineEvent", "AIAnalysis", "ExternalIntegrationToken"]
