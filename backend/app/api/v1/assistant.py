@@ -325,10 +325,8 @@ async def chat_stream(
     profile = await _get_or_create_profile(db, current_user.id)
     nickname = (profile.nickname or current_user.username or "你").strip()
 
-    # 仅当用户明确要求查找日记时才触发 RAG 检索
-    rag_hits: list[dict] = []
-    if _needs_diary_search(message):
-        rag_hits = await _build_rag_context(db, current_user, message)
+    rag_hits = await _build_rag_context(db, current_user, message)
+    wants_diary_link = _needs_diary_search(message)
 
     history_result = await db.execute(
         select(AssistantMessage)
@@ -339,7 +337,7 @@ async def chat_stream(
     history_rows = list(history_result.scalars().all())[::-1]
     history_text = "\n".join([f"{r.role}: {r.content[:200]}" for r in history_rows])
 
-    # 构建日记链接映射 — 供AI在回复中引用
+    # 构建日记链接映射 — 仅在用户要求查找时使用带ID的格式
     diary_links_map: list[dict] = []
     rag_lines: list[str] = []
     for it in rag_hits:
@@ -347,7 +345,7 @@ async def chat_stream(
         title = it.get("title") or "无标题"
         diary_date = it.get("diary_date") or ""
         snippet = it.get("snippet") or ""
-        if did:
+        if did and wants_diary_link:
             diary_links_map.append({"diary_id": did, "title": title, "date": diary_date})
             rag_lines.append(
                 f"- [{diary_date} {title}]（日记ID={did}） 片段：{snippet}"
@@ -360,13 +358,17 @@ async def chat_stream(
         "你是映记精灵，是一只温暖、不评判、有洞察力的小狐狸伙伴。"
         "你擅长用轻柔、具体的方式陪伴用户，避免说教。"
         "如果用户表达明显的痛苦情绪，先共情再给一个可执行的小步骤。"
-        "回答使用简体中文，语气自然真诚，不要过度营销化。"
+        "回答使用简体中文，语气自然真诚，不要过度营销化。\n\n"
+        "【你的记忆】\n"
+        "系统会自动检索用户写过的日记片段作为背景知识提供给你。"
+        "你可以基于这些内容来更好地理解用户、回忆他们的经历、回答他们的问题。"
+        "但在普通聊天时，不要主动提到'我检索了你的日记'这种话，而是自然地融入对话。"
     )
-    # 仅在触发日记查找时追加日记相关指令
-    if rag_hits:
+    # 仅在用户明确要求查找日记时，追加链接格式指令
+    if wants_diary_link:
         system_prompt += (
-            "\n\n【日记查找能力】\n"
-            "系统已经帮你检索了用户相关的日记片段。"
+            "\n\n【日记查找模式】\n"
+            "用户正在要求你查找日记。"
             "当你引用某篇日记时，请使用这个格式：[[diary:日记ID|显示文字]]，例如 [[diary:42|那天关于旅行的日记]]。"
             "这样用户就可以直接点击链接跳转到那篇日记。"
             "请基于检索结果回答用户的查找请求，并附上日记链接。"
@@ -377,14 +379,11 @@ async def chat_stream(
         f"用户昵称：{nickname}\n"
         f"用户MBTI：{current_user.mbti or '未知'}\n"
         f"最近对话：\n{history_text or '无'}\n\n"
-    )
-    if rag_hits:
-        user_prompt += f"检索到的用户相关日记片段：\n{rag_text}\n\n"
-    user_prompt += (
+        f"用户日记背景知识：\n{rag_text}\n\n"
         f"用户当前问题：{message}\n\n"
         "请直接回复用户，不要输出JSON。"
     )
-    if rag_hits:
+    if wants_diary_link:
         user_prompt += "如果要引用日记请用 [[diary:ID|标题]] 格式。"
 
     async def event_gen() -> AsyncGenerator[str, None]:
