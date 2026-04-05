@@ -1,12 +1,12 @@
 // 日记列表页面 - 温暖柔和心理日记风格
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDiaryStore } from '@/store/diaryStore'
 import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { BookOpen, Sprout, Star } from 'lucide-react'
+import { BookOpen, Sprout, Star, Search, X } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 const EMOTION_FILTERS = ['全部', '开心', '平静', '焦虑', '成就感', '满足', '担忧', '疲惫']
@@ -25,10 +25,26 @@ export default function DiaryList() {
   const { diaries, isLoading, fetchDiaries, pagination, deleteDiary } = useDiaryStore()
   const [selectedEmotion, setSelectedEmotion] = useState<string | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; title: string } | null>(null)
+  const [keyword, setKeyword] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetchDiaries({ emotionTag: selectedEmotion })
-  }, [fetchDiaries, selectedEmotion])
+    fetchDiaries({ emotionTag: selectedEmotion, keyword: keyword || undefined })
+  }, [fetchDiaries, selectedEmotion, keyword])
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      setKeyword(value.trim())
+    }, 400)
+  }
+
+  const clearSearch = () => {
+    setSearchInput('')
+    setKeyword('')
+  }
 
   const handleDelete = async (id: number, title: string) => {
     setDeleteTarget({ id, title })
@@ -47,7 +63,7 @@ export default function DiaryList() {
 
   const handleLoadMore = () => {
     if (pagination.page < pagination.totalPages) {
-      fetchDiaries({ page: pagination.page + 1, emotionTag: selectedEmotion })
+      fetchDiaries({ page: pagination.page + 1, emotionTag: selectedEmotion, keyword: keyword || undefined })
     }
   }
 
@@ -92,6 +108,26 @@ export default function DiaryList() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8">
+        {/* 搜索框 */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300 pointer-events-none" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="搜索日记标题或内容..."
+            className="w-full h-10 pl-10 pr-10 rounded-2xl text-sm text-stone-600 placeholder:text-stone-300 bg-white border border-stone-100 focus:border-[#d8c7bc] focus:ring-2 focus:ring-rose-100 outline-none transition-all shadow-sm"
+          />
+          {searchInput && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
         {/* 情绪筛选 */}
         <div className="flex gap-2 flex-wrap mb-6">
           {EMOTION_FILTERS.map((label) => {
@@ -116,15 +152,30 @@ export default function DiaryList() {
         {/* 日记列表 */}
         {diaries.length === 0 ? (
           <div className="card-warm p-12 text-center">
-            <Sprout className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
-            <p className="text-stone-400 text-sm mb-5">还没有日记，开始写第一篇吧</p>
-            <button
-              onClick={() => navigate('/diaries/new')}
-              className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md"
-              style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
-            >
-              写日记
-            </button>
+            {keyword ? (
+              <>
+                <Search className="w-10 h-10 text-stone-200 mx-auto mb-3" />
+                <p className="text-stone-400 text-sm mb-2">未找到包含 "<span className="font-medium text-stone-500">{keyword}</span>" 的日记</p>
+                <button
+                  onClick={clearSearch}
+                  className="text-sm text-[#b56f61] hover:underline mt-2"
+                >
+                  清除搜索
+                </button>
+              </>
+            ) : (
+              <>
+                <Sprout className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
+                <p className="text-stone-400 text-sm mb-5">还没有日记，开始写第一篇吧</p>
+                <button
+                  onClick={() => navigate('/diaries/new')}
+                  className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md"
+                  style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
+                >
+                  写日记
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>

@@ -22,6 +22,7 @@ interface DiaryState {
     page?: number
     pageSize?: number
     emotionTag?: string
+    keyword?: string
   }) => Promise<void>
   fetchDiary: (id: number) => Promise<void>
   createDiary: (data: DiaryCreate) => Promise<Diary>
@@ -54,6 +55,7 @@ export const useDiaryStore = create<DiaryState>((set, _get) => ({
         page: params.page || 1,
         page_size: params.pageSize || 20,
         emotion_tag: params.emotionTag,
+        keyword: params.keyword,
       })
       set({
         diaries: response.items,

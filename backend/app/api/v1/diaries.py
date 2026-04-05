@@ -80,13 +80,14 @@ async def list_diaries(
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
     emotion_tag: Optional[str] = Query(None, description="情绪标签过滤"),
+    keyword: Optional[str] = Query(None, description="关键词搜索（标题+内容）"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     获取日记列表（分页）
 
-    支持按日期范围和情绪标签过滤
+    支持按日期范围、情绪标签和关键词过滤
     """
     diaries, total = await diary_service.list_diaries(
         db,
@@ -95,7 +96,8 @@ async def list_diaries(
         page_size=page_size,
         start_date=start_date,
         end_date=end_date,
-        emotion_tag=emotion_tag
+        emotion_tag=emotion_tag,
+        keyword=keyword,
     )
 
     total_pages = (total + page_size - 1) // page_size

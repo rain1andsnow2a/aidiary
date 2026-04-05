@@ -1,5 +1,6 @@
-// 富文本编辑器 - 基于 Lexical，支持 Markdown、图片上传、Slash 命令
+// 富文本编辑器 - 基于 Lexical，支持 Markdown、图片上传、Slash 命令、Notion 风格浮动工具栏
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
@@ -9,8 +10,9 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin'
 import {
   $getRoot, $createParagraphNode, $getSelection, $isRangeSelection,
-  FORMAT_TEXT_COMMAND, SELECTION_CHANGE_COMMAND,
-  COMMAND_PRIORITY_LOW, EditorState, LexicalEditor
+  FORMAT_TEXT_COMMAND, SELECTION_CHANGE_COMMAND, PASTE_COMMAND,
+  COMMAND_PRIORITY_LOW, COMMAND_PRIORITY_HIGH,
+  EditorState, LexicalEditor
 } from 'lexical'
 import { HeadingNode, QuoteNode } from '@lexical/rich-text'
 import { CodeNode } from '@lexical/code'
@@ -21,7 +23,7 @@ import {
   $convertFromMarkdownString, $convertToMarkdownString,
   TRANSFORMERS, type ElementTransformer,
 } from '@lexical/markdown'
-import { Bold, Italic, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Bold, Italic, Underline, Strikethrough, Code, Type, Image as ImageIcon, Loader2, ChevronDown } from 'lucide-react'
 import { diaryService } from '@/services/diary.service'
 import { toast } from '@/components/ui/toast'
 import { ImageNode, $createImageNode, $isImageNode } from './ImageNode'
@@ -44,7 +46,41 @@ const IMAGE_TRANSFORMER: ElementTransformer = {
 
 const STORAGE_TRANSFORMERS = [IMAGE_TRANSFORMER, ...TRANSFORMERS]
 
-// ---- Toolbar button ----
+// ---- 颜色/字号常量 ----
+const TEXT_COLORS = [
+  { label: '默认', value: '', css: 'inherit' },
+  { label: '灰', value: 'color-gray', css: '#787774' },
+  { label: '棕', value: 'color-brown', css: '#9F6B53' },
+  { label: '橙', value: 'color-orange', css: '#D9730D' },
+  { label: '黄', value: 'color-yellow', css: '#CB912F' },
+  { label: '绿', value: 'color-green', css: '#448361' },
+  { label: '蓝', value: 'color-blue', css: '#337EA9' },
+  { label: '紫', value: 'color-purple', css: '#9065B0' },
+  { label: '粉', value: 'color-pink', css: '#C14C8A' },
+  { label: '红', value: 'color-red', css: '#D44C47' },
+]
+
+const BG_COLORS = [
+  { label: '无', value: '', css: 'transparent' },
+  { label: '灰', value: 'bg-gray', css: '#F1F1EF' },
+  { label: '棕', value: 'bg-brown', css: '#F4EEEE' },
+  { label: '橙', value: 'bg-orange', css: '#FBECDD' },
+  { label: '黄', value: 'bg-yellow', css: '#FBF3DB' },
+  { label: '绿', value: 'bg-green', css: '#EDF3EC' },
+  { label: '蓝', value: 'bg-blue', css: '#E7F3F8' },
+  { label: '紫', value: 'bg-purple', css: '#F6F3F9' },
+  { label: '粉', value: 'bg-pink', css: '#FAF1F5' },
+  { label: '红', value: 'bg-red', css: '#FDEBEC' },
+]
+
+const FONT_SIZES = [
+  { label: '小', value: 'fs-sm', css: '13px' },
+  { label: '正常', value: '', css: '15px' },
+  { label: '大', value: 'fs-lg', css: '18px' },
+  { label: '特大', value: 'fs-xl', css: '22px' },
+]
+
+// ---- Toolbar button (顶部栏用) ----
 function ToolbarBtn({
   children, onClick, title, disabled, active,
 }: {
@@ -71,78 +107,286 @@ function ToolbarBtn({
   )
 }
 
-// ---- Toolbar ----
-function ToolbarPlugin({
+// ---- 顶部简版工具栏 ----
+function TopToolbarPlugin({
   onRequestImage,
   uploading,
 }: {
   onRequestImage: () => void
   uploading: boolean
 }) {
-  const [editor] = useLexicalComposerContext()
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false })
-
-  useEffect(() => {
-    const updateToolbar = (editorState: EditorState) => {
-      editorState.read(() => {
-        const selection = $getSelection()
-        if ($isRangeSelection(selection)) {
-          setActiveFormats({
-            bold: selection.hasFormat('bold'),
-            italic: selection.hasFormat('italic'),
-          })
-          return
-        }
-        setActiveFormats({ bold: false, italic: false })
-      })
-    }
-
-    updateToolbar(editor.getEditorState())
-
-    const unregisterUpdate = editor.registerUpdateListener(({ editorState }) => {
-      updateToolbar(editorState)
-    })
-
-    const unregisterSelection = editor.registerCommand(
-      SELECTION_CHANGE_COMMAND,
-      () => {
-        updateToolbar(editor.getEditorState())
-        return false
-      },
-      COMMAND_PRIORITY_LOW
-    )
-
-    return () => {
-      unregisterUpdate()
-      unregisterSelection()
-    }
-  }, [editor])
-
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b border-rose-50 bg-rose-50/30">
-      <ToolbarBtn
-        title="加粗"
-        active={activeFormats.bold}
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}
-      >
-        <Bold className="w-3.5 h-3.5" />
-      </ToolbarBtn>
-      <ToolbarBtn
-        title="斜体"
-        active={activeFormats.italic}
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')}
-      >
-        <Italic className="w-3.5 h-3.5" />
-      </ToolbarBtn>
-      <div className="w-px h-4 bg-stone-200 mx-1" />
       <ToolbarBtn title="插入图片" onClick={onRequestImage} disabled={uploading}>
         {uploading
           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
           : <ImageIcon className="w-3.5 h-3.5" />}
       </ToolbarBtn>
-      <span className="ml-2 text-[11px] text-stone-300 select-none">输入 / 可插入图片</span>
+      <span className="ml-2 text-[11px] text-stone-300 select-none">选中文字可弹出格式工具栏 · 输入 / 可插入图片 · Ctrl+V 可粘贴图片</span>
     </div>
   )
+}
+
+// ---- Notion 风格浮动工具栏 ----
+function FloatingToolbarPlugin() {
+  const [editor] = useLexicalComposerContext()
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [show, setShow] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const [formats, setFormats] = useState({
+    bold: false, italic: false, underline: false, strikethrough: false, code: false,
+  })
+  const [colorPanel, setColorPanel] = useState<'text' | 'bg' | 'size' | null>(null)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const updateToolbar = useCallback(() => {
+    const editorState = editor.getEditorState()
+    editorState.read(() => {
+      const selection = $getSelection()
+      if (!$isRangeSelection(selection) || selection.isCollapsed()) {
+        setShow(false)
+        setColorPanel(null)
+        return
+      }
+      setFormats({
+        bold: selection.hasFormat('bold'),
+        italic: selection.hasFormat('italic'),
+        underline: selection.hasFormat('underline'),
+        strikethrough: selection.hasFormat('strikethrough'),
+        code: selection.hasFormat('code'),
+      })
+
+      const nativeSel = window.getSelection()
+      if (!nativeSel || nativeSel.rangeCount === 0) return
+      const range = nativeSel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      if (rect.width === 0) { setShow(false); return }
+
+      setPos({
+        top: rect.top + window.scrollY - 52,
+        left: rect.left + window.scrollX + rect.width / 2,
+      })
+      setShow(true)
+    })
+  }, [editor])
+
+  useEffect(() => {
+    const unsub1 = editor.registerUpdateListener(() => updateToolbar())
+    const unsub2 = editor.registerCommand(
+      SELECTION_CHANGE_COMMAND,
+      () => { updateToolbar(); return false },
+      COMMAND_PRIORITY_LOW,
+    )
+    return () => { unsub1(); unsub2() }
+  }, [editor, updateToolbar])
+
+  // 鼠标离开工具栏时延迟隐藏（给面板留时间）
+  const handleMouseLeave = () => {
+    hideTimer.current = setTimeout(() => setColorPanel(null), 300)
+  }
+  const handleMouseEnter = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+  }
+
+  const applyFormat = (format: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code') => {
+    editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)
+  }
+
+  // 应用文字颜色/背景色/字号 — 通过 style 属性
+  const applyStyle = (property: string, value: string) => {
+    editor.update(() => {
+      const selection = $getSelection()
+      if (!$isRangeSelection(selection)) return
+      const nodes = selection.getNodes()
+      nodes.forEach((node) => {
+        // 文本节点设置 style
+        if (node.getType() === 'text') {
+          const current = (node as any).getStyle() || ''
+          // 移除同类属性
+          const cleaned = current.replace(new RegExp(property + String.raw`:\s*[^;]+;?`, 'g'), '').trim()
+          const newStyle = value ? `${cleaned}${cleaned && !cleaned.endsWith(';') ? ';' : ''}${property}: ${value};` : cleaned
+          ;(node as any).setStyle(newStyle)
+        }
+      })
+    })
+    setColorPanel(null)
+  }
+
+  if (!show) return null
+
+  const FmtBtn = ({ active, onClick, children, title }: { active?: boolean; onClick: () => void; children: React.ReactNode; title: string }) => (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      className={`w-8 h-8 flex items-center justify-center rounded-md transition-all ${
+        active ? 'bg-stone-700 text-white' : 'text-stone-300 hover:text-white hover:bg-stone-600'
+      }`}
+    >
+      {children}
+    </button>
+  )
+
+  const toolbar = (
+    <div
+      ref={toolbarRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className="fixed z-[9999]"
+      style={{ top: pos.top, left: pos.left, transform: 'translateX(-50%)' }}
+    >
+      {/* 主工具栏 */}
+      <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-stone-800/95 backdrop-blur-sm shadow-xl border border-stone-700/50">
+        {/* 字号 */}
+        <div className="relative">
+          <button
+            type="button"
+            title="字号"
+            onMouseDown={(e) => { e.preventDefault(); setColorPanel(colorPanel === 'size' ? null : 'size') }}
+            className="h-8 px-2 flex items-center gap-0.5 rounded-md text-stone-300 hover:text-white hover:bg-stone-600 transition-all"
+          >
+            <Type className="w-3.5 h-3.5" />
+            <ChevronDown className="w-2.5 h-2.5" />
+          </button>
+          {colorPanel === 'size' && (
+            <div className="absolute top-full left-0 mt-2 p-2 rounded-xl bg-white shadow-2xl border border-stone-100 min-w-[120px] z-10">
+              <p className="text-[10px] text-stone-400 px-2 mb-1.5 font-medium">字号</p>
+              {FONT_SIZES.map((s) => (
+                <button
+                  key={s.value || 'default'}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); applyStyle('font-size', s.css === '15px' ? '' : s.css) }}
+                  className="w-full text-left px-2 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-50 transition-colors flex items-center gap-2"
+                >
+                  <span style={{ fontSize: s.css }}>{s.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 文字颜色 */}
+        <div className="relative">
+          <button
+            type="button"
+            title="文字颜色"
+            onMouseDown={(e) => { e.preventDefault(); setColorPanel(colorPanel === 'text' ? null : 'text') }}
+            className="h-8 px-2 flex items-center gap-0.5 rounded-md text-stone-300 hover:text-white hover:bg-stone-600 transition-all"
+          >
+            <span className="text-xs font-bold border-b-2 border-rose-400">A</span>
+            <ChevronDown className="w-2.5 h-2.5" />
+          </button>
+          {colorPanel === 'text' && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-3 rounded-xl bg-white shadow-2xl border border-stone-100 z-10 w-[220px]">
+              <p className="text-[10px] text-stone-400 mb-2 font-medium">文字颜色</p>
+              <div className="grid grid-cols-5 gap-1.5">
+                {TEXT_COLORS.map((c) => (
+                  <button
+                    key={c.value || 'default'}
+                    type="button"
+                    title={c.label}
+                    onMouseDown={(e) => { e.preventDefault(); applyStyle('color', c.value ? c.css : '') }}
+                    className="w-9 h-9 rounded-lg border border-stone-100 hover:border-stone-300 flex items-center justify-center transition-all hover:scale-110"
+                    style={{ backgroundColor: c.value ? undefined : '#fff' }}
+                  >
+                    <span className="text-sm font-bold" style={{ color: c.css === 'inherit' ? '#37352F' : c.css }}>A</span>
+                  </button>
+                ))}
+              </div>
+              <div className="border-t border-stone-100 mt-3 pt-3">
+                <p className="text-[10px] text-stone-400 mb-2 font-medium">背景颜色</p>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {BG_COLORS.map((c) => (
+                    <button
+                      key={c.value || 'default-bg'}
+                      type="button"
+                      title={c.label}
+                      onMouseDown={(e) => { e.preventDefault(); applyStyle('background-color', c.value ? c.css : '') }}
+                      className="w-9 h-9 rounded-lg border border-stone-100 hover:border-stone-300 transition-all hover:scale-110"
+                      style={{ backgroundColor: c.css === 'transparent' ? '#fff' : c.css }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-5 bg-stone-600 mx-0.5" />
+
+        {/* 格式按钮 */}
+        <FmtBtn active={formats.bold} onClick={() => applyFormat('bold')} title="加粗">
+          <Bold className="w-3.5 h-3.5" />
+        </FmtBtn>
+        <FmtBtn active={formats.italic} onClick={() => applyFormat('italic')} title="斜体">
+          <Italic className="w-3.5 h-3.5" />
+        </FmtBtn>
+        <FmtBtn active={formats.underline} onClick={() => applyFormat('underline')} title="下划线">
+          <Underline className="w-3.5 h-3.5" />
+        </FmtBtn>
+        <FmtBtn active={formats.strikethrough} onClick={() => applyFormat('strikethrough')} title="删除线">
+          <Strikethrough className="w-3.5 h-3.5" />
+        </FmtBtn>
+        <FmtBtn active={formats.code} onClick={() => applyFormat('code')} title="行内代码">
+          <Code className="w-3.5 h-3.5" />
+        </FmtBtn>
+      </div>
+    </div>
+  )
+
+  return createPortal(toolbar, document.body)
+}
+
+// ---- Ctrl+V 粘贴图片插件 ----
+function PasteImagePlugin() {
+  const [editor] = useLexicalComposerContext()
+
+  useEffect(() => {
+    const unregister = editor.registerCommand(
+      PASTE_COMMAND,
+      (event: ClipboardEvent) => {
+        const clipboardData = event.clipboardData || (event as any).originalEvent?.clipboardData
+        if (!clipboardData) return false
+
+        const items = Array.from(clipboardData.items) as DataTransferItem[]
+        const imageItem = items.find((item: DataTransferItem) => item.type.startsWith('image/'))
+        if (!imageItem) return false
+
+        event.preventDefault()
+        const file = imageItem.getAsFile()
+        if (!file) return false
+
+        // 上传图片
+        const upload = async () => {
+          try {
+            toast('正在上传图片...', 'info')
+            const url = await diaryService.uploadImage(file)
+            editor.update(() => {
+              const imageNode = $createImageNode(url, '图片')
+              const trailingParagraph = $createParagraphNode()
+              const selection = $getSelection()
+              if ($isRangeSelection(selection)) {
+                selection.insertNodes([imageNode, trailingParagraph])
+              } else {
+                const root = $getRoot()
+                root.append(imageNode)
+                root.append(trailingParagraph)
+              }
+            })
+            toast('图片已插入', 'success')
+          } catch {
+            toast('图片上传失败', 'error')
+          }
+        }
+        upload()
+        return true
+      },
+      COMMAND_PRIORITY_HIGH,
+    )
+    return () => unregister()
+  }, [editor])
+
+  return null
 }
 
 // ---- Slash command ----
@@ -328,7 +572,7 @@ export default function RichTextEditor({
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <div className="flex flex-col">
-        <ToolbarPlugin onRequestImage={() => fileInputRef.current?.click()} uploading={uploading} />
+        <TopToolbarPlugin onRequestImage={() => fileInputRef.current?.click()} uploading={uploading} />
         <input
           ref={fileInputRef}
           type="file"
@@ -367,6 +611,8 @@ export default function RichTextEditor({
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
           <OnChangePlugin onChange={handleChange} />
           <InitialValuePlugin value={value} />
+          <FloatingToolbarPlugin />
+          <PasteImagePlugin />
           <SlashCommandPlugin
             onOpenImagePicker={() => fileInputRef.current?.click()}
             onVisibilityChange={setShowSlashMenu}

@@ -139,7 +139,8 @@ class DiaryService:
         page_size: int = 20,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        emotion_tag: Optional[str] = None
+        emotion_tag: Optional[str] = None,
+        keyword: Optional[str] = None,
     ) -> Tuple[List[Diary], int]:
         """
         获取日记列表
@@ -152,6 +153,7 @@ class DiaryService:
             start_date: 开始日期（可选）
             end_date: 结束日期（可选）
             emotion_tag: 情绪标签过滤（可选）
+            keyword: 关键词搜索（标题+内容，可选）
 
         Returns:
             Tuple[List[Diary], int]: (日记列表, 总数)
@@ -165,6 +167,9 @@ class DiaryService:
             conditions.append(Diary.diary_date <= end_date)
         if emotion_tag:
             conditions.append(Diary.emotion_tags.contains([emotion_tag]))
+        if keyword:
+            kw = f"%{keyword}%"
+            conditions.append(or_(Diary.title.ilike(kw), Diary.content.ilike(kw)))
 
         # 查询总数
         count_query = select(func.count(Diary.id)).where(and_(*conditions))

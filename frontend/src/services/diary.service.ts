@@ -25,6 +25,7 @@ export const diaryService = {
     emotion_tag?: string
     start_date?: string
     end_date?: string
+    keyword?: string
   }): Promise<DiaryListResponse> => {
     const response = await api.get<DiaryListResponse>('/api/v1/diaries/', { params })
     return response.data
