@@ -160,14 +160,15 @@ class EmotionFeatureExtractor:
     def __init__(self):
         jieba.setLogLevel(logging.WARNING)
         self.vad_lexicon: dict[str, tuple[float, float, float]] = dict(EMOTION_LEXICON)
-        self._load_external_lexicons_if_enabled()
+        self._bootstrap_lexicon_sources()
 
-    def _load_external_lexicons_if_enabled(self) -> None:
+    def _bootstrap_lexicon_sources(self) -> None:
         """
-        可选加载外部情绪词典（如 NTUSD），用于补充现有 VAD 词典覆盖。
+        情绪词典底座升级：支持多来源融合（本地词典优先 + 可选 pysenti）。
 
         环境变量：
         - EMOTION_EXT_LEXICON_ENABLED=true/false（默认 true）
+        - EMOTION_LEXICON_SOURCES=builtin,ntusd,pysenti（默认）
         - EMOTION_EXT_LEXICON_WEIGHT=0.65（0~1，外部词典融合权重）
         - EMOTION_EXT_LEXICON_POS_PATH=...（正向词表路径）
         - EMOTION_EXT_LEXICON_NEG_PATH=...（负向词表路径）
@@ -177,12 +178,11 @@ class EmotionFeatureExtractor:
             logger.info("[EmotionFeature] 外部词典已禁用")
             return
 
-        app_dir = Path(__file__).resolve().parents[1]
-        default_pos = app_dir / "data" / "lexicons" / "ntusd_positive_simplified.txt"
-        default_neg = app_dir / "data" / "lexicons" / "ntusd_negative_simplified.txt"
+        sources = [s.strip().lower() for s in os.getenv("EMOTION_LEXICON_SOURCES", "builtin,ntusd,pysenti").split(",") if s.strip()]
+        if "builtin" not in sources:
+            sources.insert(0, "builtin")
 
-        pos_path = Path(os.getenv("EMOTION_EXT_LEXICON_POS_PATH", str(default_pos))).expanduser()
-        neg_path = Path(os.getenv("EMOTION_EXT_LEXICON_NEG_PATH", str(default_neg))).expanduser()
+        logger.info("[EmotionFeature] 词典源: %s", ",".join(sources))
 
         try:
             ext_weight = float(os.getenv("EMOTION_EXT_LEXICON_WEIGHT", "0.65"))
@@ -190,12 +190,25 @@ class EmotionFeatureExtractor:
             ext_weight = 0.65
         ext_weight = float(np.clip(ext_weight, 0.0, 1.0))
 
+        if "ntusd" in sources:
+            self._load_ntusd_lexicon(ext_weight)
+        if "pysenti" in sources:
+            self._load_pysenti_lexicon(ext_weight)
+
+    def _load_ntusd_lexicon(self, ext_weight: float) -> None:
+        app_dir = Path(__file__).resolve().parents[1]
+        default_pos = app_dir / "data" / "lexicons" / "ntusd_positive_simplified.txt"
+        default_neg = app_dir / "data" / "lexicons" / "ntusd_negative_simplified.txt"
+
+        pos_path = Path(os.getenv("EMOTION_EXT_LEXICON_POS_PATH", str(default_pos))).expanduser()
+        neg_path = Path(os.getenv("EMOTION_EXT_LEXICON_NEG_PATH", str(default_neg))).expanduser()
+
         pos_words = self._load_word_list(pos_path)
         neg_words = self._load_word_list(neg_path)
 
         if not pos_words and not neg_words:
             logger.info(
-                "[EmotionFeature] 未找到外部词典文件，跳过融合。POS=%s NEG=%s",
+                "[EmotionFeature] NTUSD词典未找到，跳过融合。POS=%s NEG=%s",
                 pos_path, neg_path
             )
             return
@@ -220,9 +233,65 @@ class EmotionFeatureExtractor:
                 updated += 1
 
         logger.info(
-            "[EmotionFeature] 外部词典融合完成: pos=%d neg=%d added=%d updated=%d weight=%.2f",
+            "[EmotionFeature] NTUSD融合完成: pos=%d neg=%d added=%d updated=%d weight=%.2f",
             len(pos_words), len(neg_words), added, updated, ext_weight
         )
+
+    def _load_pysenti_lexicon(self, ext_weight: float) -> None:
+        """
+        可选融合 pysenti 词典：
+        - 若环境装了 pysenti，则自动扫描其包目录下词典文件。
+        - 支持从文件名推断正负极性（pos/neg/positive/negative）。
+        """
+        try:
+            import pysenti  # type: ignore
+        except Exception:
+            logger.info("[EmotionFeature] pysenti 未安装，跳过 pysenti 词典融合")
+            return
+
+        base = Path(getattr(pysenti, "__file__", "")).resolve().parent
+        candidates = list(base.rglob("*.txt"))
+        if not candidates:
+            logger.info("[EmotionFeature] pysenti 未发现可读词典文件，跳过融合")
+            return
+
+        added = 0
+        updated = 0
+        used_files = 0
+        for fp in candidates:
+            lower_name = fp.name.lower()
+            if not any(k in lower_name for k in ("sent", "emotion", "positive", "negative", "pos", "neg", "lexicon")):
+                continue
+
+            sign = self._infer_file_polarity(lower_name)
+            if sign == 0:
+                continue
+            proto = (0.58, 0.52, 0.56) if sign > 0 else (-0.58, 0.55, 0.34)
+            words = self._load_word_list(fp)
+            if not words:
+                continue
+            used_files += 1
+            for w in words:
+                if self._merge_word_vad(w, proto, ext_weight):
+                    added += 1
+                else:
+                    updated += 1
+
+        logger.info(
+            "[EmotionFeature] pysenti融合完成: files=%d added=%d updated=%d weight=%.2f",
+            used_files, added, updated, ext_weight
+        )
+
+    @staticmethod
+    def _infer_file_polarity(file_name: str) -> int:
+        pos_hits = ("positive", "_pos", "-pos", "pos_", "good", "赞", "正向", "积极")
+        neg_hits = ("negative", "_neg", "-neg", "neg_", "bad", "贬", "负向", "消极")
+        lname = file_name.lower()
+        if any(k in lname for k in pos_hits):
+            return 1
+        if any(k in lname for k in neg_hits):
+            return -1
+        return 0
 
     @staticmethod
     def _load_word_list(path: Path) -> list[str]:
@@ -235,6 +304,8 @@ class EmotionFeatureExtractor:
                     line = raw.strip()
                     if not line:
                         continue
+                    if line.startswith("#"):
+                        continue
                     # 兼容 "词\t分数" / "词 分数" / "词"
                     token = re.split(r"[\t\s,]+", line)[0].strip()
                     if token:
@@ -242,7 +313,15 @@ class EmotionFeatureExtractor:
         except Exception as e:
             logger.warning("[EmotionFeature] 读取词典失败: %s err=%s", path, e)
             return []
-        return words
+        # 去重并保持顺序
+        seen = set()
+        uniq = []
+        for w in words:
+            if w in seen:
+                continue
+            seen.add(w)
+            uniq.append(w)
+        return uniq
 
     def _merge_word_vad(
         self,
