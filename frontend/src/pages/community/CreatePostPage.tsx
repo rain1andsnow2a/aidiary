@@ -1,6 +1,7 @@
 // 发帖页面
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { communityService } from '@/services/community.service'
 import { toast } from '@/components/ui/toast'
 import { ArrowLeft, ImagePlus, X, EyeOff } from 'lucide-react'
@@ -15,6 +16,7 @@ const CIRCLES = [
 
 export default function CreatePostPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [circleId, setCircleId] = useState('')
@@ -28,7 +30,7 @@ export default function CreatePostPage() {
     const files = e.target.files
     if (!files || files.length === 0) return
     if (images.length + files.length > 9) {
-      toast('最多上传9张图片', 'error')
+      toast(t('createPost.maxImages'), 'error')
       return
     }
 
@@ -39,7 +41,7 @@ export default function CreatePostPage() {
         setImages((prev) => [...prev, url])
       }
     } catch {
-      toast('图片上传失败', 'error')
+      toast(t('createPost.uploadFailed'), 'error')
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -52,11 +54,11 @@ export default function CreatePostPage() {
 
   const handleSubmit = async () => {
     if (!circleId) {
-      toast('请选择一个圈子', 'error')
+      toast(t('createPost.selectCircle'), 'error')
       return
     }
     if (!content.trim()) {
-      toast('请输入内容', 'error')
+      toast(t('createPost.enterContent'), 'error')
       return
     }
 
@@ -68,10 +70,10 @@ export default function CreatePostPage() {
         images,
         is_anonymous: isAnonymous,
       })
-      toast('发布成功', 'success')
+      toast(t('createPost.publishSuccess'), 'success')
       navigate('/community', { replace: true })
     } catch (err: any) {
-      toast(err?.response?.data?.detail || '发布失败', 'error')
+      toast(err?.response?.data?.detail || t('createPost.publishFailed'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -85,16 +87,16 @@ export default function CreatePostPage() {
           <div className="flex justify-between items-center h-14">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-600 transition-colors">
               <ArrowLeft className="w-4 h-4" />
-              取消
+              {t('common.cancel')}
             </button>
-            <h1 className="text-sm font-semibold text-stone-700">发布动态</h1>
+            <h1 className="text-sm font-semibold text-stone-700">{t('createPost.pageTitle')}</h1>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !content.trim() || !circleId}
               className="h-8 px-5 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-40 transition-all active:scale-[0.97]"
               style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
             >
-              {isSubmitting ? '发布中...' : '发布'}
+              {isSubmitting ? t('createPost.publishing') : t('createPost.publish')}
             </button>
           </div>
         </div>
@@ -103,7 +105,7 @@ export default function CreatePostPage() {
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
         {/* 选择圈子 */}
         <div>
-          <p className="text-xs text-stone-400 mb-2.5">选择圈子</p>
+          <p className="text-xs text-stone-400 mb-2.5">{t('createPost.selectCircle')}</p>
           <div className="flex flex-wrap gap-2">
             {CIRCLES.map((c) => (
               <button
@@ -132,7 +134,7 @@ export default function CreatePostPage() {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="分享你此刻的感受..."
+            placeholder={t('createPost.placeholder')}
             rows={8}
             maxLength={5000}
             className="w-full px-4 py-3.5 rounded-2xl bg-white/70 border border-white/80 text-sm text-stone-700 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#e88f7b]/20 focus:border-[#e88f7b]/30 transition-all leading-relaxed"
@@ -161,7 +163,7 @@ export default function CreatePostPage() {
                 className="w-20 h-20 rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:text-stone-400 hover:border-stone-300 transition-all"
               >
                 <ImagePlus className="w-5 h-5" />
-                <span className="text-[10px] mt-0.5">{isUploading ? '上传中' : '添加'}</span>
+                <span className="text-[10px] mt-0.5">{isUploading ? t('createPost.uploading') : t('createPost.add')}</span>
               </button>
             )}
           </div>
@@ -180,8 +182,8 @@ export default function CreatePostPage() {
           <div className="flex items-center gap-2.5">
             <EyeOff className="w-4 h-4 text-stone-400" />
             <div>
-              <p className="text-sm text-stone-600">匿名发布</p>
-              <p className="text-[10px] text-stone-300">其他人不会看到你的身份</p>
+              <p className="text-sm text-stone-600">{t('createPost.anonymousPublish')}</p>
+              <p className="text-[10px] text-stone-300">{t('createPost.anonymousHint')}</p>
             </div>
           </div>
           <button
@@ -199,7 +201,7 @@ export default function CreatePostPage() {
         {isAnonymous && (
           <div className="px-4 py-3 rounded-2xl bg-amber-50/60 border border-amber-100/80">
             <p className="text-xs text-amber-600/80">
-              匿名帖子发布后不可编辑，请确认内容后再发布。
+              {t('createPost.anonymousWarning')}
             </p>
           </div>
         )}

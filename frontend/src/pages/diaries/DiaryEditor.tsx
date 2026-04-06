@@ -1,47 +1,53 @@
 // 日记编辑器 - 温暖柔和心理日记风格
 import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useDiaryStore } from '@/store/diaryStore'
 import { toast } from '@/components/ui/toast'
 import { PenLine, Calendar, MessageCircle, Star, Smile, CloudSun, AlertCircle, Trophy, HeartHandshake, HelpCircle, Sparkles, Battery, Heart, Angry, Frown, PartyPopper, ChevronRight, RefreshCw } from 'lucide-react'
 import RichTextEditor from '@/components/editor/RichTextEditor'
 import { aiService } from '@/services/ai.service'
 import { diaryService } from '@/services/diary.service'
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
 
-const PRESET_EMOTIONS = [
-  { label: '开心', icon: <Smile className="w-3.5 h-3.5" /> },
-  { label: '平静', icon: <CloudSun className="w-3.5 h-3.5" /> },
-  { label: '焦虑', icon: <AlertCircle className="w-3.5 h-3.5" /> },
-  { label: '成就感', icon: <Trophy className="w-3.5 h-3.5" /> },
-  { label: '满足', icon: <HeartHandshake className="w-3.5 h-3.5" /> },
-  { label: '担忧', icon: <HelpCircle className="w-3.5 h-3.5" /> },
-  { label: '期待', icon: <Sparkles className="w-3.5 h-3.5" /> },
-  { label: '疲惫', icon: <Battery className="w-3.5 h-3.5" /> },
-  { label: '感动', icon: <Heart className="w-3.5 h-3.5" /> },
-  { label: '愤怒', icon: <Angry className="w-3.5 h-3.5" /> },
-  { label: '悲伤', icon: <Frown className="w-3.5 h-3.5" /> },
-  { label: '兴奋', icon: <PartyPopper className="w-3.5 h-3.5" /> },
+const PRESET_EMOTIONS_KEYS = [
+  'happy', 'calm', 'anxious', 'achievement', 'satisfied',
+  'worried', 'expectant', 'exhausted', 'touched', 'angry', 'sad', 'excited'
 ]
 
-// 每日引导问题（基于时间随机选取）
-const GUIDED_QUESTIONS = [
-  '今天有没有一个让你印象深刻的瞬间？',
-  '今天你感觉最充实的事情是什么？',
-  '有没有什么话你想对今天的自己说？',
-  '今天遇到了什么挑战？你是怎么应对的？',
-  '今天有什么让你感到温暖或感动的事？',
-  '今天的心情用一个词来形容会是什么？',
-  '今天有没有什么事情让你感到困惑或烦恼？',
-  '如果今天可以重来，你会改变什么？',
-  '今天你为自己做了什么？',
-  '此刻你最想感谢的人或事是什么？',
+const GUIDED_QUESTIONS_KEYS = [
+  'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10'
 ]
 
 export default function DiaryEditor() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const isEditMode = Boolean(id)
   const navigate = useNavigate()
   const { createDiary, updateDiary, isLoading } = useDiaryStore()
+
+  // 引导问题（带翻译）
+  const GUIDED_QUESTIONS = GUIDED_QUESTIONS_KEYS.map(key => t(`auth.guidedQuestions.${key}`))
+
+  // 情绪预设（带翻译）
+  const PRESET_EMOTIONS = PRESET_EMOTIONS_KEYS.map(key => ({
+    key,
+    label: t(`diary.emotion.${key}`),
+    icon: {
+      happy: <Smile className="w-3.5 h-3.5" />,
+      calm: <CloudSun className="w-3.5 h-3.5" />,
+      anxious: <AlertCircle className="w-3.5 h-3.5" />,
+      achievement: <Trophy className="w-3.5 h-3.5" />,
+      satisfied: <HeartHandshake className="w-3.5 h-3.5" />,
+      worried: <HelpCircle className="w-3.5 h-3.5" />,
+      expectant: <Sparkles className="w-3.5 h-3.5" />,
+      exhausted: <Battery className="w-3.5 h-3.5" />,
+      touched: <Heart className="w-3.5 h-3.5" />,
+      angry: <Angry className="w-3.5 h-3.5" />,
+      sad: <Frown className="w-3.5 h-3.5" />,
+      excited: <PartyPopper className="w-3.5 h-3.5" />,
+    }[key]
+  }))
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -125,7 +131,7 @@ export default function DiaryEditor() {
           emotion_tags: emotionTags.length > 0 ? emotionTags : [],
           importance_score: importanceScore,
         })
-        toast('日记更新成功', 'success')
+        toast(t('diary.updateSuccess'), 'success')
         navigate(`/diaries/${id}`)
       } else {
         const diary = await createDiary({
@@ -136,28 +142,28 @@ export default function DiaryEditor() {
           emotion_tags: emotionTags.length > 0 ? emotionTags : undefined,
           importance_score: importanceScore,
         })
-        toast('日记保存成功', 'success')
+        toast(t('diary.saveSuccess'), 'success')
         // 不再自动触发综合分析（萨提亚）
         // 时间轴事件由后端自动生成 + 异步精炼
         navigate(`/diaries/${diary.id}`)
       }
     } catch (error: any) {
-      toast(error.message || '保存失败', 'error')
+      toast(error.message || t('diary.saveFailed'), 'error')
     }
   }
 
   const handleGenerateTitle = async () => {
     if (!content.trim() || content.trim().length < 10) {
-      toast('先写几句内容，AI 才能更懂你', 'error')
+      toast(t('diary.needContentForTitle'), 'error')
       return
     }
     try {
       setIsGeneratingTitle(true)
       const result = await aiService.generateTitle(content, title)
       setTitle(result.title)
-      toast('已生成标题', 'success')
+      toast(t('diary.titleGenerated'), 'success')
     } catch (error: any) {
-      toast(error?.response?.data?.detail || '生成标题失败', 'error')
+      toast(error?.response?.data?.detail || t('diary.titleGenerateFailed'), 'error')
     } finally {
       setIsGeneratingTitle(false)
     }
@@ -169,7 +175,12 @@ export default function DiaryEditor() {
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(158deg, #f8f5ef 0%, #f2eef5 58%, #f5f2ee 100%)' }}>
       {/* 顶部导航 */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-stone-200/70" style={{ background: 'rgba(248,245,239,0.88)' }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-stone-200/70 relative" style={{ background: 'rgba(248,245,239,0.88)' }}>
+        {/* 语言切换器 */}
+        <div className="absolute top-2 right-4">
+          <LanguageSwitcher />
+        </div>
+        
         <div className="max-w-2xl mx-auto px-6">
           <div className="flex justify-between items-center py-3.5">
             <div className="flex items-center gap-3">
@@ -177,16 +188,16 @@ export default function DiaryEditor() {
                 onClick={() => navigate(-1)}
                 className="text-sm text-stone-400 hover:text-stone-600 transition-colors flex items-center gap-1"
               >
-                ← 返回
+                ← {t('common.back')}
               </button>
               <button
                 onClick={() => navigate('/')}
                 className="text-sm text-[#b56f61] hover:text-[#9c5e52] transition-colors"
               >
-                回首页
+                {t('navigation.dashboard')}
               </button>
             </div>
-            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><PenLine className="w-4 h-4 text-[#b56f61]" /> 写日记</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><PenLine className="w-4 h-4 text-[#b56f61]" /> {isEditMode ? t('diary.editDiary') : t('diary.newDiary')}</span>
             <button
               onClick={handleSubmit}
               disabled={isLoading || isInitializing}
@@ -195,7 +206,7 @@ export default function DiaryEditor() {
             >
               {isLoading || isAnalyzing
                 ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : isEditMode ? '更新' : '保存'}
+                : isEditMode ? t('common.update') : t('common.save')}
             </button>
           </div>
         </div>
@@ -203,7 +214,7 @@ export default function DiaryEditor() {
 
       <main className="max-w-2xl mx-auto px-6 py-8">
         {isInitializing ? (
-          <div className="card-warm p-8 text-center text-stone-400 text-sm">正在加载日记...</div>
+          <div className="card-warm p-8 text-center text-stone-400 text-sm">{t('common.loading')}</div>
         ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* 标题与日期 */}
@@ -211,7 +222,7 @@ export default function DiaryEditor() {
             <div className="flex items-center gap-3">
               <input
                 type="text"
-                placeholder="给今天起个标题..."
+                placeholder={t('editor.titlePlaceholder')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="flex-1 bg-transparent text-xl font-bold text-stone-700 placeholder:text-stone-200 outline-none border-none"
@@ -225,7 +236,7 @@ export default function DiaryEditor() {
               >
                 {isGeneratingTitle
                   ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  : 'AI 起题'}
+                  : t('editor.aiTitle')}
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -243,16 +254,16 @@ export default function DiaryEditor() {
           <div className="card-warm p-4 flex items-start gap-3">
             <Sparkles className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-stone-400 mb-1">今日思考</p>
+              <p className="text-xs text-stone-400 mb-1">{t('editor.dailyQuestion')}</p>
               <p className="text-sm text-stone-600 leading-6">{guidedQuestion}</p>
-              <p className="text-[11px] text-stone-300 mt-1">{guidanceSource === 'ai' ? 'AI个性化问题' : '系统引导问题'}</p>
+              <p className="text-[11px] text-stone-300 mt-1">{guidanceSource === 'ai' ? t('editor.aiGuidance') : t('editor.fallbackGuidance')}</p>
             </div>
             <button
               type="button"
               onClick={() => void loadDailyGuidance()}
               disabled={isLoadingGuidance}
               className="shrink-0 h-7 w-7 rounded-lg border border-[#e7dbd5] bg-white text-stone-400 hover:text-stone-600 hover:bg-[#f8f5f2] transition-colors disabled:opacity-50 flex items-center justify-center"
-              title="换一题"
+              title={t('editor.refreshQuestion')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingGuidance ? 'animate-spin' : ''}`} />
             </button>
@@ -272,10 +283,10 @@ export default function DiaryEditor() {
               onChange={handleContentChange}
             />
             <div className="px-6 py-3 border-t border-[#efe6e0] flex justify-between items-center">
-              <span className="text-xs text-stone-300">{wordCount} 字</span>
+              <span className="text-xs text-stone-300">{wordCount} {t('diary.words')}</span>
               {wordCount > 0 && (
                 <span className="text-xs text-[#c89b8e]">
-                  {wordCount < 100 ? '继续写写' : wordCount < 300 ? '写得不错' : '内容很丰富'}
+                  {wordCount < 100 ? t('editor.keepWriting') : wordCount < 300 ? t('editor.goodJob') : t('editor.richContent')}
                 </span>
               )}
             </div>
@@ -285,25 +296,25 @@ export default function DiaryEditor() {
           <div className="card-warm p-5">
             <div className="flex items-center gap-2 mb-4">
               <MessageCircle className="w-4 h-4 text-[#b56f61]" />
-              <h3 className="text-sm font-semibold text-stone-600">今天的心情</h3>
+              <h3 className="text-sm font-semibold text-stone-600">{t('editor.mood')}</h3>
               {emotionTags.length > 0 && (
                 <span className="text-xs text-[#b56f61] bg-[#f5efea] px-2 py-0.5 rounded-full ml-auto">
-                  已选 {emotionTags.length}
+                  {t('editor.selected')} {emotionTags.length}
                 </span>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {PRESET_EMOTIONS.map(({ label, icon }) => (
+              {PRESET_EMOTIONS.map(({ label, icon, key }) => (
                 <button
-                  key={label}
+                  key={key}
                   type="button"
-                  onClick={() => toggleEmotionTag(label)}
+                  onClick={() => toggleEmotionTag(key)}
                   className={`px-3 py-1.5 rounded-2xl text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-                    emotionTags.includes(label)
+                    emotionTags.includes(key)
                       ? 'text-white shadow-sm'
                       : 'bg-stone-50 text-stone-500 border border-stone-100 hover:border-[#d8c7bc] hover:bg-[#f5efea] hover:text-[#a45f52]'
                   }`}
-                  style={emotionTags.includes(label)
+                  style={emotionTags.includes(key)
                     ? { background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }
                     : undefined}
                 >
@@ -319,7 +330,7 @@ export default function DiaryEditor() {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-semibold text-stone-600">这件事对我有多重要？</h3>
+                <h3 className="text-sm font-semibold text-stone-600">{t('editor.importance')}</h3>
               </div>
               <span className="text-lg font-bold text-[#b56f61]">{importanceScore}</span>
             </div>
@@ -335,9 +346,9 @@ export default function DiaryEditor() {
               }}
             />
             <div className="flex justify-between text-[11px] text-stone-300 mt-2">
-              <span>随意</span>
+              <span>{t('editor.casual')}</span>
               <span className="text-[#c89b8e] font-medium">{importanceLabels[importanceScore]}</span>
-              <span>非常重要</span>
+              <span>{t('editor.veryImportant')}</span>
             </div>
           </div>
 
@@ -348,7 +359,7 @@ export default function DiaryEditor() {
               onClick={() => navigate(-1)}
               className="flex-1 h-12 rounded-2xl text-sm font-medium bg-white border border-stone-100 text-stone-400 hover:bg-stone-50 transition-all active:scale-[0.98] shadow-sm"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -358,7 +369,7 @@ export default function DiaryEditor() {
             >
               {isLoading
                 ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                : isEditMode ? '保存修改' : '保存日记'}
+                : isEditMode ? t('editor.saveChanges') : t('editor.saveDiary')}
             </button>
           </div>
         </form>

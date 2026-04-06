@@ -1,6 +1,7 @@
 // 忘记密码页面
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authService } from '@/services/auth.service'
 import { toast } from '@/components/ui/toast'
 import { Check, ArrowLeft } from 'lucide-react'
@@ -9,6 +10,7 @@ import SliderCaptcha, { type CaptchaResult } from '@/components/common/SliderCap
 type Step = 1 | 2 | 3
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [step, setStep] = useState<Step>(1)
@@ -23,7 +25,7 @@ export default function ForgotPasswordPage() {
 
   const handleRequestCode = () => {
     if (!email || !email.includes('@')) {
-      toast('请输入有效的邮箱地址', 'error')
+      toast(t('validation.emailInvalid'), 'error')
       return
     }
     setShowCaptcha(true)
@@ -34,7 +36,7 @@ export default function ForgotPasswordPage() {
     try {
       await authService.sendResetPasswordCode(email, captchaResult)
       setStep(2)
-      toast('验证码已发送到您的邮箱', 'success')
+      toast(t('auth.forgotPassword.codeSent'), 'success')
       setCountdown(60)
       const timer = setInterval(() => {
         setCountdown((prev) => {
@@ -43,23 +45,23 @@ export default function ForgotPasswordPage() {
         })
       }, 1000)
     } catch (err: any) {
-      toast(err.response?.data?.detail || '发送验证码失败', 'error')
+      toast(err.response?.data?.detail || t('auth.forgotPassword.sendCodeFailed'), 'error')
     }
   }
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!code) { toast('请输入验证码', 'error'); return }
-    if (!password || password.length < 6) { toast('密码长度至少6位', 'error'); return }
-    if (password !== confirmPassword) { toast('两次密码不一致', 'error'); return }
+    if (!code) { toast(t('validation.codeRequired'), 'error'); return }
+    if (!password || password.length < 6) { toast(t('validation.passwordMinLength'), 'error'); return }
+    if (password !== confirmPassword) { toast(t('validation.passwordMismatch'), 'error'); return }
 
     setIsLoading(true)
     try {
       await authService.resetPassword(email, code, password)
       setStep(3)
-      toast('密码重置成功', 'success')
+      toast(t('auth.forgotPassword.resetSuccess'), 'success')
     } catch (err: any) {
-      toast(err.response?.data?.detail || '重置密码失败', 'error')
+      toast(err.response?.data?.detail || t('auth.forgotPassword.resetFailed'), 'error')
     } finally {
       setIsLoading(false)
     }
@@ -67,7 +69,7 @@ export default function ForgotPasswordPage() {
 
   const inputClass = "w-full h-12 px-4 rounded-2xl bg-white/90 border border-stone-200 text-stone-700 text-sm placeholder:text-stone-300 outline-none transition-all duration-200 focus:border-[#d8b8a8] focus:ring-2 focus:ring-[#f4e6df] shadow-sm"
 
-  const stepLabels = ['验证邮箱', '设置新密码', '完成']
+  const stepLabels = [t('auth.forgotPassword.verifyEmail'), t('auth.forgotPassword.setPassword'), t('common.complete')]
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'linear-gradient(158deg, #f8f5ef 0%, #f2eef5 58%, #f5f2ee 100%)' }}>
@@ -89,15 +91,15 @@ export default function ForgotPasswordPage() {
           className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-600 transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          返回登录
+          {t('auth.forgotPassword.backToLogin')}
         </button>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-stone-800">重置密码</h1>
+          <h1 className="text-2xl font-bold text-stone-800">{t('auth.forgotPassword.title')}</h1>
           <p className="text-stone-400 text-sm mt-1.5">
-            {step === 1 && '输入注册邮箱，我们将发送验证码'}
-            {step === 2 && '输入验证码和新密码'}
-            {step === 3 && '密码已重置成功'}
+            {step === 1 && t('auth.forgotPassword.step1Desc')}
+            {step === 2 && t('auth.forgotPassword.step2Desc')}
+            {step === 3 && t('auth.forgotPassword.step3Desc')}
           </p>
         </div>
 
@@ -228,7 +230,7 @@ export default function ForgotPasswordPage() {
             >
               {isLoading
                 ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                : '重置密码'}
+                : t('auth.forgotPassword.resetButton')}
             </button>
           </form>
         )}

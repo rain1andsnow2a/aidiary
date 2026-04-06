@@ -1,6 +1,7 @@
 // 社区主页 - 情绪共鸣圈
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { communityService, type Post, type CircleInfo } from '@/services/community.service'
 import { Heart, MessageCircle, Bookmark, Plus, Clock, Sparkles } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
@@ -14,22 +15,23 @@ const CIRCLE_ICONS: Record<string, string> = {
   confusion: '🤔',
 }
 
-function timeAgo(dateStr: string) {
+function timeAgo(dateStr: string, t: (key: string, opts?: any) => string) {
   const now = Date.now()
   const d = new Date(dateStr).getTime()
   const diff = now - d
   const min = 60000
   const hour = 3600000
   const day = 86400000
-  if (diff < min) return '刚刚'
-  if (diff < hour) return `${Math.floor(diff / min)} 分钟前`
-  if (diff < day) return `${Math.floor(diff / hour)} 小时前`
-  if (diff < day * 30) return `${Math.floor(diff / day)} 天前`
-  return new Date(dateStr).toLocaleDateString('zh-CN')
+  if (diff < min) return t('communityPage.justNow')
+  if (diff < hour) return t('communityPage.minutesAgo', { count: Math.floor(diff / min) })
+  if (diff < day) return t('communityPage.hoursAgo', { count: Math.floor(diff / hour) })
+  if (diff < day * 30) return t('communityPage.daysAgo', { count: Math.floor(diff / day) })
+  return new Date(dateStr).toLocaleDateString()
 }
 
 export default function CommunityPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [circles, setCircles] = useState<CircleInfo[]>([])
@@ -53,7 +55,7 @@ export default function CommunityPage() {
         setPosts(res.items)
         setTotalPages(res.total_pages)
       })
-      .catch(() => toast('加载帖子失败', 'error'))
+      .catch(() => toast(t('communityPage.loadFailed'), 'error'))
       .finally(() => setIsLoading(false))
   }, [activeCircle, page])
 
@@ -80,7 +82,7 @@ export default function CommunityPage() {
         )
       )
     } catch {
-      toast('操作失败', 'error')
+      toast(t('communityPage.operationFailed'), 'error')
     }
   }
 
@@ -96,7 +98,7 @@ export default function CommunityPage() {
         )
       )
     } catch {
-      toast('操作失败', 'error')
+      toast(t('communityPage.operationFailed'), 'error')
     }
   }
 
@@ -107,21 +109,21 @@ export default function CommunityPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="flex justify-between items-center h-14">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">← 返回</button>
-              <h1 className="text-base font-semibold text-stone-700">情绪共鸣圈</h1>
+              <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">← {t('common.back')}</button>
+              <h1 className="text-base font-semibold text-stone-700">{t('communityPage.title')}</h1>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate('/community/history')}
                 className="p-2 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-[#f5efea] transition-all"
-                title="浏览记录"
+                title={t('communityPage.browseHistory')}
               >
                 <Clock className="w-4.5 h-4.5" />
               </button>
               <button
                 onClick={() => navigate('/community/collections')}
                 className="p-2 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-[#f5efea] transition-all"
-                title="我的收藏"
+                title={t('communityPage.myCollections')}
               >
                 <Bookmark className="w-4.5 h-4.5" />
               </button>
@@ -131,7 +133,7 @@ export default function CommunityPage() {
                 style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
               >
                 <Plus className="w-4 h-4" />
-                发帖
+                {t('communityPage.newPost')}
               </button>
             </div>
           </div>
@@ -150,23 +152,23 @@ export default function CommunityPage() {
           <div className="relative p-5 sm:p-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/70 bg-white/45 backdrop-blur-sm text-[#936d63] text-xs font-medium">
               <Sparkles className="w-3.5 h-3.5" />
-              今日社区氛围
+              {t('communityPage.todayAtmosphere')}
             </div>
             <h2
               className="mt-3 text-[22px] sm:text-[26px] leading-tight text-stone-700 font-semibold"
               style={{ fontFamily: '"STSong", "Songti SC", serif' }}
             >
-              慢一点表达，也能被认真听见
+              {t('communityPage.atmosphereTitle')}
             </h2>
             <p className="mt-2 text-sm text-stone-600/90 max-w-[560px] leading-6">
-              今天的共鸣圈更适合分享“真实近况”，不需要完美总结，讲出你当下的一点感受就好。
+              {t('communityPage.atmosphereDesc')}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2.5 text-xs">
               <span className="px-2.5 py-1 rounded-full bg-white/70 text-stone-600 border border-white/80">
-                今日帖子 {posts.length}
+                {t('communityPage.todayPosts')} {posts.length}
               </span>
               <span className="px-2.5 py-1 rounded-full bg-white/70 text-stone-600 border border-white/80">
-                当前分组 {activeCircle ? circles.find((c) => c.id === activeCircle)?.name || '全部' : '全部'}
+                {t('communityPage.currentGroup')} {activeCircle ? circles.find((c) => c.id === activeCircle)?.name || t('communityPage.all') : t('communityPage.all')}
               </span>
             </div>
           </div>
@@ -190,7 +192,7 @@ export default function CommunityPage() {
                 : undefined
             }
           >
-            全部
+            {t('communityPage.all')}
           </button>
           {circles.map((c) => (
             <button
@@ -234,8 +236,8 @@ export default function CommunityPage() {
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-stone-400 text-sm mb-2">还没有帖子</p>
-            <p className="text-stone-300 text-xs">成为第一个分享的人吧</p>
+            <p className="text-stone-400 text-sm mb-2">{t('communityPage.noPosts')}</p>
+            <p className="text-stone-300 text-xs">{t('communityPage.beFirst')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -252,8 +254,8 @@ export default function CommunityPage() {
                       <>
                         <AnonymousAvatar />
                         <div>
-                          <p className="text-sm font-medium text-stone-600">匿名用户</p>
-                          <p className="text-[10px] text-stone-400">{timeAgo(post.created_at)}</p>
+                          <p className="text-sm font-medium text-stone-600">{t('communityPage.anonymous')}</p>
+                          <p className="text-[10px] text-stone-400">{timeAgo(post.created_at, t)}</p>
                         </div>
                       </>
                     ) : (
@@ -267,8 +269,8 @@ export default function CommunityPage() {
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-stone-600">{post.author?.username || '未命名'}</p>
-                          <p className="text-[10px] text-stone-400">{timeAgo(post.created_at)}</p>
+                          <p className="text-sm font-medium text-stone-600">{post.author?.username || t('communityPage.unnamed')}</p>
+                          <p className="text-[10px] text-stone-400">{timeAgo(post.created_at, t)}</p>
                         </div>
                       </>
                     )}
@@ -339,7 +341,7 @@ export default function CommunityPage() {
               disabled={page <= 1}
               className="px-4 py-2 rounded-xl text-sm border border-stone-200 text-stone-500 hover:bg-white disabled:opacity-30 transition-all"
             >
-              上一页
+              {t('communityPage.prevPage')}
             </button>
             <span className="text-xs text-stone-400">{page} / {totalPages}</span>
             <button
@@ -347,7 +349,7 @@ export default function CommunityPage() {
               disabled={page >= totalPages}
               className="px-4 py-2 rounded-xl text-sm border border-stone-200 text-stone-500 hover:bg-white disabled:opacity-30 transition-all"
             >
-              下一页
+            {t('communityPage.nextPage')}
             </button>
           </div>
         )}

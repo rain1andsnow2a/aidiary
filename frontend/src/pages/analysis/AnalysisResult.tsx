@@ -1,13 +1,13 @@
 // AI分析结果展示页面 - 温暖柔和心理日记风格
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { aiService } from '@/services/ai.service'
 import { diaryService } from '@/services/diary.service'
 import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
 import type { AnalysisResponse, Diary } from '@/types'
 import { format } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
 import { Sparkles, Calendar, Snowflake, Heart, FileText } from 'lucide-react'
 
 const warmBg = { background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #f5f3ff 100%)' }
@@ -16,6 +16,7 @@ const gradientBtn = { background: 'linear-gradient(135deg, #fb7185, #c084fc)' }
 export default function AnalysisResult() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [diary, setDiary] = useState<Diary | null>(null)
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null)
@@ -45,7 +46,7 @@ export default function AnalysisResult() {
         }
       }
     } catch (err: any) {
-      setError(err.message || '加载数据失败')
+      setError(err.message || t('analysisResult.loadFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -71,7 +72,7 @@ export default function AnalysisResult() {
         setDiary({ ...diary, is_analyzed: true })
       }
     } catch (err: any) {
-      setError(err.message || 'AI分析失败')
+      setError(err.message || t('analysisResult.aiFailed'))
     } finally {
       setIsAnalyzing(false)
     }
@@ -106,11 +107,11 @@ export default function AnalysisResult() {
       ok = fallbackCopyText(content)
     }
     if (!ok) {
-      toast('复制失败，请手动选择复制', 'error')
+      toast(t('analysisResult.copyFailed'), 'error')
       return
     }
     setCopiedPostIndex(index)
-    toast('已复制到剪贴板', 'success')
+    toast(t('analysisResult.copied'), 'success')
     window.setTimeout(() => {
       setCopiedPostIndex((prev) => (prev === index ? null : prev))
     }, 1400)
@@ -136,7 +137,7 @@ export default function AnalysisResult() {
             className="h-10 px-6 rounded-xl text-sm font-medium text-white shadow-sm"
             style={gradientBtn}
           >
-            返回日记列表
+            {t('analysisResult.backToList')}
           </button>
         </div>
       </div>
@@ -154,16 +155,16 @@ export default function AnalysisResult() {
                 onClick={() => navigate(`/diaries/${id}`)}
                 className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
               >
-                ← 返回日记
+                ← {t('analysisResult.backToDiary')}
               </button>
               <button
                 onClick={() => navigate('/')}
                 className="text-sm text-violet-400 hover:text-violet-500 transition-colors"
               >
-                回首页
+                {t('analysisResult.backHome')}
               </button>
             </div>
-            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-400" /> AI 分析</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-400" /> {t('analysisResult.aiAnalysis')}</span>
             <div className="w-16" />
           </div>
         </div>
@@ -175,7 +176,7 @@ export default function AnalysisResult() {
           <div className="card-warm p-5">
             <h2 className="text-base font-bold text-stone-700 mb-1">{diary.title}</h2>
             <p className="text-xs text-stone-400 mb-3">
-              <Calendar className="w-3.5 h-3.5 inline-block mr-1" />{format(new Date(diary.diary_date), 'yyyy年MM月dd日', { locale: zhCN })}
+              <Calendar className="w-3.5 h-3.5 inline-block mr-1" />{format(new Date(diary.diary_date), 'yyyy-MM-dd')}
             </p>
             <p className="text-sm text-stone-500 line-clamp-3 leading-6">{diary.content}</p>
             {emotionTags.length > 0 && (
@@ -200,13 +201,13 @@ export default function AnalysisResult() {
             <Sparkles className="w-8 h-8 text-violet-400 mx-auto mb-3" />
             {diary?.is_analyzed ? (
               <>
-                <p className="text-stone-400 text-sm mb-1">已完成分析</p>
-                <p className="text-xs text-stone-300 mb-5">点击下方重新运行以查看最新结果</p>
+                <p className="text-stone-400 text-sm mb-1">{t('analysisResult.alreadyAnalyzed')}</p>
+                <p className="text-xs text-stone-300 mb-5">{t('analysisResult.rerunHint')}</p>
               </>
             ) : (
               <>
-                <p className="text-stone-400 text-sm mb-1">还没有 AI 分析结果</p>
-                <p className="text-xs text-stone-300 mb-5">如果刚刚保存日记，分析可能正在后台运行中</p>
+                <p className="text-stone-400 text-sm mb-1">{t('analysisResult.noResult')}</p>
+                <p className="text-xs text-stone-300 mb-5">{t('analysisResult.backgroundHint')}</p>
               </>
             )}
             <button
@@ -214,7 +215,7 @@ export default function AnalysisResult() {
               className="h-11 px-8 rounded-2xl text-sm font-semibold text-white shadow-md transition-all active:scale-[0.97]"
               style={gradientBtn}
             >
-              {diary?.is_analyzed ? (analysis ? '重新分析' : '查看分析结果') : '开始 AI 分析'}
+              {diary?.is_analyzed ? (analysis ? t('analysisResult.reanalyze') : t('analysisResult.viewResult')) : t('analysisResult.startAnalysis')}
             </button>
           </div>
         )}
@@ -223,8 +224,8 @@ export default function AnalysisResult() {
         {isAnalyzing && (
           <div className="card-warm p-10 text-center">
             <Loading size="lg" />
-            <p className="mt-4 text-stone-500 text-sm">AI 正在深度分析中...</p>
-            <p className="text-xs text-stone-300 mt-1">这可能需要 10-20 秒</p>
+            <p className="mt-4 text-stone-500 text-sm">{t('analysisResult.deepAnalyzing')}</p>
+            <p className="text-xs text-stone-300 mt-1">{t('analysisResult.estimatedTime')}</p>
           </div>
         )}
 
@@ -236,7 +237,7 @@ export default function AnalysisResult() {
               <div className="card-warm p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Calendar className="w-4 h-4 text-rose-400" />
-                  <h3 className="text-sm font-semibold text-stone-600">时间轴事件</h3>
+                  <h3 className="text-sm font-semibold text-stone-600">{t('analysisResult.timelineEvent')}</h3>
                 </div>
                 <p className="text-sm text-stone-600 leading-6 mb-4">{analysis.timeline_event.event_summary}</p>
                 <div className="flex flex-wrap gap-3">
@@ -244,10 +245,10 @@ export default function AnalysisResult() {
                     {analysis.timeline_event.emotion_tag}
                   </span>
                   <span className="text-xs px-3 py-1.5 rounded-2xl bg-violet-50 text-violet-400 border border-violet-100">
-                    重要性 {analysis.timeline_event.importance_score}/10
+                    {t('analysisResult.importanceScore', { score: analysis.timeline_event.importance_score })}
                   </span>
                   <span className="text-xs px-3 py-1.5 rounded-2xl bg-amber-50 text-amber-500 border border-amber-100">
-                    {getEventTypeLabel(analysis.timeline_event.event_type)}
+                    {t(`analysisResult.eventType.${analysis.timeline_event.event_type}`, { defaultValue: analysis.timeline_event.event_type })}
                   </span>
                 </div>
               </div>
@@ -258,22 +259,22 @@ export default function AnalysisResult() {
               <div className="card-warm p-5">
                 <div className="flex items-center gap-2 mb-5">
                   <Snowflake className="w-4 h-4 text-violet-400" />
-                  <h3 className="text-sm font-semibold text-stone-600">萨提亚冰山模型</h3>
-                  <span className="text-xs text-stone-300 ml-auto">深度心理分析</span>
+                  <h3 className="text-sm font-semibold text-stone-600">{t('analysisResult.satirModel')}</h3>
+                  <span className="text-xs text-stone-300 ml-auto">{t('analysisResult.deepPsychAnalysis')}</span>
                 </div>
                 <div className="space-y-4">
                   {/* 情绪层 */}
                   {analysis.satir_analysis.emotion_layer && (
                     <div className="border-l-3 border-rose-300 pl-4 py-2" style={{ borderLeftWidth: '3px' }}>
-                      <h4 className="text-xs font-semibold text-rose-400 mb-2">第2层 · 情绪层</h4>
+                      <h4 className="text-xs font-semibold text-rose-400 mb-2">{t('analysisResult.layer2Emotion')}</h4>
                       <div className="flex flex-wrap gap-4">
                         <div>
-                          <p className="text-xs text-stone-300">表层情绪</p>
+                          <p className="text-xs text-stone-300">{t('analysisResult.surfaceEmotion')}</p>
                           <p className="text-sm text-stone-600 font-medium">{analysis.satir_analysis.emotion_layer.surface_emotion}</p>
                         </div>
                         {analysis.satir_analysis.emotion_layer.underlying_emotion && (
                           <div>
-                            <p className="text-xs text-stone-300">潜在情绪</p>
+                            <p className="text-xs text-stone-300">{t('analysisResult.underlyingEmotion')}</p>
                             <p className="text-sm text-stone-600 font-medium">{analysis.satir_analysis.emotion_layer.underlying_emotion}</p>
                           </div>
                         )}
@@ -284,8 +285,8 @@ export default function AnalysisResult() {
                   {/* 认知层 */}
                   {(analysis.satir_analysis.cognitive_layer?.irrational_beliefs?.length ?? 0) > 0 && (
                     <div className="border-l-3 border-amber-300 pl-4 py-2" style={{ borderLeftWidth: '3px' }}>
-                      <h4 className="text-xs font-semibold text-amber-500 mb-2">第3层 · 认知层</h4>
-                      <p className="text-xs text-stone-300 mb-1">非理性信念</p>
+                      <h4 className="text-xs font-semibold text-amber-500 mb-2">{t('analysisResult.layer3Cognition')}</h4>
+                      <p className="text-xs text-stone-300 mb-1">{t('analysisResult.irrationalBeliefs')}</p>
                       <ul className="space-y-1">
                         {analysis.satir_analysis.cognitive_layer!.irrational_beliefs!.map(
                           (belief: string, index: number) => (
@@ -299,8 +300,8 @@ export default function AnalysisResult() {
                   {/* 信念层 */}
                   {(analysis.satir_analysis.belief_layer?.core_beliefs?.length ?? 0) > 0 && (
                     <div className="border-l-3 border-violet-300 pl-4 py-2" style={{ borderLeftWidth: '3px' }}>
-                      <h4 className="text-xs font-semibold text-violet-400 mb-2">第4层 · 信念层</h4>
-                      <p className="text-xs text-stone-300 mb-1">核心信念</p>
+                      <h4 className="text-xs font-semibold text-violet-400 mb-2">{t('analysisResult.layer4Belief')}</h4>
+                      <p className="text-xs text-stone-300 mb-1">{t('analysisResult.coreBeliefs')}</p>
                       <ul className="space-y-1">
                         {analysis.satir_analysis.belief_layer!.core_beliefs!.map(
                           (belief: string, index: number) => (
@@ -314,8 +315,8 @@ export default function AnalysisResult() {
                   {/* 存在层 */}
                   {analysis.satir_analysis.core_self_layer?.deepest_desire && (
                     <div className="border-l-3 border-rose-400 pl-4 py-2" style={{ borderLeftWidth: '3px' }}>
-                      <h4 className="text-xs font-semibold text-rose-400 mb-2">第5层 · 存在层</h4>
-                      <p className="text-xs text-stone-300 mb-1">深层渴望</p>
+                      <h4 className="text-xs font-semibold text-rose-400 mb-2">{t('analysisResult.layer5Existence')}</h4>
+                      <p className="text-xs text-stone-300 mb-1">{t('analysisResult.deepDesire')}</p>
                       <p className="text-sm text-stone-600 font-medium">
                         {analysis.satir_analysis.core_self_layer.deepest_desire}
                       </p>
@@ -331,8 +332,8 @@ export default function AnalysisResult() {
                 <div className="p-5" style={{ background: 'linear-gradient(135deg, rgba(251,113,133,0.06), rgba(192,132,252,0.06))' }}>
                   <div className="flex items-center gap-2 mb-3">
                     <Heart className="w-4 h-4 text-rose-400" />
-                    <h3 className="text-sm font-semibold text-stone-600">疗愈回复</h3>
-                    <span className="text-xs text-stone-300 ml-auto">来自 AI 心理咨询师</span>
+                    <h3 className="text-sm font-semibold text-stone-600">{t('analysisResult.healingResponse')}</h3>
+                    <span className="text-xs text-stone-300 ml-auto">{t('analysisResult.fromAiCounselor')}</span>
                   </div>
                   <p className="text-sm text-stone-600 leading-7 whitespace-pre-line">
                     {analysis.therapeutic_response}
@@ -346,8 +347,8 @@ export default function AnalysisResult() {
               <div className="card-warm p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <FileText className="w-4 h-4 text-rose-400" />
-                  <h3 className="text-sm font-semibold text-stone-600">朋友圈文案</h3>
-                  <span className="text-xs text-stone-300 ml-auto">选择最适合你的</span>
+                  <h3 className="text-sm font-semibold text-stone-600">{t('analysisResult.socialPosts')}</h3>
+                  <span className="text-xs text-stone-300 ml-auto">{t('analysisResult.pickBest')}</span>
                 </div>
                 <div className="space-y-3">
                   {analysis.social_posts.map((post: any, index: number) => (
@@ -361,7 +362,7 @@ export default function AnalysisResult() {
                           onClick={() => void copyPost(post.content, index)}
                           className={`text-xs transition-colors ${copiedPostIndex === index ? 'text-emerald-500' : 'text-rose-400 hover:text-rose-500'}`}
                         >
-                          {copiedPostIndex === index ? '已复制' : '复制'}
+                          {copiedPostIndex === index ? t('analysisResult.copiedLabel') : t('analysisResult.copyLabel')}
                         </button>
                       </div>
                       <p className="text-sm text-stone-500 leading-6">{post.content}</p>
@@ -374,11 +375,11 @@ export default function AnalysisResult() {
             {/* 元数据 */}
             {analysis.metadata && (
               <div className="text-center text-xs text-stone-300 py-2">
-                <p>处理时间: {analysis.metadata.processing_time.toFixed(2)}秒</p>
+                <p>{t('analysisResult.processingTime', { time: analysis.metadata.processing_time.toFixed(2) })}</p>
                 {analysis.metadata.analysis_scope === 'user_integrated' && analysis.metadata.analyzed_period && (
                   <p>
-                    整合范围: {analysis.metadata.analyzed_diary_count ?? '-'} 篇 ·
-                    {analysis.metadata.analyzed_period.start_date} 至 {analysis.metadata.analyzed_period.end_date}
+                    {t('analysisResult.integratedRange', { count: analysis.metadata.analyzed_diary_count ?? '-' })} ·
+                    {analysis.metadata.analyzed_period.start_date} {t('icebergOverview.to')} {analysis.metadata.analyzed_period.end_date}
                   </p>
                 )}
               </div>
@@ -397,13 +398,3 @@ export default function AnalysisResult() {
   )
 }
 
-function getEventTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    work: '工作',
-    relationship: '关系',
-    health: '健康',
-    achievement: '成就',
-    other: '其他',
-  }
-  return labels[type] || type
-}

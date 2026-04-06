@@ -1,6 +1,7 @@
 // 日记详情页面 - 温暖柔和心理日记风格
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useDiaryStore } from '@/store/diaryStore'
 import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
@@ -108,6 +109,7 @@ function fallbackCopyText(text: string): boolean {
 }
 
 export default function DiaryDetail() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { currentDiary, fetchDiary, deleteDiary } = useDiaryStore()
@@ -137,7 +139,7 @@ export default function DiaryDetail() {
       await deleteDiary(currentDiary.id)
       navigate('/diaries')
     } catch (error) {
-      toast('删除失败', 'error')
+      toast(t('diary.deleteFailed'), 'error')
     }
   }
 
@@ -172,9 +174,9 @@ export default function DiaryDetail() {
       setIsGeneratingPosts(true)
       const result = await aiService.generateSocialPosts(currentDiary.id)
       setSocialPosts(result.social_posts || [])
-      toast('已生成今日朋友圈文案', 'success')
+      toast(t('diary.momentGenerated'), 'success')
     } catch (e: any) {
-      toast(e?.response?.data?.detail || '生成文案失败', 'error')
+      toast(e?.response?.data?.detail || t('diary.generateFailed'), 'error')
     } finally {
       setIsGeneratingPosts(false)
     }
@@ -193,11 +195,11 @@ export default function DiaryDetail() {
       ok = fallbackCopyText(content)
     }
     if (!ok) {
-      toast('复制失败，请手动选择复制', 'error')
+      toast(t('diary.copyFailed'), 'error')
       return
     }
     setCopiedPostIndex(index)
-    toast('已复制到剪贴板', 'success')
+    toast(t('diary.copied'), 'success')
     window.setTimeout(() => {
       setCopiedPostIndex((prev) => (prev === index ? null : prev))
     }, 1400)
@@ -210,7 +212,7 @@ export default function DiaryDetail() {
       .filter((line) => line.length >= 6)
       .slice(0, 80)
     if (parsed.length === 0) {
-      toast('请粘贴至少1条历史文案（每条不少于6字）', 'error')
+      toast(t('diary.pasteHistory'), 'error')
       return
     }
     try {
@@ -220,7 +222,7 @@ export default function DiaryDetail() {
       setStyleSampleText('')
       toast(`已导入 ${result.total} 条风格样本`, 'success')
     } catch (e: any) {
-      toast(e?.response?.data?.detail || '保存风格样本失败', 'error')
+      toast(e?.response?.data?.detail || t('diary.saveStyleFailed'), 'error')
     } finally {
       setIsSavingSamples(false)
     }
@@ -238,13 +240,13 @@ export default function DiaryDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(158deg, #f8f5ef 0%, #f2eef5 58%, #f5f2ee 100%)' }}>
         <div className="card-warm p-8 text-center max-w-sm">
-          <p className="text-stone-400 mb-4 flex items-center justify-center gap-1.5"><BookOpen className="w-4 h-4" /> 日记不存在</p>
+          <p className="text-stone-400 mb-4 flex items-center justify-center gap-1.5"><BookOpen className="w-4 h-4" /> {t('diary.notFound')}</p>
           <button
             onClick={() => navigate('/diaries')}
             className="h-10 px-6 rounded-xl text-sm font-medium text-white shadow-sm"
             style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
           >
-            返回列表
+            {t('diary.backToList')}
           </button>
         </div>
       </div>
@@ -255,10 +257,10 @@ export default function DiaryDetail() {
     <div className="min-h-screen" style={{ background: 'linear-gradient(158deg, #f8f5ef 0%, #f2eef5 58%, #f5f2ee 100%)' }}>
       <ConfirmDialog
         open={deleteDialogOpen}
-        title="确定删除这篇日记吗？"
-        description={currentDiary ? <>删除后不可恢复：<span className="font-medium text-stone-700">《{currentDiary.title || '无标题'}》</span></> : undefined}
-        confirmText="确认删除"
-        cancelText="我再想想"
+        title={t('diary.deleteConfirm')}
+        description={currentDiary ? <>《{currentDiary.title || t('diary.noTitle')}》</> : undefined}
+        confirmText={t('common.confirm')}
+        cancelText={t('common.cancel')}
         danger
         onCancel={() => setDeleteDialogOpen(false)}
         onConfirm={() => {
@@ -276,16 +278,16 @@ export default function DiaryDetail() {
                 onClick={() => navigate('/diaries')}
                 className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
               >
-                ← 返回
+                ← {t('common.back')}
               </button>
               <button
                 onClick={() => navigate('/')}
                 className="text-sm text-[#b56f61] hover:text-[#9c5e52] transition-colors"
               >
-                回首页
+                {t('navigation.dashboard')}
               </button>
             </div>
-            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-[#b56f61]" /> 日记详情</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-[#b56f61]" /> {t('diary.diaryDetail')}</span>
             <div className="w-12" />
           </div>
         </div>
@@ -303,16 +305,16 @@ export default function DiaryDetail() {
                 <Calendar className="w-3.5 h-3.5" /> {format(new Date(currentDiary.diary_date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
               </span>
               <span className="text-stone-200">·</span>
-              <span>{currentDiary.word_count} 字</span>
+              <span>{currentDiary.word_count} {t('diary.words')}</span>
               <span className="text-stone-200">·</span>
-              <span className="text-[#b56f61] font-medium flex items-center gap-1"><Star className="w-3.5 h-3.5" /> 重要性 {currentDiary.importance_score}/10</span>
+              <span className="text-[#b56f61] font-medium flex items-center gap-1"><Star className="w-3.5 h-3.5" /> {t('diary.importance')} {currentDiary.importance_score}/10</span>
             </div>
           </div>
 
           {/* 情绪标签 */}
           {emotionTags.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-stone-400 mb-2 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> 心情标签</p>
+              <p className="text-xs font-medium text-stone-400 mb-2 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> {t('editor.mood')}</p>
               <div className="flex flex-wrap gap-2">
                 {emotionTags.map((tag, index) => (
                   <span
@@ -356,10 +358,10 @@ export default function DiaryDetail() {
           <div className="p-6" style={{ background: 'linear-gradient(135deg, rgba(232,143,123,0.10), rgba(160,154,184,0.10))' }}>
             <div className="flex items-center gap-2 mb-3">
               <FilePenLine className="w-4 h-4 text-[#b56f61]" />
-              <h3 className="text-sm font-semibold text-stone-600">今日朋友圈文案</h3>
+              <h3 className="text-sm font-semibold text-stone-600">{t('diary.socialPost')}</h3>
               {isGeneratingPosts && (
                 <span className="ml-auto flex items-center gap-1 text-xs text-violet-400">
-                  <Loader2 className="w-3 h-3 animate-spin" /> 生成中...
+                  <Loader2 className="w-3 h-3 animate-spin" /> {t('diary.generating')}
                 </span>
               )}
             </div>
@@ -401,7 +403,7 @@ export default function DiaryDetail() {
                 className="h-9 px-5 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97] disabled:opacity-60"
                 style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
               >
-                {isGeneratingPosts ? '正在生成...' : '生成今日朋友圈文案'}
+                {isGeneratingPosts ? t('common.loading') : t('diary.generateSocialPost')}
               </button>
               <button
                 onClick={() => navigate('/analysis')}
@@ -424,7 +426,7 @@ export default function DiaryDetail() {
                         onClick={() => void copyPost(post.content, idx)}
                         className={`text-xs transition-colors ${copiedPostIndex === idx ? 'text-emerald-500' : 'text-[#b56f61] hover:text-[#a45f52]'}`}
                       >
-                        {copiedPostIndex === idx ? '已复制' : '复制'}
+                        {copiedPostIndex === idx ? t('diary.copied') : t('diary.copy')}
                       </button>
                     </div>
                     <p className="text-sm text-stone-600 leading-6">{post.content}</p>
@@ -448,12 +450,11 @@ export default function DiaryDetail() {
             onClick={() => setDeleteDialogOpen(true)}
             className="h-11 px-5 rounded-2xl text-sm font-medium bg-white border border-red-100 text-red-400 hover:bg-red-50 transition-all active:scale-[0.98] shadow-sm"
           >
-            删除
+            {t('common.delete')}
           </button>
         </div>
       </main>
     </div>
   )
 }
-
 

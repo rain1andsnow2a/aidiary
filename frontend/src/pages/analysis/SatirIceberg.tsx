@@ -1,5 +1,6 @@
 // 萨提亚冰山模型可视化组件
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import type { SatirAnalysis } from '@/types'
 
@@ -8,39 +9,41 @@ interface SatirIcebergProps {
 }
 
 export default function SatirIceberg({ analysis }: SatirIcebergProps) {
+  const { t } = useTranslation()
+
   const layers = [
     {
       id: 'behavior',
-      name: '行为层',
-      description: '可观察的行为、应对姿态',
+      name: t('satirIceberg.behaviorLayer'),
+      description: t('satirIceberg.behaviorDesc'),
       color: 'bg-blue-400',
       content: analysis.behavior_layer,
     },
     {
       id: 'emotion',
-      name: '情绪层',
-      description: '表层情绪、潜在情绪',
+      name: t('satirIceberg.emotionLayer'),
+      description: t('satirIceberg.emotionDesc'),
       color: 'bg-cyan-400',
       content: analysis.emotion_layer,
     },
     {
       id: 'cognitive',
-      name: '认知层',
-      description: '观点、态度、信念',
+      name: t('satirIceberg.cognitiveLayer'),
+      description: t('satirIceberg.cognitiveDesc'),
       color: 'bg-teal-400',
       content: analysis.cognitive_layer,
     },
     {
       id: 'belief',
-      name: '信念层',
-      description: '核心信念、价值观',
+      name: t('satirIceberg.beliefLayer'),
+      description: t('satirIceberg.beliefDesc'),
       color: 'bg-purple-400',
       content: analysis.belief_layer,
     },
     {
       id: 'existence',
-      name: '存在层',
-      description: '深层渴望、生命能量',
+      name: t('satirIceberg.existenceLayer'),
+      description: t('satirIceberg.existenceDesc'),
       color: 'bg-pink-400',
       content: analysis.core_self_layer,
     },
@@ -88,6 +91,7 @@ interface IcebergLayerProps {
 
 function IcebergLayer({ layer, index, total }: IcebergLayerProps) {
   const [isExpanded, setIsExpanded] = React.useState(false)
+  const { t } = useTranslation()
 
   // 每层宽度逐渐变窄（形成冰山形状）
   const widthPercentage = 100 - (index * 80) / total
@@ -145,19 +149,19 @@ function IcebergLayer({ layer, index, total }: IcebergLayerProps) {
                 <div className="space-y-2">
                   {layer.content.surface_emotion && (
                     <div>
-                      <label className="text-xs opacity-75">表层情绪</label>
+                      <label className="text-xs opacity-75">{t('satirIceberg.surfaceEmotion')}</label>
                       <p className="font-semibold">{layer.content.surface_emotion}</p>
                     </div>
                   )}
                   {layer.content.underlying_emotion && (
                     <div>
-                      <label className="text-xs opacity-75">潜在情绪</label>
+                      <label className="text-xs opacity-75">{t('satirIceberg.underlyingEmotion')}</label>
                       <p className="font-semibold">{layer.content.underlying_emotion}</p>
                     </div>
                   )}
                   {layer.content.emotion_intensity && (
                     <div>
-                      <label className="text-xs opacity-75">情绪强度</label>
+                      <label className="text-xs opacity-75">{t('satirIceberg.emotionIntensity')}</label>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-white/20 rounded-full h-2">
                           <div
@@ -176,7 +180,7 @@ function IcebergLayer({ layer, index, total }: IcebergLayerProps) {
                 layer.content.irrational_beliefs &&
                 layer.content.irrational_beliefs.length > 0 && (
                   <div>
-                    <label className="text-xs opacity-75">非理性信念</label>
+                    <label className="text-xs opacity-75">{t('satirIceberg.irrationalBeliefs')}</label>
                     <ul className="space-y-1 mt-1">
                       {layer.content.irrational_beliefs.map((belief: string, i: number) => (
                         <li key={i} className="text-sm">
@@ -189,7 +193,7 @@ function IcebergLayer({ layer, index, total }: IcebergLayerProps) {
 
               {layer.id === 'belief' && layer.content.core_beliefs && layer.content.core_beliefs.length > 0 && (
                 <div>
-                  <label className="text-xs opacity-75">核心信念</label>
+                  <label className="text-xs opacity-75">{t('satirIceberg.coreBeliefs')}</label>
                   <ul className="space-y-1 mt-1">
                     {layer.content.core_beliefs.map((belief: string, i: number) => (
                       <li key={i} className="text-sm">
@@ -202,7 +206,7 @@ function IcebergLayer({ layer, index, total }: IcebergLayerProps) {
 
               {layer.id === 'existence' && layer.content.deepest_desire && (
                 <div>
-                  <label className="text-xs opacity-75">深层渴望</label>
+                  <label className="text-xs opacity-75">{t('satirIceberg.deepDesire')}</label>
                   <p className="font-semibold mt-1">{layer.content.deepest_desire}</p>
                 </div>
               )}

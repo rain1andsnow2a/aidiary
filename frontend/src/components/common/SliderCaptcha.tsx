@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ShieldCheck, RefreshCw, X } from 'lucide-react'
 
 interface CaptchaData {
@@ -56,6 +57,7 @@ function drawPuzzlePath(
 }
 
 export default function SliderCaptcha({ onSuccess, onClose }: SliderCaptchaProps) {
+  const { t } = useTranslation()
   const [captcha, setCaptcha] = useState<CaptchaData | null>(null)
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -264,13 +266,13 @@ export default function SliderCaptcha({ onSuccess, onClose }: SliderCaptchaProps
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
           <div className="flex items-center gap-2 text-sm text-stone-600 font-medium">
             <ShieldCheck className="w-4 h-4 text-violet-500" />
-            安全验证
+            {t('captcha.securityVerify')}
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={fetchCaptcha}
               className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 transition-colors"
-              title="刷新"
+              title={t('captcha.refresh')}
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -315,7 +317,7 @@ export default function SliderCaptcha({ onSuccess, onClose }: SliderCaptchaProps
                   <span className={`text-sm font-bold px-4 py-1.5 rounded-full ${
                     status === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
                   }`}>
-                    {status === 'success' ? '验证通过' : '验证失败，请重试'}
+                    {status === 'success' ? t('captcha.success') : t('captcha.failRetry')}
                   </span>
                 </div>
               )}
@@ -340,7 +342,7 @@ export default function SliderCaptcha({ onSuccess, onClose }: SliderCaptchaProps
             {/* Hint text */}
             {sliderX === 0 && status === 'idle' && (
               <div className="absolute inset-0 flex items-center justify-center text-xs text-stone-300 pointer-events-none">
-                向右拖动滑块完成拼图
+                {t('captcha.dragToComplete')}
               </div>
             )}
             {/* Slider thumb */}

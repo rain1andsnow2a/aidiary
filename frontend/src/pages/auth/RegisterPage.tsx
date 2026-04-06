@@ -1,13 +1,16 @@
 // 注册页面 - 温暖柔和心理日记风格
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
 import { toast } from '@/components/ui/toast'
 import { Check } from 'lucide-react'
 import SliderCaptcha, { type CaptchaResult } from '@/components/common/SliderCaptcha'
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
 
 export default function RegisterPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { register, isLoading, error, clearError } = useAuthStore()
 
@@ -24,7 +27,7 @@ export default function RegisterPage() {
 
   const handleRequestCode = () => {
     if (!email || !email.includes('@')) {
-      toast('请输入有效的邮箱地址', 'error')
+      toast(t('validation.emailInvalid'), 'error')
       return
     }
     setShowCaptcha(true)
@@ -35,7 +38,7 @@ export default function RegisterPage() {
     try {
       await authService.sendRegisterCode(email, captchaResult)
       setStep(2)
-      toast('验证码已发送到您的邮箱', 'success')
+      toast(t('auth.register.sendCodeSuccess'), 'success')
       setCountdown(60)
       const timer = setInterval(() => {
         setCountdown((prev) => {
@@ -44,7 +47,7 @@ export default function RegisterPage() {
         })
       }, 1000)
     } catch (err: any) {
-      toast(err.response?.data?.detail || '发送验证码失败', 'error')
+      toast(err.response?.data?.detail || t('auth.register.sendCode'), 'error')
     }
   }
 
@@ -58,25 +61,25 @@ export default function RegisterPage() {
     clearError()
 
     if (!email || !password || !code) {
-      toast('请填写完整信息', 'error')
+      toast(t('validation.required'), 'error')
       return
     }
     if (!agreedToTerms) {
-      toast('请先同意服务条款和隐私政策', 'error')
+      toast(t('auth.register.agreeTerms'), 'error')
       return
     }
     if (password !== confirmPassword) {
-      toast('两次输入的密码不一致', 'error')
+      toast(t('validation.passwordMismatch'), 'error')
       return
     }
     if (password.length < 6) {
-      toast('密码长度至少6位', 'error')
+      toast(t('validation.passwordMinLength', { length: 6 }), 'error')
       return
     }
 
     try {
       await register(email, password, code, username || undefined)
-      toast('注册成功', 'success')
+      toast(t('auth.register.registerSuccess'), 'success')
       navigate('/login')
     } catch (err: any) {
       console.error('Register failed:', err)
@@ -110,23 +113,21 @@ export default function RegisterPage() {
               alt="印记 Logo"
               className="w-10 h-10 rounded-2xl object-cover shadow-md"
             />
-            <span className="text-stone-700 text-xl font-semibold">印记</span>
+            <span className="text-stone-700 text-xl font-semibold">YinJi</span>
           </div>
 
           <h2 className="text-4xl font-bold leading-tight mb-5" style={{ color: '#3d2b2b' }}>
-            开始记录，<br />
-            <span className="text-gradient">遇见更好的自己</span>
+            {t('auth.register.startJourney')}
           </h2>
           <p className="text-stone-500 text-sm leading-relaxed mb-12">
-            创建你的印记账号，AI 将随着每一篇日记更了解你。
-            从今天起，让文字成为通往内心的桥梁。
+            {t('auth.register.description')}
           </p>
 
           <div className="space-y-3">
             {[
-              { num: '1', label: '验证邮箱', desc: '获取注册验证码', active: true },
-              { num: '2', label: '设置密码', desc: '保护你的账号安全', active: step === 2 },
-              { num: '3', label: '开始探索', desc: '书写第一篇日记', active: false },
+              { num: '1', label: t('auth.register.verifyEmail'), desc: t('auth.register.step1Desc'), active: true },
+              { num: '2', label: t('auth.register.setPassword'), desc: t('auth.register.step2Desc'), active: step === 2 },
+              { num: '3', label: t('auth.register.startExplore'), desc: t('auth.register.step3Desc'), active: false },
             ].map((s) => (
               <div key={s.num} className={`flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-300 ${s.active ? 'bg-white/70 border border-[#e9e3de]' : 'opacity-50'}`}>
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold text-white ${s.active ? '' : 'opacity-60'}`}
@@ -144,21 +145,26 @@ export default function RegisterPage() {
       </div>
 
       {/* 右侧注册表单 */}
-      <div className="w-full lg:w-[55%] flex items-center justify-center px-6 sm:px-16">
+      <div className="w-full lg:w-[55%] flex items-center justify-center px-6 sm:px-16 relative">
+        {/* 语言切换器 */}
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
+        
         <div className="w-full max-w-[420px] animate-fade-in">
           <div className="lg:hidden flex items-center gap-2 mb-8">
             <img
               src="/branding/yinji-logo-nanobanana-v1_1.png"
-              alt="印记 Logo"
+              alt="YinJi Logo"
               className="w-8 h-8 rounded-xl object-cover shadow-sm"
             />
-            <span className="text-stone-700 font-semibold">印记</span>
+            <span className="text-stone-700 font-semibold">YinJi</span>
           </div>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-stone-800">创建账号</h1>
+            <h1 className="text-2xl font-bold text-stone-800">{t('auth.register.title')}</h1>
             <p className="text-stone-400 text-sm mt-1.5">
-              {step === 1 ? '输入邮箱，开始你的心灵之旅' : '完善信息，完成注册'}
+              {step === 1 ? t('auth.register.step1Hint') : t('auth.register.step2Hint')}
             </p>
           </div>
 

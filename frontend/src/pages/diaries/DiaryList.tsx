@@ -1,6 +1,7 @@
 // 日记列表页面 - 温暖柔和心理日记风格
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useDiaryStore } from '@/store/diaryStore'
 import { Loading } from '@/components/common/Loading'
 import { toast } from '@/components/ui/toast'
@@ -8,8 +9,11 @@ import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { BookOpen, Sprout, Star, Search, X } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
 
-const EMOTION_FILTERS = ['全部', '开心', '平静', '焦虑', '成就感', '满足', '担忧', '疲惫']
+const EMOTION_FILTERS_KEYS = [
+  'all', 'happy', 'calm', 'anxious', 'achievement', 'satisfied', 'worried', 'exhausted'
+]
 
 function toPreviewText(markdown: string): string {
   return markdown
@@ -21,6 +25,7 @@ function toPreviewText(markdown: string): string {
 }
 
 export default function DiaryList() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { diaries, isLoading, fetchDiaries, pagination, deleteDiary } = useDiaryStore()
   const [selectedEmotion, setSelectedEmotion] = useState<string | undefined>()
@@ -28,6 +33,9 @@ export default function DiaryList() {
   const [keyword, setKeyword] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 情绪过滤器（带翻译）
+  const EMOTION_FILTERS = EMOTION_FILTERS_KEYS.map(key => t(`diary.emotion.${key}`))
 
   useEffect(() => {
     fetchDiaries({ emotionTag: selectedEmotion, keyword: keyword || undefined })
@@ -54,8 +62,9 @@ export default function DiaryList() {
     if (!deleteTarget) return
     try {
       await deleteDiary(deleteTarget.id)
+      toast(t('diary.deleteSuccess'), 'success')
     } catch (error) {
-      toast('删除失败', 'error')
+      toast(t('diary.deleteFailed'), 'error')
     } finally {
       setDeleteTarget(null)
     }
@@ -79,29 +88,34 @@ export default function DiaryList() {
     <div className="min-h-screen" style={{ background: 'linear-gradient(158deg, #f8f5ef 0%, #f2eef5 58%, #f5f2ee 100%)' }}>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="确定删除这篇日记吗？"
-        description={deleteTarget ? <>删除后不可恢复：<span className="font-medium text-stone-700">《{deleteTarget.title || '无标题'}》</span></> : undefined}
-        confirmText="确认删除"
-        cancelText="我再想想"
+        title={t('diary.deleteConfirm')}
+        description={deleteTarget ? <>《{deleteTarget.title || t('diary.noTitle')}》</> : undefined}
+        confirmText={t('common.confirm')}
+        cancelText={t('common.cancel')}
         danger
         onCancel={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
       />
 
       {/* 顶部导航 */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-stone-200/70" style={{ background: 'rgba(248,245,239,0.88)' }}>
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-stone-200/70 relative" style={{ background: 'rgba(248,245,239,0.88)' }}>
+        {/* 语言切换器 */}
+        <div className="absolute top-2 right-4">
+          <LanguageSwitcher />
+        </div>
+        
         <div className="max-w-3xl mx-auto px-6">
           <div className="flex justify-between items-center py-3.5">
             <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">
-              ← 返回
+              ← {t('common.back')}
             </button>
-            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-[#b56f61]" /> 我的日记</span>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-[#b56f61]" /> {t('navigation.myDiaries')}</span>
             <button
               onClick={() => navigate('/diaries/new')}
               className="h-8 px-4 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
               style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
             >
-              写日记
+              {t('navigation.writeDiary')}
             </button>
           </div>
         </div>
@@ -115,7 +129,7 @@ export default function DiaryList() {
             type="text"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="搜索日记标题或内容..."
+            placeholder={t('diary.searchPlaceholder')}
             className="w-full h-10 pl-10 pr-10 rounded-2xl text-sm text-stone-600 placeholder:text-stone-300 bg-white border border-stone-100 focus:border-[#d8c7bc] focus:ring-2 focus:ring-rose-100 outline-none transition-all shadow-sm"
           />
           {searchInput && (
@@ -166,13 +180,13 @@ export default function DiaryList() {
             ) : (
               <>
                 <Sprout className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
-                <p className="text-stone-400 text-sm mb-5">还没有日记，开始写第一篇吧</p>
+                <p className="text-stone-400 text-sm mb-5">{t('diary.noDiaries')}</p>
                 <button
                   onClick={() => navigate('/diaries/new')}
                   className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md"
                   style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
                 >
-                  写日记
+                  {t('navigation.writeDiary')}
                 </button>
               </>
             )}
@@ -190,7 +204,7 @@ export default function DiaryList() {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-stone-700 truncate">{diary.title || '无标题'}</h3>
+                        <h3 className="text-sm font-bold text-stone-700 truncate">{diary.title || t('diary.noTitle')}</h3>
                         <p className="text-xs text-stone-300 mt-0.5">
                           {format(new Date(diary.diary_date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
                         </p>
@@ -218,19 +232,19 @@ export default function DiaryList() {
                     )}
 
                     <div className="flex justify-between items-center">
-                      <span className="text-[11px] text-stone-300">{diary.word_count} 字</span>
+                      <span className="text-[11px] text-stone-300">{diary.word_count} {t('diary.words')}</span>
                       <div className="flex gap-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/diaries/${diary.id}/edit`) }}
                           className="text-[11px] text-stone-300 hover:text-stone-500 px-2 py-1 rounded-lg hover:bg-stone-50 transition-colors"
                         >
-                          编辑
+                          {t('common.edit')}
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(diary.id, diary.title) }}
                           className="text-[11px] text-stone-300 hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
                         >
-                          删除
+                          {t('common.delete')}
                         </button>
                       </div>
                     </div>

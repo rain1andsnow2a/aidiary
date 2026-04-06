@@ -1,5 +1,6 @@
 // Loading组件
 import { cn } from '@/utils/cn'
+import { useTranslation } from 'react-i18next'
 
 interface LoadingProps {
   size?: 'sm' | 'md' | 'lg'
@@ -7,6 +8,7 @@ interface LoadingProps {
 }
 
 export const Loading = ({ size = 'md', className }: LoadingProps) => {
+  const { t } = useTranslation()
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-8 h-8',
@@ -17,7 +19,7 @@ export const Loading = ({ size = 'md', className }: LoadingProps) => {
     <div
       className={cn('flex items-center justify-center', className)}
       role="status"
-      aria-label="加载中"
+      aria-label={t('common.loading')}
     >
       <svg
         className={cn('animate-spin text-primary', sizeClasses[size])}
@@ -39,7 +41,7 @@ export const Loading = ({ size = 'md', className }: LoadingProps) => {
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         />
       </svg>
-      <span className="sr-only">加载中...</span>
+      <span className="sr-only">{t('common.loading')}</span>
     </div>
   )
 }

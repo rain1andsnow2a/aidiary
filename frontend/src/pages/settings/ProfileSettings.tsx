@@ -1,6 +1,7 @@
 // 用户画像设置页面 - 温暖柔和心理日记风格
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
 import { integrationService, type OpenClawIntegrationStatus } from '@/services/integration.service'
@@ -15,22 +16,22 @@ const MBTI_TYPES = [
 ]
 
 const SOCIAL_STYLES = [
-  { value: 'formal', label: '正式', icon: <Briefcase className="w-3.5 h-3.5" /> },
-  { value: 'casual', label: '随意', icon: <Smile className="w-3.5 h-3.5" /> },
-  { value: 'humorous', label: '幽默', icon: <Laugh className="w-3.5 h-3.5" /> },
-  { value: 'professional', label: '专业', icon: <Award className="w-3.5 h-3.5" /> },
-  { value: 'friendly', label: '友好', icon: <Handshake className="w-3.5 h-3.5" /> },
-  { value: 'reserved', label: '内敛', icon: <Moon className="w-3.5 h-3.5" /> },
+  { value: 'formal', labelKey: 'profileSettings.socialStyles.formal', icon: <Briefcase className="w-3.5 h-3.5" /> },
+  { value: 'casual', labelKey: 'profileSettings.socialStyles.casual', icon: <Smile className="w-3.5 h-3.5" /> },
+  { value: 'humorous', labelKey: 'profileSettings.socialStyles.humorous', icon: <Laugh className="w-3.5 h-3.5" /> },
+  { value: 'professional', labelKey: 'profileSettings.socialStyles.professional', icon: <Award className="w-3.5 h-3.5" /> },
+  { value: 'friendly', labelKey: 'profileSettings.socialStyles.friendly', icon: <Handshake className="w-3.5 h-3.5" /> },
+  { value: 'reserved', labelKey: 'profileSettings.socialStyles.reserved', icon: <Moon className="w-3.5 h-3.5" /> },
 ]
 
 const CURRENT_STATES = [
-  { value: '工作', icon: <Monitor className="w-3.5 h-3.5" /> },
-  { value: '学习', icon: <BookOpen className="w-3.5 h-3.5" /> },
-  { value: '创业', icon: <Rocket className="w-3.5 h-3.5" /> },
-  { value: '自由职业', icon: <Palette className="w-3.5 h-3.5" /> },
-  { value: '退休', icon: <TreePalm className="w-3.5 h-3.5" /> },
-  { value: '间隔年', icon: <Plane className="w-3.5 h-3.5" /> },
-  { value: '其他', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { value: 'work', labelKey: 'profileSettings.currentStates.work', icon: <Monitor className="w-3.5 h-3.5" /> },
+  { value: 'study', labelKey: 'profileSettings.currentStates.study', icon: <BookOpen className="w-3.5 h-3.5" /> },
+  { value: 'startup', labelKey: 'profileSettings.currentStates.startup', icon: <Rocket className="w-3.5 h-3.5" /> },
+  { value: 'freelance', labelKey: 'profileSettings.currentStates.freelance', icon: <Palette className="w-3.5 h-3.5" /> },
+  { value: 'retired', labelKey: 'profileSettings.currentStates.retired', icon: <TreePalm className="w-3.5 h-3.5" /> },
+  { value: 'gapYear', labelKey: 'profileSettings.currentStates.gapYear', icon: <Plane className="w-3.5 h-3.5" /> },
+  { value: 'other', labelKey: 'profileSettings.currentStates.other', icon: <Sparkles className="w-3.5 h-3.5" /> },
 ]
 
 const gradientBtn = { background: 'linear-gradient(135deg, #fb7185, #c084fc)' }
@@ -38,6 +39,7 @@ const warmBg = { background: 'linear-gradient(160deg, #fff8f5 0%, #fdf4ff 60%, #
 
 export default function ProfileSettings() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user } = useAuthStore()
 
   const [username, setUsername] = useState(user?.username || '')
@@ -53,7 +55,7 @@ export default function ProfileSettings() {
   const [isTokenLoading, setIsTokenLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const displayName = username || user?.username || user?.email?.split('@')[0] || '用户'
+  const displayName = username || user?.username || user?.email?.split('@')[0] || t('profileSettings.defaultUser')
   const avatarLetter = displayName.charAt(0).toUpperCase()
 
   // 从后端加载最新画像数据
@@ -82,7 +84,7 @@ export default function ProfileSettings() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) {
-      toast('图片大小不能超过 2MB', 'error')
+      toast(t('profileSettings.avatarTooLarge'), 'error')
       return
     }
     // 先预览
@@ -98,10 +100,10 @@ export default function ProfileSettings() {
       setAvatarPreview(updatedUser.avatar_url || null)
       // 同步更新authStore中的user
       useAuthStore.setState({ user: updatedUser })
-      toast('头像上传成功', 'success')
+      toast(t('profileSettings.avatarSuccess'), 'success')
     } catch (err) {
-      console.error('头像上传失败:', err)
-      toast('头像上传失败', 'error')
+      console.error('Avatar upload failed:', err)
+      toast(t('profileSettings.avatarFailed'), 'error')
     }
   }
 
@@ -128,11 +130,11 @@ export default function ProfileSettings() {
       })
       // 同步更新authStore中的user
       useAuthStore.setState({ user: updatedUser })
-      toast('设置已保存', 'success')
+      toast(t('profileSettings.saveSuccess'), 'success')
       navigate('/')
     } catch (err: any) {
-      console.error('保存失败:', err)
-      toast(err.response?.data?.detail || '保存失败', 'error')
+      console.error('Save failed:', err)
+      toast(err.response?.data?.detail || t('profileSettings.saveFailed'), 'error')
     } finally {
       setIsSaving(false)
     }
@@ -160,8 +162,8 @@ export default function ProfileSettings() {
       }
       toast(successMessage, 'success')
     } catch (err) {
-      console.error('复制失败:', err)
-      toast('复制失败，请手动复制', 'error')
+      console.error('Copy failed:', err)
+      toast(t('profileSettings.copyFailed'), 'error')
     }
   }
 
@@ -171,10 +173,10 @@ export default function ProfileSettings() {
       const next = await integrationService.createOpenClawToken()
       setOpenClawStatus(next)
       setPlainToken(next.token)
-      toast('已生成新的小龙虾接入令牌', 'success')
+      toast(t('profileSettings.tokenGenerated'), 'success')
     } catch (err) {
-      console.error('生成接入令牌失败:', err)
-      toast('生成接入令牌失败', 'error')
+      console.error('Token generation failed:', err)
+      toast(t('profileSettings.tokenGenerateFailed'), 'error')
     } finally {
       setIsTokenLoading(false)
     }
@@ -186,10 +188,10 @@ export default function ProfileSettings() {
       await integrationService.revokeOpenClawToken()
       setPlainToken('')
       setOpenClawStatus((prev) => prev ? { ...prev, connected: false, token_hint: null, last_used_at: null } : prev)
-      toast('已关闭小龙虾接入', 'success')
+      toast(t('profileSettings.accessRevoked'), 'success')
     } catch (err) {
-      console.error('关闭接入失败:', err)
-      toast('关闭接入失败', 'error')
+      console.error('Revoke failed:', err)
+      toast(t('profileSettings.revokeFailed'), 'error')
     } finally {
       setIsTokenLoading(false)
     }
@@ -241,16 +243,16 @@ export default function ProfileSettings() {
         <div className="max-w-2xl mx-auto px-6">
           <div className="flex justify-between items-center py-3.5">
             <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">
-              ← 返回
+              ← {t('common.back')}
             </button>
-            <span className="text-sm font-semibold text-stone-600">个人设置</span>
+            <span className="text-sm font-semibold text-stone-600">{t('profileSettings.title')}</span>
             <button
               onClick={handleSave}
               disabled={isSaving}
               className="h-8 px-4 rounded-xl text-xs font-semibold text-white disabled:opacity-50 shadow-sm transition-all active:scale-[0.97]"
               style={gradientBtn}
             >
-              {isSaving ? '保存中...' : '保存'}
+              {isSaving ? t('profileSettings.saving') : t('common.save')}
             </button>
           </div>
         </div>
@@ -274,7 +276,7 @@ export default function ProfileSettings() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {avatarPreview ? (
-                      <img src={avatarPreview} alt="头像" className="w-full h-full object-cover" />
+                      <img src={avatarPreview} alt={t('profileSettings.avatar')} className="w-full h-full object-cover" />
                     ) : (
                       avatarLetter
                     )}
@@ -303,25 +305,25 @@ export default function ProfileSettings() {
                   onClick={() => fileInputRef.current?.click()}
                   className="mt-2 text-xs text-rose-400/80 hover:text-rose-500 transition-colors"
                 >
-                  点击更换头像
+                  {t('profileSettings.changeAvatar')}
                 </button>
               </div>
             </div>
 
-            <SectionTitle title="基本信息" desc="告诉我们如何称呼你" />
+            <SectionTitle title={t('profileSettings.basicInfo')} desc={t('profileSettings.basicInfoDesc')} />
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-stone-500 mb-1.5 block">用户名</label>
+                <label className="text-xs font-medium text-stone-500 mb-1.5 block">{t('profileSettings.username')}</label>
                 <input
                   type="text"
-                  placeholder="如何称呼你"
+                  placeholder={t('profileSettings.usernamePlaceholder')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full h-11 px-4 rounded-xl bg-stone-50/80 border border-stone-100 text-sm text-stone-700 placeholder:text-stone-300 outline-none focus:border-rose-200 focus:ring-2 focus:ring-rose-100 transition-all"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-stone-500 mb-1.5 block">邮箱（不可修改）</label>
+                <label className="text-xs font-medium text-stone-500 mb-1.5 block">{t('profileSettings.emailLabel')} ({t('profileSettings.notModifiable')})</label>
                 <input
                   type="email"
                   value={user?.email || ''}
@@ -334,7 +336,7 @@ export default function ProfileSettings() {
 
           {/* MBTI */}
           <SectionCard>
-            <SectionTitle title="MBTI 性格类型" desc="选择你的性格类型（可选）" />
+            <SectionTitle title={t('profileSettings.mbti')} desc={t('profileSettings.mbtiDesc')} />
             <div className="grid grid-cols-4 gap-2">
               {MBTI_TYPES.map((type) => (
                 <button
@@ -356,7 +358,7 @@ export default function ProfileSettings() {
 
           {/* 社交风格 */}
           <SectionCard>
-            <SectionTitle title="社交风格" desc="你通常如何表达自己？" />
+            <SectionTitle title={t('profileSettings.socialStyle')} desc={t('profileSettings.socialStyleDesc')} />
             <div className="grid grid-cols-3 gap-2.5">
               {SOCIAL_STYLES.map((style) => (
                 <button
@@ -371,7 +373,7 @@ export default function ProfileSettings() {
                   style={socialStyle === style.value ? gradientBtn : undefined}
                 >
                   {style.icon}
-                  {style.label}
+                  {t(style.labelKey)}
                 </button>
               ))}
             </div>
@@ -379,7 +381,7 @@ export default function ProfileSettings() {
 
           {/* 当前状态 */}
           <SectionCard>
-            <SectionTitle title="当前状态" desc="你目前的生活状态" />
+            <SectionTitle title={t('profileSettings.currentState')} desc={t('profileSettings.currentStateDesc')} />
             <div className="flex flex-wrap gap-2.5">
               {CURRENT_STATES.map((state) => (
                 <button
@@ -394,7 +396,7 @@ export default function ProfileSettings() {
                   style={currentState === state.value ? gradientBtn : undefined}
                 >
                   {state.icon}
-                  {state.value}
+                  {t(state.labelKey)}
                 </button>
               ))}
             </div>
@@ -402,11 +404,11 @@ export default function ProfileSettings() {
 
           {/* 口头禅 */}
           <SectionCard>
-            <SectionTitle title="口头禅" desc="添加你常用的表达，AI 会学习你的风格" />
+            <SectionTitle title={t('profileSettings.catchphrases')} desc={t('profileSettings.catchphrasesDesc')} />
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
-                placeholder="例如：哈哈、好的、收到..."
+                placeholder={t('profileSettings.catchphrasePlaceholder')}
                 value={newCatchphrase}
                 onChange={(e) => setNewCatchphrase(e.target.value)}
                 onKeyDown={(e) => {
@@ -423,7 +425,7 @@ export default function ProfileSettings() {
                 className="h-10 px-4 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
                 style={gradientBtn}
               >
-                添加
+                {t('profileSettings.add')}
               </button>
             </div>
             {catchphrases.length > 0 && (
@@ -447,7 +449,7 @@ export default function ProfileSettings() {
               </div>
             )}
             {catchphrases.length === 0 && (
-              <p className="text-xs text-stone-300 text-center py-3">还没有添加口头禅</p>
+              <p className="text-xs text-stone-300 text-center py-3">{t('profileSettings.noCatchphrases')}</p>
             )}
           </SectionCard>
 
@@ -457,12 +459,12 @@ export default function ProfileSettings() {
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/85 border border-rose-100 text-[11px] font-semibold text-rose-500 mb-3">
                     <PlugZap className="w-3.5 h-3.5" />
-                    OpenClaw 小龙虾速记接入
+                    OpenClaw {t('profileSettings.quickNoteIntegration')}
                   </div>
-                  <h3 className="text-base font-semibold text-stone-700">让小龙虾帮你把手机里的碎片想法写进映记</h3>
+                  <h3 className="text-base font-semibold text-stone-700">{t('profileSettings.openClawTitle')}</h3>
                   <p className="text-xs text-stone-400 mt-1 leading-6">
-                    生成一枚专属接入令牌后，你就可以把它交给 OpenClaw 的技能或工作流。
-                    之后在手机上随手发一句话，小龙虾就能替你创建或追加今天的日记。
+                    {t('profileSettings.openClawDesc1')}
+                    {t('profileSettings.openClawDesc2')}
                   </p>
                 </div>
                 <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/80 border border-white shadow-sm items-center justify-center">
@@ -474,17 +476,17 @@ export default function ProfileSettings() {
             <div className="grid gap-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
-                  <p className="text-[11px] text-stone-400 mb-1">当前状态</p>
+                  <p className="text-[11px] text-stone-400 mb-1">{t('profileSettings.currentStatus')}</p>
                   <p className={`text-sm font-semibold ${openClawStatus?.connected ? 'text-emerald-500' : 'text-stone-500'}`}>
-                    {openClawStatus?.connected ? '已连接' : '未连接'}
+                    {openClawStatus?.connected ? t('profileSettings.connected') : t('profileSettings.notConnected')}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
-                  <p className="text-[11px] text-stone-400 mb-1">令牌指纹</p>
+                  <p className="text-[11px] text-stone-400 mb-1">{t('profileSettings.tokenFingerprint')}</p>
                   <p className="text-sm font-semibold text-stone-600">{openClawStatus?.token_hint || '—'}</p>
                 </div>
                 <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
-                  <p className="text-[11px] text-stone-400 mb-1">有效期</p>
+                  <p className="text-[11px] text-stone-400 mb-1">{t('profileSettings.validity')}</p>
                   <p className={`text-sm font-semibold ${openClawStatus?.expires_at && new Date(openClawStatus.expires_at) < new Date() ? 'text-rose-500' : 'text-stone-600'}`}>
                     {openClawStatus?.connected
                       ? (openClawStatus?.expires_at
@@ -494,7 +496,7 @@ export default function ProfileSettings() {
                   </p>
                 </div>
                 <div className="rounded-2xl border border-stone-100 bg-stone-50/70 p-4">
-                  <p className="text-[11px] text-stone-400 mb-1">最近写入</p>
+                  <p className="text-[11px] text-stone-400 mb-1">{t('profileSettings.lastWrite')}</p>
                   <p className="text-sm font-semibold text-stone-600">{openClawStatus?.last_used_at ? new Date(openClawStatus.last_used_at).toLocaleString('zh-CN') : '—'}</p>
                 </div>
               </div>
@@ -508,38 +510,38 @@ export default function ProfileSettings() {
                   style={gradientBtn}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isTokenLoading ? 'animate-spin' : ''}`} />
-                  {openClawStatus?.connected ? '重置接入令牌' : '生成接入令牌'}
+                  {openClawStatus?.connected ? t('profileSettings.resetToken') : t('profileSettings.generateToken')}
                 </button>
 
                 {plainToken && (
                   <button
                     type="button"
-                    onClick={() => copyText(plainToken, '令牌已复制')}
+                    onClick={() => copyText(plainToken, t('profileSettings.tokenCopied'))}
                     className="h-10 px-4 rounded-xl text-xs font-semibold border border-rose-100 bg-white text-rose-500 hover:bg-rose-50 transition-all inline-flex items-center gap-2"
                   >
                     <Copy className="w-3.5 h-3.5" />
-                    复制令牌
+                    {t('profileSettings.copyToken')}
                   </button>
                 )}
 
                 {openClawStatus?.ingest_url && (
                   <button
                     type="button"
-                    onClick={() => copyText(openClawStatus.ingest_url, '接入地址已复制')}
+                    onClick={() => copyText(openClawStatus.ingest_url, t('profileSettings.ingressUrlCopied'))}
                     className="h-10 px-4 rounded-xl text-xs font-semibold border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-all inline-flex items-center gap-2"
                   >
                     <Link2 className="w-3.5 h-3.5" />
-                    复制接入地址
+                    {t('profileSettings.copyIngressUrl')}
                   </button>
                 )}
 
                 <button
                   type="button"
-                  onClick={() => copyText(openClawSkillRepo, 'OpenClaw Skill 仓库地址已复制')}
+                  onClick={() => copyText(openClawSkillRepo, t('profileSettings.skillRepoCopied'))}
                   className="h-10 px-4 rounded-xl text-xs font-semibold border border-violet-200 bg-white text-violet-600 hover:bg-violet-50 transition-all inline-flex items-center gap-2"
                 >
                   <Link2 className="w-3.5 h-3.5" />
-                  复制 Skill 地址
+                  {t('profileSettings.copySkillUrl')}
                 </button>
 
                 {openClawStatus?.connected && (
@@ -550,20 +552,20 @@ export default function ProfileSettings() {
                     className="h-10 px-4 rounded-xl text-xs font-semibold border border-rose-100 bg-white text-rose-400 hover:bg-rose-50 transition-all inline-flex items-center gap-2 disabled:opacity-50"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    关闭接入
+                    {t('profileSettings.closeAccess')}
                   </button>
                 )}
               </div>
 
               <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50/70 to-rose-50/70 px-4 py-3">
                 <p className="text-xs font-medium text-stone-600">
-                  令牌只会完整展示这一次。为了安全，映记后台只保存哈希值，不保存明文。
+                  {t('profileSettings.tokenSecurityNotice')}
                 </p>
               </div>
 
               {plainToken && (
                 <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
-                  <p className="text-xs font-medium text-violet-500 mb-2">刚刚生成的新令牌</p>
+                  <p className="text-xs font-medium text-violet-500 mb-2">{t('profileSettings.newTokenLabel')}</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 rounded-xl bg-white px-3 py-2 text-[12px] text-stone-700 break-all border border-violet-100">{plainToken}</code>
                     <button
@@ -580,22 +582,22 @@ export default function ProfileSettings() {
               <div className="rounded-2xl border border-stone-100 bg-[#fffdfb] p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-sm font-semibold text-stone-700">推荐给 OpenClaw 的技能提示词</p>
-                    <p className="text-xs text-stone-400 mt-1">默认先让小龙虾下载公开 skill，失败再回退到 HTTP 直连</p>
+                    <p className="text-sm font-semibold text-stone-700">{t('profileSettings.skillPromptTitle')}</p>
+                    <p className="text-xs text-stone-400 mt-1">{t('profileSettings.skillPromptDesc')}</p>
                   </div>
                   {openClawSnippet && (
                     <button
                       type="button"
-                      onClick={() => copyText(openClawSnippet, 'OpenClaw 配置提示词已复制')}
+                      onClick={() => copyText(openClawSnippet, t('profileSettings.skillPromptCopied'))}
                       className="text-xs px-3 py-1.5 rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors inline-flex items-center gap-1.5"
                     >
                       <Copy className="w-3.5 h-3.5" />
-                      复制
+                      {t('common.copy')}
                     </button>
                   )}
                 </div>
                 <pre className="whitespace-pre-wrap rounded-2xl bg-stone-950/[0.03] border border-stone-100 px-4 py-3 text-[12px] leading-6 text-stone-600 overflow-x-auto">
-{openClawSnippet || '先生成一枚接入令牌，这里会自动出现推荐给 OpenClaw 的配置提示词。'}
+{openClawSnippet || t('profileSettings.noTokenHint')}
                 </pre>
               </div>
             </div>
@@ -608,7 +610,7 @@ export default function ProfileSettings() {
               onClick={() => navigate('/')}
               className="flex-1 h-12 rounded-2xl text-sm font-medium bg-white border border-stone-100 text-stone-400 hover:bg-stone-50 transition-all active:scale-[0.98] shadow-sm"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -618,7 +620,7 @@ export default function ProfileSettings() {
             >
               {isSaving
                 ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-                : '保存设置'}
+                : t('profileSettings.saveSettings')}
             </button>
           </div>
         </form>

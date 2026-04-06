@@ -1,15 +1,18 @@
 // 登录页面 - 温暖柔和心理日记风格
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/auth.service'
 import { toast } from '@/components/ui/toast'
 import { Sparkles, Leaf, Brain } from 'lucide-react'
 import SliderCaptcha, { type CaptchaResult } from '@/components/common/SliderCaptcha'
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
 
 type LoginMode = 'password' | 'code'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { login, loginWithPassword, isLoading, error, clearError } = useAuthStore()
 
@@ -23,7 +26,7 @@ export default function LoginPage() {
 
   const handleRequestCode = () => {
     if (!email || !email.includes('@')) {
-      toast('请输入有效的邮箱地址', 'error')
+      toast(t('validation.emailInvalid'), 'error')
       return
     }
     setShowCaptcha(true)
@@ -33,7 +36,7 @@ export default function LoginPage() {
     setShowCaptcha(false)
     try {
       await authService.sendLoginCode(email, captchaResult)
-      toast('验证码已发送', 'success')
+      toast(t('auth.register.sendCodeSuccess'), 'success')
       setCountdown(60)
       const timer = setInterval(() => {
         setCountdown((prev) => {
@@ -42,20 +45,20 @@ export default function LoginPage() {
         })
       }, 1000)
     } catch (err: any) {
-      toast(err.response?.data?.detail || '发送验证码失败', 'error')
+      toast(err.response?.data?.detail || t('common.error'), 'error')
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearError()
-    if (!email) { toast('请输入邮箱地址', 'error'); return }
+    if (!email) { toast(t('auth.login.email'), 'error'); return }
     try {
       if (mode === 'password') {
-        if (!password) { toast('请输入密码', 'error'); return }
+        if (!password) { toast(t('auth.login.password'), 'error'); return }
         await loginWithPassword(email, password)
       } else {
-        if (!code) { toast('请输入验证码', 'error'); return }
+        if (!code) { toast(t('validation.verificationCodeRequired'), 'error'); return }
         await login(email, code)
       }
       navigate('/')
@@ -121,7 +124,12 @@ export default function LoginPage() {
       </div>
 
       {/* 右侧登录表单 */}
-      <div className="w-full lg:w-[55%] flex items-center justify-center px-6 sm:px-16">
+      <div className="w-full lg:w-[55%] flex items-center justify-center px-6 sm:px-16 relative">
+        {/* 语言切换器 */}
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
+        
         <div className="w-full max-w-[420px] animate-fade-in">
           {/* 移动端logo */}
           <div className="lg:hidden flex items-center gap-2 mb-8">
@@ -130,12 +138,12 @@ export default function LoginPage() {
               alt="印记 Logo"
               className="w-8 h-8 rounded-xl object-cover shadow-sm"
             />
-            <span className="text-stone-700 font-semibold">印记</span>
+            <span className="text-stone-700 font-semibold">YinJi</span>
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-stone-800">欢迎回来</h1>
-            <p className="text-stone-400 text-sm mt-1.5">很高兴再次见到你</p>
+            <h1 className="text-2xl font-bold text-stone-800">{t('auth.login.title')}</h1>
+            <p className="text-stone-400 text-sm mt-1.5">{t('auth.login.subtitle')}</p>
           </div>
 
           {/* 登录方式切换 */}
@@ -151,7 +159,7 @@ export default function LoginPage() {
                     : 'text-stone-400 hover:text-stone-600'
                 }`}
               >
-                {m === 'password' ? '密码登录' : '验证码登录'}
+                {m === 'password' ? t('auth.login.password') : t('auth.register.verificationCode') + t('auth.login.loginButton')}
               </button>
             ))}
           </div>
@@ -159,7 +167,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* 邮箱 */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-stone-500">邮箱地址</label>
+              <label className="text-xs font-medium text-stone-500">{t('auth.login.email')}</label>
               <input
                 type="email"
                 placeholder="your@email.com"
@@ -172,19 +180,19 @@ export default function LoginPage() {
             {mode === 'password' ? (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-stone-500">密码</label>
+                  <label className="text-xs font-medium text-stone-500">{t('auth.login.password')}</label>
                   <button
                     type="button"
                     onClick={() => navigate('/forgot-password')}
                     className="text-xs text-[#b56f61] hover:text-[#a45f52] hover:underline transition-colors"
                   >
-                    忘记密码？
+                    {t('auth.login.forgotPassword')}
                   </button>
                 </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="请输入密码"
+                    placeholder={t('auth.login.password')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={`${inputClass} pr-12`}
@@ -206,7 +214,7 @@ export default function LoginPage() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-stone-500">验证码</label>
+                <label className="text-xs font-medium text-stone-500">{t('auth.register.verificationCode')}</label>
                 <div className="flex gap-2.5">
                   <input
                     type="text"
@@ -222,7 +230,7 @@ export default function LoginPage() {
                     disabled={!email || !email.includes('@') || countdown > 0}
                     className="shrink-0 h-12 px-4 rounded-2xl text-sm font-medium border border-[#dfccc2] text-[#b56f61] bg-[#f5efea] hover:bg-[#efe6e0] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
                   >
-                    {countdown > 0 ? `${countdown}s` : '发送'}
+                    {countdown > 0 ? `${countdown}s` : t('auth.register.sendCode')}
                   </button>
                 </div>
               </div>
@@ -244,12 +252,12 @@ export default function LoginPage() {
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin mx-auto" />
-              ) : '登录'}
+              ) : t('auth.login.loginButton')}
             </button>
 
             <div className="flex items-center gap-4">
               <div className="flex-1 h-px bg-[#e7dbd5]" />
-              <span className="text-xs text-stone-300">或</span>
+              <span className="text-xs text-stone-300">{t('common.or')}</span>
               <div className="flex-1 h-px bg-[#e7dbd5]" />
             </div>
 
@@ -258,7 +266,8 @@ export default function LoginPage() {
               onClick={() => navigate('/register')}
               className="w-full h-12 rounded-2xl text-sm font-medium text-[#b56f61] bg-[#f6f1ec] border border-[#e7dbd5] hover:bg-[#efe8e2] transition-all duration-200 active:scale-[0.98]"
             >
-              还没有账号？立即注册
+              {t('auth.login.noAccount')}
+              <span className="text-[#dd6d59] ml-1">{t('common.register')}</span>
             </button>
           </form>
         </div>

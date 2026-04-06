@@ -1,6 +1,7 @@
 // 情绪星图 — 基于特征向量聚类的情绪可视化
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { emotionService, type EmotionClusterResult, type EmotionPoint } from '@/services/emotion.service'
 import { toast } from '@/components/ui/toast'
 import { Loader2, ArrowLeft, Info, Sparkles, BarChart3 } from 'lucide-react'
@@ -24,20 +25,26 @@ const CLUSTER_COLORS_LIGHT = [
   'rgba(124,232,213,0.15)',
 ]
 
-// 特征中文标签
-const FEATURE_LABELS: Record<string, string> = {
-  valence: '情绪效价', arousal: '唤醒度', dominance: '控制感',
-  self_ref: '自我参照', social: '社交密度', cognitive: '认知复杂度',
-  temporal: '时间取向', richness: '表达丰富度',
-}
-
 export default function EmotionMap() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [data, setData] = useState<EmotionClusterResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [hoveredPoint, setHoveredPoint] = useState<EmotionPoint | null>(null)
   const [selectedCluster, setSelectedCluster] = useState<number | null>(null)
   const [showInfo, setShowInfo] = useState(false)
+
+  // 特征标签 - 使用翻译
+  const featureLabels: Record<string, string> = useMemo(() => ({
+    valence: t('emotionMap.features.valence'),
+    arousal: t('emotionMap.features.arousal'),
+    dominance: t('emotionMap.features.dominance'),
+    self_ref: t('emotionMap.features.selfRef'),
+    social: t('emotionMap.features.social'),
+    cognitive: t('emotionMap.features.cognitive'),
+    temporal: t('emotionMap.features.temporal'),
+    richness: t('emotionMap.features.richness'),
+  }), [t])
 
   useEffect(() => {
     const load = async () => {
@@ -45,13 +52,13 @@ export default function EmotionMap() {
         const result = await emotionService.getClusterAnalysis(200)
         setData(result)
       } catch {
-        toast('加载情绪分析失败', 'error')
+        toast(t('emotionMap.loadFailed'), 'error')
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [t])
 
   // 过滤显示的点
   const visiblePoints = useMemo(() => {
@@ -93,10 +100,10 @@ export default function EmotionMap() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-stone-400">
         <Sparkles className="w-12 h-12" />
-        <p className="text-lg">还没有足够的日记来分析情绪模式</p>
-        <p className="text-sm">写几篇日记后再来看看吧</p>
+        <p className="text-lg">{t('emotionMap.notEnoughDiaries')}</p>
+        <p className="text-sm">{t('emotionMap.writeMoreHint')}</p>
         <button onClick={() => navigate('/diaries')} className="mt-2 px-4 py-2 rounded-xl bg-[#c17f6e] text-white text-sm">
-          去写日记
+          {t('emotionMap.goWrite')}
         </button>
       </div>
     )
@@ -111,8 +118,8 @@ export default function EmotionMap() {
             <ArrowLeft className="w-5 h-5 text-stone-500" />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-stone-700">情绪星图</h1>
-            <p className="text-xs text-stone-400">基于 {data.stats.total_diaries} 篇日记的特征向量聚类分析</p>
+            <h1 className="text-lg font-bold text-stone-700">{t('emotionMap.title')}</h1>
+            <p className="text-xs text-stone-400">{t('emotionMap.subtitle', { count: data.stats.total_diaries })}</p>
           </div>
           <button onClick={() => setShowInfo(!showInfo)} className="p-1.5 rounded-xl hover:bg-[#f0e6df] transition">
             <Info className="w-5 h-5 text-stone-400" />
@@ -124,15 +131,15 @@ export default function EmotionMap() {
         {/* 算法说明面板 */}
         {showInfo && (
           <div className="p-4 rounded-2xl bg-white/60 border border-[#e7dbd5]/50 text-xs text-stone-500 space-y-2 animate-fade-in">
-            <p className="font-semibold text-stone-600">算法原理</p>
-            <p>每篇日记通过 <b>中文情绪词典 (VAD模型)</b> + <b>NLP特征工程</b> 提取为 <b>8维特征向量</b>：</p>
+            <p className="font-semibold text-stone-600">{t('emotionMap.algo.title')}</p>
+            <p>{t('emotionMap.algo.desc1')}</p>
             <p className="font-mono text-[10px] bg-stone-50 p-2 rounded-lg">
-              [效价, 唤醒度, 控制感, 自我参照, 社交密度, 认知复杂度, 时间取向, 表达丰富度]
+              {t('emotionMap.algo.vector')}
             </p>
-            <p>经 <b>Z-Score标准化</b> → <b>K-Means聚类</b>（肘部法则+轮廓系数自动选K）→ <b>PCA降维</b> 到2D可视化。</p>
-            <p>轮廓系数: <b>{data.stats.silhouette_score}</b> (越接近1聚类越好)</p>
+            <p>{t('emotionMap.algo.desc2')}</p>
+            <p>{t('emotionMap.algo.silhouette')}: <b>{data.stats.silhouette_score}</b></p>
             {data.stats.explained_variance_2d.length > 0 && (
-              <p>PCA累计方差解释率: <b>{(data.stats.explained_variance_2d.reduce((a, b) => a + b, 0) * 100).toFixed(1)}%</b></p>
+              <p>{t('emotionMap.algo.variance')}: <b>{(data.stats.explained_variance_2d.reduce((a, b) => a + b, 0) * 100).toFixed(1)}%</b></p>
             )}
             <div className="flex gap-4 text-[10px]">
               <span>PC1: {data.pca_components.pc1_label}</span>
@@ -151,7 +158,7 @@ export default function EmotionMap() {
                 : 'bg-white/60 text-stone-500 border-[#e7dbd5] hover:bg-[#f0e6df]'
             }`}
           >
-            全部 ({data.points.length})
+            {t('emotionMap.all')} ({data.points.length})
           </button>
           {data.clusters.map(c => (
             <button
@@ -258,7 +265,7 @@ export default function EmotionMap() {
               <div className="grid grid-cols-4 gap-1.5">
                 {Object.entries(hoveredPoint.features).map(([key, val]) => (
                   <div key={key} className="text-center">
-                    <div className="text-[10px] text-stone-400">{FEATURE_LABELS[key] || key}</div>
+                    <div className="text-[10px] text-stone-400">{featureLabels[key] || key}</div>
                     <div className="font-mono text-stone-600">{val.toFixed(2)}</div>
                   </div>
                 ))}
@@ -282,7 +289,7 @@ export default function EmotionMap() {
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-3 h-3 rounded-full" style={{ background: CLUSTER_COLORS[c.id % CLUSTER_COLORS.length] }} />
                 <span className="font-semibold text-stone-700">{c.label}</span>
-                <span className="text-xs text-stone-400 ml-auto">{c.size} 篇</span>
+                <span className="text-xs text-stone-400 ml-auto">{c.size} {t('emotionMap.entries')}</span>
               </div>
               {c.dominant_features.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
@@ -301,13 +308,13 @@ export default function EmotionMap() {
         <div className="p-4 rounded-2xl bg-white/50 border border-[#e7dbd5]/50">
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 className="w-4 h-4 text-stone-400" />
-            <span className="text-sm font-semibold text-stone-600">情绪概况</span>
+            <span className="text-sm font-semibold text-stone-600">{t('emotionMap.overview')}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="平均效价" value={data.stats.avg_valence} desc={data.stats.avg_valence > 0.2 ? '偏积极' : data.stats.avg_valence < -0.2 ? '偏消极' : '中性'} />
-            <StatCard label="平均唤醒度" value={data.stats.avg_arousal} desc={data.stats.avg_arousal > 0.5 ? '偏激动' : '偏平静'} />
-            <StatCard label="平均控制感" value={data.stats.avg_dominance} desc={data.stats.avg_dominance > 0.5 ? '有掌控力' : '偏被动'} />
-            <StatCard label="情绪波动" value={data.stats.valence_std} desc={data.stats.valence_std > 0.4 ? '波动较大' : '相对稳定'} />
+            <StatCard label={t('emotionMap.stats.avgValence')} value={data.stats.avg_valence} desc={data.stats.avg_valence > 0.2 ? t('emotionMap.stats.positive') : data.stats.avg_valence < -0.2 ? t('emotionMap.stats.negative') : t('emotionMap.stats.neutral')} />
+            <StatCard label={t('emotionMap.stats.avgArousal')} value={data.stats.avg_arousal} desc={data.stats.avg_arousal > 0.5 ? t('emotionMap.stats.excited') : t('emotionMap.stats.calm')} />
+            <StatCard label={t('emotionMap.stats.avgDominance')} value={data.stats.avg_dominance} desc={data.stats.avg_dominance > 0.5 ? t('emotionMap.stats.inControl') : t('emotionMap.stats.passive')} />
+            <StatCard label={t('emotionMap.stats.volatility')} value={data.stats.valence_std} desc={data.stats.valence_std > 0.4 ? t('emotionMap.stats.highVolatility') : t('emotionMap.stats.stable')} />
           </div>
         </div>
       </div>

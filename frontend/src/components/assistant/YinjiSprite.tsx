@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { X, Send, MessageCircle, PlusCircle, History, Trash2 } from 'lucide-react'
 import { assistantService, type AssistantMessage, type AssistantSession } from '@/services/assistant.service'
 import { useAuthStore } from '@/store/authStore'
@@ -51,6 +52,7 @@ function defaultPos() {
 export default function YinjiSprite() {
   const { isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [muted, setMuted] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
@@ -99,7 +101,7 @@ export default function YinjiSprite() {
       .then(async ([profile, sessionList]) => {
         if (!mounted) return
         setProfileLoaded(true)
-        setDisplayName(profile.nickname || '你')
+        setDisplayName(profile.nickname || t('sprite.defaultName'))
         setNeedInit(!profile.initialized)
         setMuted(profile.is_muted || localStorage.getItem(STORAGE_MUTED) === '1')
         setSessions(sessionList || [])
@@ -253,11 +255,11 @@ export default function YinjiSprite() {
     if (!nick) return
     try {
       const updated = await assistantService.updateProfile({ nickname: nick })
-      setDisplayName(updated.nickname || '你')
+      setDisplayName(updated.nickname || t('sprite.defaultName'))
       setNeedInit(false)
-      toast('精灵记住你的称呼啦', 'success')
+      toast(t('sprite.nicknameSaved'), 'success')
     } catch {
-      toast('保存称呼失败', 'error')
+      toast(t('sprite.nicknameFailed'), 'error')
     }
   }
 
@@ -274,7 +276,7 @@ export default function YinjiSprite() {
       setSessionId(session.id)
       setMessages([])
     } catch {
-      toast('新建会话失败', 'error')
+      toast(t('sprite.newSessionFailed'), 'error')
     }
   }
 
@@ -283,9 +285,9 @@ export default function YinjiSprite() {
     try {
       await assistantService.clearSession(sessionId)
       setMessages([])
-      toast('已清空当前对话', 'success')
+      toast(t('sprite.sessionCleared'), 'success')
     } catch {
-      toast('清空失败', 'error')
+      toast(t('sprite.clearFailed'), 'error')
     }
   }
 
@@ -304,9 +306,9 @@ export default function YinjiSprite() {
           setMessages([])
         }
       }
-      toast('已删除该对话', 'success')
+      toast(t('sprite.sessionDeleted'), 'success')
     } catch {
-      toast('删除对话失败', 'error')
+      toast(t('sprite.deleteFailed'), 'error')
     }
   }
 
@@ -356,13 +358,13 @@ export default function YinjiSprite() {
           },
           onError: (msg) => {
             setResponding(false)
-            toast(msg || '回复失败', 'error')
+            toast(msg || t('sprite.replyFailed'), 'error')
           },
         }
       )
     } catch (e: any) {
       setResponding(false)
-      toast(e?.message || '发送失败', 'error')
+      toast(e?.message || t('sprite.sendFailed'), 'error')
     }
   }
 
@@ -440,11 +442,11 @@ export default function YinjiSprite() {
         >
           {!muted ? (
             <button onClick={() => toggleMuted(true)} className="w-full text-left px-2.5 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-50">
-              屏蔽助手
+              {t('sprite.muteAssistant')}
             </button>
           ) : (
             <button onClick={() => toggleMuted(false)} className="w-full text-left px-2.5 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-50">
-              唤醒助手
+              {t('sprite.wakeAssistant')}
             </button>
           )}
         </div>
@@ -464,7 +466,7 @@ export default function YinjiSprite() {
           >
             <div className="flex items-center gap-2">
               <MessageCircle className="w-4 h-4 text-[#b36d61]" />
-              <p className="text-sm font-semibold text-stone-700">映记精灵</p>
+              <p className="text-sm font-semibold text-stone-700">{t('sprite.title')}</p>
             </div>
             <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400">
               <X className="w-4 h-4" />
@@ -473,13 +475,13 @@ export default function YinjiSprite() {
 
           {needInit && (
             <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm p-5 flex flex-col justify-center">
-              <h3 className="text-lg font-semibold text-stone-700 mb-1">你好，先认识一下你</h3>
-              <p className="text-sm text-stone-500 mb-4">你希望我怎么称呼你呢？</p>
+              <h3 className="text-lg font-semibold text-stone-700 mb-1">{t('sprite.greeting')}</h3>
+              <p className="text-sm text-stone-500 mb-4">{t('sprite.askNickname')}</p>
               <input
                 value={nicknameInput}
                 onChange={(e) => setNicknameInput(e.target.value)}
                 maxLength={50}
-                placeholder="输入你的称呼..."
+                placeholder={t('sprite.nicknamePlaceholder')}
                 className="h-11 px-3 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 outline-none focus:ring-2 focus:ring-[#d4b8ae]/60"
               />
               <button
@@ -487,7 +489,7 @@ export default function YinjiSprite() {
                 className="mt-3 h-10 rounded-xl text-sm font-semibold text-white"
                 style={{ background: 'linear-gradient(135deg,#df8f7b,#a19bb8)' }}
               >
-                确认
+                {t('common.confirm')}
               </button>
             </div>
           )}
@@ -495,10 +497,10 @@ export default function YinjiSprite() {
           <div className="shrink-0 border-b border-[#efe4de] px-3 py-2 bg-white/45">
             <div className="flex items-center gap-1.5 mb-1.5">
               <button onClick={createSession} className="px-2 py-1 rounded-lg text-xs text-stone-600 hover:bg-white border border-stone-200 flex items-center gap-1">
-                <PlusCircle className="w-3.5 h-3.5" /> 新对话
+                <PlusCircle className="w-3.5 h-3.5" /> {t('sprite.newChat')}
               </button>
               <button onClick={clearCurrentSession} className="px-2 py-1 rounded-lg text-xs text-stone-600 hover:bg-white border border-stone-200 flex items-center gap-1">
-                <Trash2 className="w-3.5 h-3.5" /> 清空
+                <Trash2 className="w-3.5 h-3.5" /> {t('sprite.clear')}
               </button>
               <span className="ml-auto text-[11px] text-stone-400 flex items-center gap-1">
                 <History className="w-3 h-3" /> {displayName}
@@ -514,7 +516,7 @@ export default function YinjiSprite() {
                   style={s.id === sessionId ? { background: 'linear-gradient(135deg,#de8f7b,#a29cb9)' } : undefined}
                 >
                   <button onClick={() => openSession(s.id)} className="truncate max-w-[72px]">
-                    {s.title || '新对话'}
+                    {s.title || t('sprite.newChat')}
                   </button>
                   <button
                     onClick={(e) => {
@@ -522,7 +524,7 @@ export default function YinjiSprite() {
                       deleteSession(s.id)
                     }}
                     className={`rounded-md p-0.5 ${s.id === sessionId ? 'hover:bg-white/20' : 'hover:bg-stone-100'}`}
-                    title="删除对话"
+                    title={t('sprite.deleteChat')}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -533,7 +535,7 @@ export default function YinjiSprite() {
 
           <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2.5">
             {messages.length === 0 ? (
-              <div className="text-center text-stone-400 text-sm pt-12">和我聊聊今天的感受吧</div>
+              <div className="text-center text-stone-400 text-sm pt-12">{t('sprite.emptyHint')}</div>
             ) : (
               messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -565,7 +567,7 @@ export default function YinjiSprite() {
                     sendMessage()
                   }
                 }}
-                placeholder="和映记精灵说点什么..."
+                placeholder={t('sprite.inputPlaceholder')}
                 className="flex-1 h-[62px] resize-none rounded-xl border border-stone-200 bg-white/85 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#d6bdb4]/55"
               />
               <button

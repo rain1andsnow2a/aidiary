@@ -13,16 +13,18 @@
 - [orchestrator.py](file://backend/app/agents/orchestrator.py)
 - [agent_impl.py](file://backend/app/agents/agent_impl.py)
 - [prompts.py](file://backend/app/agents/prompts.py)
+- [state.py](file://backend/app/agents/state.py)
 - [requirements.txt](file://backend/requirements.txt)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced RAG memory integration with Qdrant vector database in the `/ai/analyze` endpoint
-- Added related_memories parameter support in the `analyze_diary` method
+- Enhanced RAG memory integration with dual-source retrieval (Qdrant semantic + BM25 keyword)
+- Added related_memories parameter support in the `analyze_diary` method for contextual analysis
 - Implemented RAG context injection in prompts through the context collector agent
 - Added Qdrant query logic in AI endpoints for semantic memory retrieval
 - Updated architecture diagrams to reflect the new hybrid retrieval approach
+- Enhanced AI assistant capabilities with improved diary search functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,24 +39,23 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the custom Retrieval-Augmented Generation (RAG) implementation powering the "Comprehensive Analysis" and "Analyze Diary" features in the Yinji application. The system now features enhanced RAG memory integration with Qdrant vector database, providing both lexical and semantic memory retrieval capabilities for comprehensive psychological growth analysis.
+This document explains the custom Retrieval-Augmented Generation (RAG) implementation powering the "Comprehensive Analysis" and "Analyze Diary" features in the Yinji application. The system now features enhanced dual-source retrieval capabilities, combining Qdrant semantic memory search with BM25 keyword-based lexical retrieval for comprehensive psychological growth analysis.
 
 Key enhancements include:
-- Diary preprocessing pipeline: text cleaning, chunk segmentation, metadata extraction
-- BM25-based lexical retrieval with weighted scoring and evidence deduplication
-- Qdrant vector database integration for semantic memory search and user-scoped context retrieval
-- Hybrid retrieval strategy combining lexical and semantic signals
-- Related memories parameter support for contextual analysis
-- RAG context injection in agent prompts for enhanced analysis quality
+- **Dual-source retrieval**: Qdrant vector database for semantic memory search and BM25 keyword-based lexical retrieval
+- **Enhanced AI assistant**: Improved contextual analysis with related memories parameter injection
+- **Advanced diary search**: Hybrid retrieval strategy combining lexical and semantic signals
+- **Memory integration**: User-scoped semantic memory retrieval with automatic data synchronization
+- **Multi-agent orchestration**: Enhanced workflow with RAG context injection for superior analysis quality
 
 ## Project Structure
-The RAG system spans services, models, schemas, APIs, and configuration with enhanced Qdrant integration:
-- Services: RAG chunking and retrieval, Qdrant memory sync/search with user-scoped context
-- Models/Schemas: Diary entity and Pydantic DTOs
-- API: Endpoints that orchestrate RAG-driven analysis with semantic memory retrieval
-- Config: Qdrant connection and vector dimension settings
-- Agents: Multi-agent orchestration with RAG context injection
-- LLM: DeepSeek client used downstream for synthesis
+The RAG system spans services, models, schemas, APIs, and configuration with enhanced dual-source retrieval capabilities:
+- **Services**: Dual-source RAG chunking and retrieval, Qdrant memory sync/search with user-scoped context
+- **Models/Schemas**: Diary entity and Pydantic DTOs
+- **API**: Endpoints that orchestrate RAG-driven analysis with hybrid semantic and lexical retrieval
+- **Config**: Qdrant connection and vector dimension settings
+- **Agents**: Multi-agent orchestration with RAG context injection
+- **LLM**: DeepSeek client used downstream for synthesis
 
 ```mermaid
 graph TB
@@ -62,7 +63,7 @@ subgraph "API Layer"
 A1["/ai/comprehensive-analysis<br/>ai.py"]
 A2["/ai/analyze<br/>ai.py"]
 end
-subgraph "Services"
+subgraph "Dual-Source Services"
 S1["DiaryRAGService<br/>rag_service.py"]
 S2["QdrantDiaryMemoryService<br/>qdrant_memory_service.py"]
 end
@@ -116,17 +117,16 @@ A2 --> L1
 - **QdrantDiaryMemoryService**: Hash-based embedding encoder, collection lifecycle, user-scoped sync, semantic search with context injection, and retrieve-context wrapper.
 - **AgentOrchestrator**: Manages multi-agent workflow with related_memories parameter support for contextual analysis.
 - **ContextCollectorAgent**: Collects user context and injects related memories into analysis prompts.
-- **API orchestration**: Enhanced with Qdrant-based semantic memory retrieval for the `/ai/analyze` endpoint.
+- **API orchestration**: Enhanced with dual-source retrieval for the `/ai/analyze` endpoint.
 - **Configuration**: Qdrant URL/API key/collection/vector dimension settings.
 
 Key capabilities:
-- Lexical chunking with overlap and sentence-aware segmentation
-- Theme-aware grouping and repetition penalty
-- Recency decay and weighted fusion
-- Evidence deduplication using token Jaccard similarity
-- Semantic search via Qdrant with cosine distance and user isolation
-- Related memories parameter injection in agent prompts
-- Hybrid retrieval combining lexical and semantic signals
+- **Lexical chunking**: Sentence-aware segmentation with overlap and theme-aware grouping
+- **BM25 scoring**: Weighted fusion with recency decay, importance/emotion/repetition penalties
+- **Semantic search**: Qdrant vector database integration with cosine distance and user isolation
+- **Evidence deduplication**: Token-set Jaccard similarity threshold with per-diary/per-reason caps
+- **Related memories injection**: Context collector agent enhances analysis with historical patterns
+- **Hybrid retrieval**: Balanced combination of lexical and semantic signals
 
 **Section sources**
 - [rag_service.py:147-360](file://backend/app/services/rag_service.py#L147-L360)
@@ -137,7 +137,7 @@ Key capabilities:
 - [config.py:92-108](file://backend/app/core/config.py#L92-L108)
 
 ## Architecture Overview
-The enhanced RAG pipeline now includes Qdrant-based semantic memory retrieval. The `/ai/analyze` endpoint performs user-integrated analysis with related memories injection, while `/ai/comprehensive-analysis` focuses on multi-agent iceburg analysis with lexical-only retrieval.
+The enhanced dual-source RAG pipeline now includes both Qdrant-based semantic memory retrieval and BM25 keyword-based lexical retrieval. The `/ai/analyze` endpoint performs user-integrated analysis with related memories injection, while `/ai/comprehensive-analysis` focuses on multi-agent iceburg analysis with lexical-only retrieval.
 
 ```mermaid
 sequenceDiagram
@@ -176,11 +176,11 @@ API-->>Client : AnalysisResponse
 ## Detailed Component Analysis
 
 ### Enhanced DiaryRAGService
-Responsibilities remain similar to the lexical-only version, with the addition of supporting the hybrid retrieval workflow:
-- Chunk construction: summary chunk per diary plus sentence-aware overlapping chunks from raw content
-- Metadata extraction: people, emotion intensity, theme key, token frequency, length
-- Lexical retrieval: BM25-like scoring with IDF, TF, length normalization; temporal decay; importance/emotion/repetition penalties; people hit bonus; source-type bonus
-- Evidence deduplication: per-diary cap, per-reason cap, and token-set Jaccard similarity threshold
+Responsibilities remain similar to the lexical-only version, with the addition of supporting the dual-source retrieval workflow:
+- **Chunk construction**: summary chunk per diary plus sentence-aware overlapping chunks from raw content
+- **Metadata extraction**: people, emotion intensity, theme key, token frequency, length
+- **Lexical retrieval**: BM25-like scoring with IDF, TF, length normalization; temporal decay; importance/emotion/repetition penalties; people hit bonus; source-type bonus
+- **Evidence deduplication**: per-diary cap, per-reason cap, and token-set Jaccard similarity threshold
 
 ```mermaid
 classDiagram
@@ -217,12 +217,12 @@ Key algorithms and scoring remain unchanged from the lexical-only implementation
 
 ### Enhanced QdrantDiaryMemoryService
 The Qdrant service now includes enhanced functionality for user-scoped semantic memory retrieval:
-- Hash-based embedding generator (token → MD5 → dim-indexed histogram → normalized)
-- Collection creation/ensurance with cosine distance
-- User-scoped sync of diary vectors with payload
-- Semantic search constrained by user_id filter
-- Retrieve-context wrapper that ensures fresh data before search
-- Enhanced error handling with graceful degradation
+- **Hash-based embedding generator**: token → MD5 → dim-indexed histogram → normalized
+- **Collection creation/ensurance**: with cosine distance
+- **User-scoped sync**: diary vectors with payload
+- **Semantic search**: constrained by user_id filter
+- **Retrieve-context wrapper**: ensures fresh data before search
+- **Enhanced error handling**: graceful degradation
 
 ```mermaid
 flowchart TD
@@ -251,10 +251,10 @@ Parse --> Return["Return hits"]
 
 ### Enhanced AgentOrchestrator with Related Memories Support
 The orchestrator now supports the related_memories parameter for contextual analysis:
-- Initialize state with related_memories parameter
-- Pass related_memories through the multi-agent workflow
-- Coordinate between lexical and semantic memory retrieval
-- Manage processing time and error states
+- **Initialize state**: with related_memories parameter
+- **Pass through workflow**: coordinate between lexical and semantic memory retrieval
+- **Manage processing**: time and error states
+- **Coordinate agents**: context collector, timeline manager, satir therapist, social creator
 
 ```mermaid
 classDiagram
@@ -297,10 +297,10 @@ AgentOrchestrator --> AnalysisState : "manages"
 
 ### Enhanced ContextCollectorAgent with RAG Context Injection
 The context collector agent now injects related memories into analysis prompts:
-- Build prompt with user profile, timeline context, and related memories
-- Handle empty related memories gracefully
-- Format memories for JSON parsing
-- Maintain backward compatibility with lexical-only retrieval
+- **Build prompt**: with user profile, timeline context, and related memories
+- **Handle empty**: related memories gracefully
+- **Format memories**: for JSON parsing
+- **Maintain compatibility**: with lexical-only retrieval
 
 ```mermaid
 flowchart TD
@@ -323,13 +323,13 @@ UpdateState --> Return["Return enhanced state"]
 - [agent_impl.py:100-148](file://backend/app/agents/agent_impl.py#L100-L148)
 - [prompts.py:9-33](file://backend/app/agents/prompts.py#L9-L33)
 
-### Enhanced API Orchestration with Hybrid Retrieval
+### Enhanced API Orchestration with Dual-Source Retrieval
 The `/ai/analyze` endpoint now includes Qdrant-based semantic memory retrieval:
-- Fetch diaries within a rolling window
-- Build lexical chunks and retrieve candidates for multiple reasons
+- **Fetch diaries**: within a rolling window
+- **Build lexical chunks**: and retrieve candidates for multiple reasons
 - **NEW**: Retrieve related memories from Qdrant using user-scoped semantic search
-- Inject related memories into agent prompts for enhanced analysis
-- Deduplicate evidence and synthesize JSON via LLM
+- **Inject related memories**: into agent prompts for enhanced analysis
+- **Deduplicate evidence**: and synthesize JSON via LLM
 
 ```mermaid
 sequenceDiagram
@@ -387,7 +387,7 @@ date updated_at
 - [diary.py (schema):9-63](file://backend/app/schemas/diary.py#L9-L63)
 
 ## Dependency Analysis
-Enhanced internal dependencies with Qdrant integration:
+Enhanced internal dependencies with dual-source retrieval:
 - API depends on RAG and Qdrant services for hybrid retrieval
 - Agent orchestrator depends on context collector with related memories support
 - RAG depends on SQLAlchemy models for metadata and schemas for validation
@@ -425,7 +425,7 @@ API --> SQLA["sqlalchemy"]
 - [config.py:92-108](file://backend/app/core/config.py#L92-L108)
 
 ## Performance Considerations
-Enhanced performance considerations with Qdrant integration:
+Enhanced performance considerations with dual-source retrieval:
 - **Chunk sizing and overlap**: Maintain existing optimal settings for lexical retrieval
 - **BM25 tuning**: Keep existing parameters for lexical scoring stability
 - **Fusion weights**: Maintain existing weight distribution for balanced lexical-semantic integration
@@ -437,6 +437,7 @@ Enhanced performance considerations with Qdrant integration:
 - **Graceful degradation**: Qdrant failures fall back to lexical-only analysis
 - **Memory caching**: Consider caching frequently accessed related memories for repeated analyses
 - **Batch operations**: Use Qdrant upsert for efficient user memory synchronization
+- **Dual-source coordination**: Balance lexical and semantic retrieval costs
 
 **Section sources**
 - [qdrant_memory_service.py:133-173](file://backend/app/services/qdrant_memory_service.py#L133-L173)
@@ -444,7 +445,7 @@ Enhanced performance considerations with Qdrant integration:
 - [config.py:92-108](file://backend/app/core/config.py#L92-L108)
 
 ## Troubleshooting Guide
-Enhanced troubleshooting for Qdrant integration:
+Enhanced troubleshooting for dual-source retrieval:
 - **No candidates returned**:
   - Verify query tokens are not empty after tokenization
   - Check that source_types filter does not exclude all chunks
@@ -471,6 +472,9 @@ Enhanced troubleshooting for Qdrant integration:
   - Monitor collection size and optimize vector dimensions
   - Check Qdrant cluster health and resource utilization
   - Implement connection pooling for HTTP requests
+- **Dual-source conflicts**:
+  - Adjust fusion weights between lexical and semantic scores
+  - Implement confidence-based filtering for hybrid results
 
 **Section sources**
 - [rag_service.py:210-317](file://backend/app/services/rag_service.py#L210-L317)
@@ -479,7 +483,7 @@ Enhanced troubleshooting for Qdrant integration:
 - [agent_impl.py:112-124](file://backend/app/agents/agent_impl.py#L112-L124)
 
 ## Conclusion
-The enhanced Yinji RAG implementation now provides comprehensive memory integration through Qdrant vector database, combining lexical and semantic retrieval capabilities. The system supports related memories parameter injection in agent prompts, enabling richer contextual analysis for both individual diary analysis and comprehensive psychological growth assessment. The modular design maintains backward compatibility while adding powerful semantic memory capabilities, with graceful degradation when Qdrant is unavailable. This enhancement significantly improves analysis quality by providing users with contextually rich insights derived from both explicit lexical patterns and implicit semantic associations in their personal memory space.
+The enhanced Yinji RAG implementation now provides comprehensive dual-source retrieval through Qdrant vector database and BM25 keyword-based lexical search, combining both semantic and lexical retrieval capabilities. The system supports related memories parameter injection in agent prompts, enabling richer contextual analysis for both individual diary analysis and comprehensive psychological growth assessment. The modular design maintains backward compatibility while adding powerful semantic memory capabilities, with graceful degradation when Qdrant is unavailable. This enhancement significantly improves analysis quality by providing users with contextually rich insights derived from both explicit lexical patterns and implicit semantic associations in their personal memory space.
 
 ## Appendices
 
@@ -488,7 +492,7 @@ The enhanced Yinji RAG implementation now provides comprehensive memory integrat
   - Build chunks from diaries
   - Retrieve with source_types restricted to raw or summary
   - Deduplicate and synthesize
-- **Hybrid retrieval with semantic memory** (analyze diary):
+- **Dual-source retrieval with semantic memory** (analyze diary):
   - Build chunks from diaries
   - Retrieve lexical candidates
   - **NEW**: Retrieve related memories from Qdrant using user-scoped semantic search
@@ -513,7 +517,7 @@ The enhanced Yinji RAG implementation now provides comprehensive memory integrat
 ### Enhanced Memory Retrieval Patterns
 - **Lexical retrieval**: Retrieve context per query by filtering chunks by source types
 - **Semantic retrieval**: **NEW** Retrieve context per query by syncing user's recent diaries and searching with user_id filter
-- **Hybrid retrieval**: **NEW** Combine lexical and semantic results with weighted fusion
+- **Dual-source retrieval**: **NEW** Combine lexical and semantic results with weighted fusion
 - **Memory injection**: **NEW** Inject related memories into agent prompts for enhanced analysis
 
 **Section sources**
@@ -528,6 +532,7 @@ The enhanced Yinji RAG implementation now provides comprehensive memory integrat
 - **Collection management**: Ensure collection exists and is properly sized for expected workload
 - **Graceful degradation**: Qdrant failures automatically fall back to lexical-only analysis
 - **Resource monitoring**: Monitor Qdrant cluster performance and optimize based on usage patterns
+- **Dual-source optimization**: Balance costs between lexical and semantic retrieval methods
 
 **Section sources**
 - [config.py:92-108](file://backend/app/core/config.py#L92-L108)

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -20,13 +21,13 @@ const EMPTY_DAY_COLOR = '#E8E6E2'
 
 const SATIR_LAYER_STYLE: Record<
   SatirLayer,
-  { title: string; bg: string; color: string; empty: string }
+  { titleKey: string; bg: string; color: string; emptyKey: string }
 > = {
-  behavior: { title: '我做了什么', bg: '#FFF5E6', color: '#D4820A', empty: '暂无行为关键词' },
-  emotion: { title: '我感受到', bg: '#F0EBF8', color: '#7B5EA7', empty: '暂无情绪关键词' },
-  cognition: { title: '我在想', bg: '#E8F4F0', color: '#2E7D62', empty: '暂无认知关键词' },
-  belief: { title: '我相信', bg: '#EBF2FA', color: '#2563AB', empty: '暂无信念关键词' },
-  desire: { title: '我渴望', bg: '#FEF3F2', color: '#C0392B', empty: '暂无渴望关键词' },
+  behavior: { titleKey: 'growth.satir.behavior', bg: '#FFF5E6', color: '#D4820A', emptyKey: 'growth.satir.behaviorEmpty' },
+  emotion: { titleKey: 'growth.satir.emotion', bg: '#F0EBF8', color: '#7B5EA7', emptyKey: 'growth.satir.emotionEmpty' },
+  cognition: { titleKey: 'growth.satir.cognition', bg: '#E8F4F0', color: '#2E7D62', emptyKey: 'growth.satir.cognitionEmpty' },
+  belief: { titleKey: 'growth.satir.belief', bg: '#EBF2FA', color: '#2563AB', emptyKey: 'growth.satir.beliefEmpty' },
+  desire: { titleKey: 'growth.satir.desire', bg: '#FEF3F2', color: '#C0392B', emptyKey: 'growth.satir.desireEmpty' },
 }
 
 const EVENT_ICON_MAP: Record<string, string> = {
@@ -47,7 +48,7 @@ const LAYER_KEYWORDS: Record<SatirLayer, string[]> = {
 
 function getPrimaryEmotion(point: TerrainPoint): string {
   const raw = point.events[0]?.emotion_tag || ''
-  return raw || '无记录'
+  return raw || ''
 }
 
 function getMoodColor(point: TerrainPoint): string {
@@ -114,6 +115,7 @@ function pickTopKeywords(events: TerrainEvent[], layer: SatirLayer): Array<{ wor
 }
 
 export default function Timeline() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
   const [windowDays, setWindowDays] = useState<DayWindow>(30)
@@ -210,7 +212,7 @@ export default function Timeline() {
     } catch {
       setDailyInsightMap((prev) => ({
         ...prev,
-        [dayKey]: { date: dayKey, has_content: false, cached: false, message: '获取失败' },
+        [dayKey]: { date: dayKey, has_content: false, cached: false, message: t('growth.fetchFailed') },
       }))
     } finally {
       setDailyLoadingMap((prev) => ({ ...prev, [dayKey]: false }))
@@ -231,11 +233,11 @@ export default function Timeline() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <Button variant="ghost" onClick={() => navigate('/')} className="text-stone-600 hover:bg-stone-100/70">
-              ← 返回
+              ← {t('common.back')}
             </Button>
-            <h1 className="text-lg sm:text-xl font-semibold text-stone-800 tracking-wide">成长中心</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-stone-800 tracking-wide">{t('navigation.growth')}</h1>
             <Button onClick={() => navigate('/diaries/new')} className="text-white" style={{ background: 'linear-gradient(135deg, #e28674, #9c95b5)' }}>
-              写日记
+              {t('navigation.writeDiary')}
             </Button>
           </div>
         </div>
@@ -245,8 +247,8 @@ export default function Timeline() {
         {!terrain || terrain.points.length < 3 ? (
           <Card className="border-stone-200/80 bg-white/90">
             <CardContent className="py-14 text-center">
-              <p className="text-stone-500 mb-4">再写几篇日记，成长洞察将逐渐清晰</p>
-              <Button onClick={() => navigate('/diaries/new')}>写第一篇日记</Button>
+              <p className="text-stone-500 mb-4">{t('growth.writeMoreDiaries')}</p>
+              <Button onClick={() => navigate('/diaries/new')}>{t('growth.writeFirstDiary')}</Button>
             </CardContent>
           </Card>
         ) : (
@@ -254,7 +256,7 @@ export default function Timeline() {
             <Card className="border-stone-200/70 bg-white/88 shadow-[0_14px_35px_rgba(95,84,122,0.08)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base sm:text-lg text-stone-800">心情日历</CardTitle>
+                  <CardTitle className="text-base sm:text-lg text-stone-800">{t('growth.moodCalendar')}</CardTitle>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -264,7 +266,7 @@ export default function Timeline() {
                       <ChevronLeft className="w-4 h-4 mx-auto" />
                     </button>
                     <span className="text-sm text-stone-600 min-w-[90px] text-center">
-                      {format(calendarMonth, 'yyyy年M月')}
+                      {format(calendarMonth, 'yyyy-MM')}
                     </span>
                     <button
                       type="button"
@@ -278,7 +280,7 @@ export default function Timeline() {
               </CardHeader>
               <CardContent className="pt-1">
                 <div className="grid grid-cols-7 gap-2 text-xs text-stone-400 mb-2 px-1">
-                  {['日', '一', '二', '三', '四', '五', '六'].map((w) => (
+                  {[t('growth.weekdays.sun'), t('growth.weekdays.mon'), t('growth.weekdays.tue'), t('growth.weekdays.wed'), t('growth.weekdays.thu'), t('growth.weekdays.fri'), t('growth.weekdays.sat')].map((w) => (
                     <div key={w} className="text-center">{w}</div>
                   ))}
                 </div>
@@ -374,19 +376,19 @@ export default function Timeline() {
                 <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 mt-3 pt-3 border-t border-stone-100">
                   <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
                     <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="7" fill="none" stroke="#E2A54E" strokeWidth="3" strokeOpacity="0.85" /><circle cx="9" cy="9" r="5" fill="#E2A54E" fillOpacity="0.5" /></svg>
-                    环色 = 情绪
+                    {t('growth.legend.ringColor')}
                   </span>
                   <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
                     <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="7" fill="#7DB8A8" fillOpacity="0.85" /></svg>
-                    明暗 = 能量
+                    {t('growth.legend.brightness')}
                   </span>
                   <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
                     <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="5" fill="none" stroke="#9590B3" strokeWidth="5" strokeOpacity="0.7" /></svg>
-                    粗细 = 事件数
+                    {t('growth.legend.thickness')}
                   </span>
                   <span className="text-[10px] text-stone-400 flex items-center gap-1.5">
                     <svg viewBox="0 0 18 18" className="w-3.5 h-3.5"><circle cx="9" cy="9" r="7.5" fill="none" stroke="#b56f61" strokeWidth="1.2" strokeDasharray="2.5 1.5" strokeOpacity="0.6" /></svg>
-                    今天
+                    {t('growth.legend.today')}
                   </span>
                 </div>
 
@@ -397,15 +399,15 @@ export default function Timeline() {
                   >
                     <div className="w-[260px] rounded-2xl border border-[#eaded6] bg-[linear-gradient(150deg,rgba(255,251,247,0.98),rgba(249,245,252,0.98))] px-3.5 py-3 shadow-[0_16px_32px_rgba(114,92,107,0.2)] backdrop-blur-sm">
                       <div className="text-[12px] text-stone-500 mb-1">
-                        {format(new Date(hoveredDay.key), 'M月d日')} ·{' '}
+                        {format(new Date(hoveredDay.key), 'MM-dd')} ·{' '}
                         {dailyInsightMap[hoveredDay.key]?.primary_emotion || getPrimaryEmotion(pointMap.get(hoveredDay.key) || {
                           date: hoveredDay.key, energy: null, valence: null, density: 0, events: [],
                         })}
                       </div>
                       <div className="text-[13px] leading-6 text-stone-700 font-medium">
                         {dailyLoadingMap[hoveredDay.key]
-                          ? '映记精灵正在整理这一天的片段...'
-                          : (dailyInsightMap[hoveredDay.key]?.summary || '这一天留下了值得回看的记录。')}
+                          ? t('growth.spriteOrganizing')
+                          : (dailyInsightMap[hoveredDay.key]?.summary || t('growth.dayWorthRevisiting'))}
                       </div>
                     </div>
                   </div>
@@ -416,7 +418,7 @@ export default function Timeline() {
             <Card className="border-stone-200/70 bg-white/88 shadow-[0_14px_35px_rgba(95,84,122,0.08)]">
               <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <CardTitle className="text-base sm:text-lg text-stone-800">能量值趋势图</CardTitle>
+                  <CardTitle className="text-base sm:text-lg text-stone-800">{t('growth.energyTrend')}</CardTitle>
                   <div className="flex items-center gap-2">
                     {([7, 30, 90] as DayWindow[]).map((d) => (
                       <button
@@ -430,7 +432,7 @@ export default function Timeline() {
                         }`}
                         style={windowDays === d ? { background: 'linear-gradient(135deg, #df7f70, #8f86ab)' } : undefined}
                       >
-                        {d} 天
+                        {d} {t('growth.days')}
                       </button>
                     ))}
                   </div>
@@ -471,8 +473,8 @@ export default function Timeline() {
                           background: 'rgba(255,255,255,0.95)',
                           boxShadow: '0 10px 24px rgba(73, 59, 93, 0.12)',
                         }}
-                        formatter={(value: number) => `${value?.toFixed?.(1) ?? '-'} 分`}
-                        labelFormatter={(value) => format(new Date(value), 'yyyy年MM月dd日')}
+                        formatter={(value: number) => `${value?.toFixed?.(1) ?? '-'} ${t('growth.score')}`}
+                        labelFormatter={(value) => format(new Date(value), 'yyyy-MM-dd')}
                       />
                       <Area
                         type="monotone"
@@ -510,7 +512,7 @@ export default function Timeline() {
                                   onClick={() =>
                                     setMarkerSummary({
                                       icon: payload.markerIcon,
-                                      summary: payload.markerSummary || '关键事件',
+                                      summary: payload.markerSummary || t('growth.keyEvent'),
                                       diaryId: payload.markerDiaryId,
                                     })
                                   }
@@ -529,7 +531,7 @@ export default function Timeline() {
                 {markerSummary ? (
                   <div className="rounded-xl border border-[#ece2da] bg-[#fffaf6] px-4 py-3 text-sm text-stone-700 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium">{markerSummary.icon} 关键节点</p>
+                      <p className="font-medium">{markerSummary.icon} {t('growth.keyNode')}</p>
                       <p className="text-stone-600 truncate">{markerSummary.summary}</p>
                     </div>
                     {markerSummary.diaryId ? (
@@ -538,7 +540,7 @@ export default function Timeline() {
                         className="text-[#a06058] hover:bg-[#f7eeea] hover:text-[#8f4f47]"
                         onClick={() => navigate(`/diaries/${markerSummary.diaryId}`)}
                       >
-                        查看日记 →
+                        {t('growth.viewDiary')} →
                       </Button>
                     ) : null}
                   </div>
@@ -548,7 +550,7 @@ export default function Timeline() {
 
             <Card className="border-stone-200/70 bg-white/90 shadow-[0_12px_30px_rgba(85,76,106,0.07)]">
               <CardHeader>
-                <CardTitle className="text-base text-stone-800">萨提亚关键词卡片</CardTitle>
+                <CardTitle className="text-base text-stone-800">{t('growth.satirKeywords')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -558,7 +560,7 @@ export default function Timeline() {
                     return (
                       <div key={layer} className="rounded-2xl p-3.5 min-h-[160px]" style={{ background: style.bg }}>
                         <p className="text-xs font-semibold mb-2" style={{ color: style.color }}>
-                          {style.title}
+                          {t(style.titleKey)}
                         </p>
                         {words.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
@@ -576,7 +578,7 @@ export default function Timeline() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-stone-400">{style.empty}</p>
+                          <p className="text-xs text-stone-400">{t(style.emptyKey)}</p>
                         )}
                       </div>
                     )
@@ -587,34 +589,34 @@ export default function Timeline() {
 
             <Card className="border-stone-200/70 bg-white/90 shadow-[0_12px_30px_rgba(85,76,106,0.07)]">
               <CardHeader>
-                <CardTitle className="text-base text-stone-800">人际关系图谱（即将上线）</CardTitle>
+                <CardTitle className="text-base text-stone-800">{t('growth.relationshipGraph')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-stone-500 leading-7">
-                  这里将展示你近期记录中出现的人际互动关系与情感连结变化，帮助你看见长期关系模式。
+                  {t('growth.relationshipGraphDesc')}
                 </p>
               </CardContent>
             </Card>
 
             <Card className="border-stone-200/70 bg-white/88">
               <CardHeader>
-                <CardTitle className="text-base text-stone-800">当日详情</CardTitle>
+                <CardTitle className="text-base text-stone-800">{t('growth.dayDetail')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {selectedPoint ? (
                   <>
                     <div className="text-sm text-stone-500">
-                      {format(new Date(selectedPoint.date), 'yyyy年MM月dd日 EEEE', { locale: zhCN })}
+                      {format(new Date(selectedPoint.date), 'yyyy-MM-dd EEEE', { locale: zhCN })}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="px-2.5 py-1 rounded-full bg-[#f6f2ef] text-[#a06058]">
-                        能量值 {selectedPoint.energy ?? '-'}
+                        {t('growth.energyValue')} {selectedPoint.energy ?? '-'}
                       </span>
                       <span className="px-2.5 py-1 rounded-full bg-[#f2eff7] text-[#7f6d96]">
-                        愉悦值 {selectedPoint.valence ?? '-'}
+                        {t('growth.valenceValue')} {selectedPoint.valence ?? '-'}
                       </span>
                       <span className="px-2.5 py-1 rounded-full bg-[#eff3f7] text-[#637b95]">
-                        事件数 {selectedPoint.density}
+                        {t('growth.eventCount')} {selectedPoint.density}
                       </span>
                     </div>
                     {selectedPoint.events.length > 0 ? (
@@ -625,7 +627,7 @@ export default function Timeline() {
                               <div>
                                 <p className="text-sm text-stone-700">{event.summary}</p>
                                 <p className="text-xs text-stone-500 mt-1">
-                                  {event.emotion_tag || '未标注情绪'} · 重要性 {event.importance_score}/10
+                                  {event.emotion_tag || t('growth.noEmotion')} · {t('growth.importance')} {event.importance_score}/10
                                 </p>
                               </div>
                               <Button
@@ -633,18 +635,18 @@ export default function Timeline() {
                                 className="text-[#a06058] hover:bg-[#f7eeea] hover:text-[#8f4f47]"
                                 onClick={() => navigate(`/diaries/${event.diary_id}`)}
                               >
-                                查看日记 →
+                                {t('growth.viewDiary')} →
                               </Button>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-stone-500">当天没有结构化事件，可能只记录了简短日记。</p>
+                      <p className="text-sm text-stone-500">{t('growth.noStructuredEvents')}</p>
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-stone-500">点击日历或趋势图中的节点查看详情。</p>
+                  <p className="text-sm text-stone-500">{t('growth.clickToViewDetail')}</p>
                 )}
               </CardContent>
             </Card>

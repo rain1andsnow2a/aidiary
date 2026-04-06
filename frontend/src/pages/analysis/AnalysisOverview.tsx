@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { aiService } from '@/services/ai.service'
 import { Loading } from '@/components/common/Loading'
 import type { IcebergAnalysisResponse } from '@/types/analysis'
@@ -9,8 +10,8 @@ import { Sparkles, ChevronDown, ChevronUp, Waves, Droplets, Brain, KeyRound, Hea
 const LAYERS = [
   {
     key: 'behavior',
-    label: '行为层',
-    sublabel: '水面之上 · 别人看到的你',
+    labelKey: 'icebergOverview.layers.behavior',
+    sublabelKey: 'icebergOverview.layers.behaviorSub',
     icon: Waves,
     gradient: 'linear-gradient(135deg, #e0f2fe, #bae6fd)',
     border: 'border-sky-200',
@@ -19,8 +20,8 @@ const LAYERS = [
   },
   {
     key: 'emotion',
-    label: '情绪层',
-    sublabel: '水面之下 · 你的真实感受',
+    labelKey: 'icebergOverview.layers.emotion',
+    sublabelKey: 'icebergOverview.layers.emotionSub',
     icon: Droplets,
     gradient: 'linear-gradient(135deg, #bfdbfe, #93c5fd)',
     border: 'border-blue-200',
@@ -29,8 +30,8 @@ const LAYERS = [
   },
   {
     key: 'cognition',
-    label: '认知层',
-    sublabel: '更深处 · 你反复对自己说的话',
+    labelKey: 'icebergOverview.layers.cognition',
+    sublabelKey: 'icebergOverview.layers.cognitionSub',
     icon: Brain,
     gradient: 'linear-gradient(135deg, #a5b4fc, #818cf8)',
     border: 'border-indigo-200',
@@ -39,8 +40,8 @@ const LAYERS = [
   },
   {
     key: 'belief',
-    label: '信念层',
-    sublabel: '深层 · 驱动一切的核心信念',
+    labelKey: 'icebergOverview.layers.belief',
+    sublabelKey: 'icebergOverview.layers.beliefSub',
     icon: KeyRound,
     gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
     border: 'border-violet-300',
@@ -49,8 +50,8 @@ const LAYERS = [
   },
   {
     key: 'yearning',
-    label: '渴望层',
-    sublabel: '最深处 · 你真正渴望的',
+    labelKey: 'icebergOverview.layers.yearning',
+    sublabelKey: 'icebergOverview.layers.yearningSub',
     icon: Heart,
     gradient: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
     border: 'border-purple-400',
@@ -83,11 +84,13 @@ function IcebergCard({
   data,
   index,
   visible,
+  t,
 }: {
   layer: typeof LAYERS[number]
   data: any
   index: number
   visible: boolean
+  t: (key: string, opts?: any) => string
 }) {
   const [expanded, setExpanded] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -108,15 +111,15 @@ function IcebergCard({
           <div className="flex items-center gap-2.5">
             <layer.icon className={`w-4.5 h-4.5 ${layer.textColor}`} />
             <div>
-              <h3 className={`text-sm font-bold ${layer.textColor}`}>{layer.label}</h3>
-              <p className={`text-xs ${sublabelColor}`}>{layer.sublabel}</p>
+              <h3 className={`text-sm font-bold ${layer.textColor}`}>{t(layer.labelKey)}</h3>
+              <p className={`text-xs ${sublabelColor}`}>{t(layer.sublabelKey)}</p>
             </div>
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
             className={`text-xs flex items-center gap-1 ${isDeep ? 'text-white/60 hover:text-white/90' : 'text-stone-400 hover:text-stone-600'} transition-colors`}
           >
-            {expanded ? '收起' : '展开'}
+            {expanded ? t('icebergOverview.collapse') : t('icebergOverview.expand')}
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
@@ -171,7 +174,7 @@ function IcebergCard({
               ))}
               {data.turning_points?.length > 0 && (
                 <div className="pt-2 border-t border-blue-200/50">
-                  <p className="text-xs text-blue-500/60 mb-1.5">转折点</p>
+                  <p className="text-xs text-blue-500/60 mb-1.5">{t('icebergOverview.turningPoints')}</p>
                   {data.turning_points.map((tp: any, i: number) => (
                     <p key={i} className="text-sm text-blue-700/80">
                       <span className="text-blue-400">{tp.date}</span> — {tp.description}
@@ -188,7 +191,7 @@ function IcebergCard({
               {data.thought_patterns.map((tp: any, i: number) => (
                 <div key={i}>
                   <p className="text-sm text-indigo-700 font-medium">「{tp.pattern}」</p>
-                  {tp.trigger && <p className="text-xs text-indigo-400 mt-0.5">触发场景：{tp.trigger}</p>}
+                  {tp.trigger && <p className="text-xs text-indigo-400 mt-0.5">{t('icebergOverview.triggerScene')}{tp.trigger}</p>}
                   {tp.evidence_snippet && <p className="text-xs text-indigo-400/70 mt-0.5 italic">"{tp.evidence_snippet}"</p>}
                 </div>
               ))}
@@ -201,13 +204,13 @@ function IcebergCard({
               {data.core_beliefs?.map((b: any, i: number) => (
                 <div key={i}>
                   <p className="text-sm text-violet-100 font-medium">「{b.belief}」</p>
-                  {b.origin_hint && <p className="text-xs text-violet-300/60 mt-0.5">可能来自：{b.origin_hint}</p>}
-                  {b.impact && <p className="text-xs text-violet-300/60 mt-0.5">影响：{b.impact}</p>}
+                  {b.origin_hint && <p className="text-xs text-violet-300/60 mt-0.5">{t('icebergOverview.possibleOrigin')}{b.origin_hint}</p>}
+                  {b.impact && <p className="text-xs text-violet-300/60 mt-0.5">{t('icebergOverview.impact')}{b.impact}</p>}
                 </div>
               ))}
               {data.self_narrative && (
                 <div className="pt-2 border-t border-white/10">
-                  <p className="text-xs text-violet-300/50 mb-1">你讲给自己的故事</p>
+                  <p className="text-xs text-violet-300/50 mb-1">{t('icebergOverview.selfNarrative')}</p>
                   <p className="text-sm text-violet-100 italic">"{data.self_narrative}"</p>
                 </div>
               )}
@@ -225,7 +228,7 @@ function IcebergCard({
               ))}
               {data.life_energy && (
                 <div className="pt-2 border-t border-white/10">
-                  <p className="text-xs text-purple-300/50 mb-1">生命力方向</p>
+                  <p className="text-xs text-purple-300/50 mb-1">{t('icebergOverview.lifeEnergy')}</p>
                   <p className="text-sm text-amber-200">{data.life_energy}</p>
                 </div>
               )}
@@ -240,6 +243,7 @@ function IcebergCard({
 // ── 主页面 ──
 export default function AnalysisOverview() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [windowDays, setWindowDays] = useState(90)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<IcebergAnalysisResponse | null>(null)
@@ -256,13 +260,18 @@ export default function AnalysisOverview() {
       setResult(data)
       setTimeout(() => setCardsVisible(true), 100)
     } catch (e: any) {
-      setError(e?.response?.data?.detail || '冰山分析失败')
+      setError(e?.response?.data?.detail || t('icebergOverview.analysisFailed'))
     } finally {
       setIsLoading(false)
     }
   }
 
-  const diveTexts = ['⬇ 潜入水面之下', '⬇ 更深一层', '⬇ 继续下潜', '⬇ 抵达最深处']
+  const diveTexts = [
+    `⬇ ${t('icebergOverview.dive1')}`,
+    `⬇ ${t('icebergOverview.dive2')}`,
+    `⬇ ${t('icebergOverview.dive3')}`,
+    `⬇ ${t('icebergOverview.dive4')}`,
+  ]
 
   const layerDataMap: Record<string, any> = result
     ? {
@@ -280,9 +289,9 @@ export default function AnalysisOverview() {
       <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-sky-100/60" style={{ background: 'rgba(240,249,255,0.9)' }}>
         <div className="max-w-lg mx-auto px-5">
           <div className="flex justify-between items-center py-3.5">
-            <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">← 返回</button>
+            <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">← {t('common.back')}</button>
             <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-violet-500" /> 冰山之旅
+              <Sparkles className="w-4 h-4 text-violet-500" /> {t('icebergOverview.title')}
             </span>
             <div className="w-12" />
           </div>
@@ -297,15 +306,15 @@ export default function AnalysisOverview() {
             <div className="flex flex-col items-center pt-6 pb-2">
               <img
                 src="/images/iceberg-hero_1_no_bg.png"
-                alt="冰山"
+                alt={t('icebergOverview.title')}
                 className="w-36 h-auto opacity-90 drop-shadow-lg"
               />
-              <p className="text-xs text-stone-400 mt-2 mb-1">选择时间窗口，探索你的内心冰山</p>
+              <p className="text-xs text-stone-400 mt-2 mb-1">{t('icebergOverview.selectWindowHint')}</p>
             </div>
           )}
           <div className="p-5 pt-3">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-stone-600">分析窗口</span>
+              <span className="text-sm text-stone-600">{t('icebergOverview.analysisWindow')}</span>
               {[30, 90, 180].map((d) => (
                 <button
                   key={d}
@@ -317,7 +326,7 @@ export default function AnalysisOverview() {
                   }`}
                   style={windowDays === d ? { background: 'linear-gradient(135deg, #818cf8, #7c3aed)' } : undefined}
                 >
-                  近 {d} 天
+                  {t('icebergOverview.lastNDays', { count: d })}
                 </button>
               ))}
             </div>
@@ -327,7 +336,7 @@ export default function AnalysisOverview() {
               className="mt-4 w-full h-11 rounded-2xl text-sm font-semibold text-white shadow-md disabled:opacity-50 transition-all active:scale-[0.98]"
               style={{ background: 'linear-gradient(135deg, #818cf8, #7c3aed)' }}
             >
-              {isLoading ? '正在深入分析...' : '开始冰山之旅'}
+              {isLoading ? t('icebergOverview.analyzing') : t('icebergOverview.startJourney')}
             </button>
           </div>
         </div>
@@ -337,12 +346,12 @@ export default function AnalysisOverview() {
           <div className="rounded-2xl border border-sky-200 bg-white/80 backdrop-blur p-8 text-center mb-6">
             <img
               src="/images/iceberg-guide_1.png"
-              alt="探索中"
+              alt={t('icebergOverview.exploring')}
               className="w-44 h-44 mx-auto rounded-xl object-cover opacity-80 mb-4"
             />
             <Loading size="lg" />
-            <p className="mt-4 text-stone-500 text-sm">正在检索日记 → 逐层分析冰山...</p>
-            <p className="text-xs text-stone-400 mt-1">通常需要 30~60 秒</p>
+            <p className="mt-4 text-stone-500 text-sm">{t('icebergOverview.retrievingDiaries')}</p>
+            <p className="text-xs text-stone-400 mt-1">{t('icebergOverview.estimatedTime')}</p>
           </div>
         )}
 
@@ -356,9 +365,9 @@ export default function AnalysisOverview() {
           <div>
             {/* 标题 */}
             <div className={`text-center mb-6 transition-all duration-700 ${cardsVisible ? 'opacity-100' : 'opacity-0'}`}>
-              <h2 className="text-lg font-bold text-stone-700">你的冰山之旅</h2>
+              <h2 className="text-lg font-bold text-stone-700">{t('icebergOverview.yourJourney')}</h2>
               <p className="text-xs text-stone-400 mt-1">
-                {result.metadata?.period?.start_date ?? '—'} 至 {result.metadata?.period?.end_date ?? '—'} · {result.metadata?.analyzed_diary_count ?? 0} 篇日记
+                {result.metadata?.period?.start_date ?? '—'} {t('icebergOverview.to')} {result.metadata?.period?.end_date ?? '—'} · {t('icebergOverview.diaryCount', { count: result.metadata?.analyzed_diary_count ?? 0 })}
               </p>
             </div>
 
@@ -370,6 +379,7 @@ export default function AnalysisOverview() {
                   data={layerDataMap[layer.key]}
                   index={index}
                   visible={cardsVisible}
+                  t={t}
                 />
                 {index < LAYERS.length - 1 && layerDataMap[layer.key]?.summary && (
                   <DiveIndicator text={diveTexts[index] || '⬇'} />
@@ -392,7 +402,7 @@ export default function AnalysisOverview() {
                   <div className="relative">
                     <div className="flex items-center gap-2 mb-4">
                       <Mail className="w-4 h-4 text-amber-600" />
-                      <h3 className="text-sm font-semibold text-amber-700">致你的一封信</h3>
+                      <h3 className="text-sm font-semibold text-amber-700">{t('icebergOverview.letterToYou')}</h3>
                     </div>
                     <div className="text-sm text-amber-800 leading-8 whitespace-pre-line" style={{ fontFamily: '"LXGW WenKai", "楷体", KaiTi, serif' }}>
                       {result.letter}
@@ -404,7 +414,7 @@ export default function AnalysisOverview() {
 
             {/* 元数据 */}
             <div className={`text-center text-xs text-white/30 py-6 mt-4 transition-opacity duration-500 ${cardsVisible ? 'opacity-100' : 'opacity-0'}`}>
-              <p>分析耗时 {(result.metadata?.processing_time ?? 0).toFixed(1)}s · 检索 {result.metadata?.retrieved_chunk_count ?? 0} 条证据</p>
+              <p>{t('icebergOverview.processingTime', { time: (result.metadata?.processing_time ?? 0).toFixed(1) })} · {t('icebergOverview.evidenceCount', { count: result.metadata?.retrieved_chunk_count ?? 0 })}</p>
             </div>
           </div>
         )}
