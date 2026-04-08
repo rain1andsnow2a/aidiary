@@ -14,6 +14,9 @@
     "error": "Error",
     "warning": "Warning",
     "submit": "Submit",
+    "copy": "Copy",
+    "update": "Update",
+    "complete": "Complete",
     "reset": "Reset",
     "close": "Close",
     "open": "Open",
@@ -30,6 +33,7 @@
   },
   
   "auth": {
+    "logout": "Logout",
     "login": {
       "title": "Login to YinJi",
       "subtitle": "Welcome back, continue your diary journey",
@@ -60,7 +64,6 @@
       "haveAccount": "Already have an account?",
       "agreeTerms": "Please agree to the Terms of Service and Privacy Policy",
       "startJourney": "Start Recording, Meet a Better Self",
-      "logout": "Logout",
       "description": "Create your YinJi account, AI will understand you better with each diary. From today, let words become the bridge to your inner self.",
       "verifyEmail": "Verify Email",
       "step1Desc": "Get registration verification code",
@@ -354,7 +357,8 @@
     "passwordMinLength": "Password must be at least {{length}} characters",
     "passwordMismatch": "Passwords do not match",
     "usernameMinLength": "Username must be at least {{length}} characters",
-    "verificationCodeRequired": "Please enter verification code"
+    "verificationCodeRequired": "Please enter verification code",
+    "codeRequired": "Please enter verification code"
   },
 
   "captcha": {
@@ -750,6 +754,7 @@
     "basicInfo": "Basic Info",
     "basicInfoDesc": "Tell us how to address you",
     "username": "Username",
+    "avatar": "Avatar",
     "usernamePlaceholder": "How should we call you",
     "emailLabel": "Email",
     "notModifiable": "not modifiable",
