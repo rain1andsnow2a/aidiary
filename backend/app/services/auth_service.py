@@ -2,7 +2,7 @@
 认证服务
 处理用户注册、登录、验证码等业务逻辑
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,18 @@ from app.services.email_service import email_service
 
 class AuthService:
     """认证服务类"""
+
+    @staticmethod
+    def _utc_now() -> datetime:
+        """统一使用 UTC aware datetime，避免 naive/aware 比较错误。"""
+        return datetime.now(timezone.utc)
+
+    @staticmethod
+    def _ensure_aware_utc(dt: datetime) -> datetime:
+        """兼容历史脏数据：若无 tzinfo，按 UTC 解释。"""
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     async def send_verification_code(
         self,
@@ -34,7 +46,7 @@ class AuthService:
             Tuple[bool, str]: (是否成功, 消息)
         """
         # 检查频率限制：5分钟内最多3次
-        five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+        five_minutes_ago = self._utc_now() - timedelta(minutes=5)
         result = await db.execute(
             select(VerificationCode).where(
                 and_(
@@ -70,7 +82,7 @@ class AuthService:
         code = email_service.generate_code()
 
         # 计算过期时间
-        expires_at = datetime.utcnow() + timedelta(
+        expires_at = self._utc_now() + timedelta(
             minutes=settings.verification_code_expire_minutes
         )
 
@@ -133,7 +145,7 @@ class AuthService:
             return False, "验证码错误"
 
         # 验证码已过期
-        if verification_code.expires_at < datetime.utcnow():
+        if self._ensure_aware_utc(verification_code.expires_at) < self._utc_now():
             return False, "验证码已过期"
 
         # 验证码有效
