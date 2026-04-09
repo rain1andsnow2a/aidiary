@@ -11,6 +11,8 @@ import type {
   GrowthDailyInsight,
 } from '@/types/diary'
 
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
 export const diaryService = {
   // 创建日记
   create: async (data: DiaryCreate): Promise<Diary> => {
@@ -102,6 +104,9 @@ export const diaryService = {
 
   // 上传日记图片
   uploadImage: async (file: File): Promise<string> => {
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      throw new Error('图片大小不能超过 10MB')
+    }
     const formData = new FormData()
     formData.append('file', file)
     const response = await api.post<{ url: string }>('/api/v1/diaries/upload-image', formData, {

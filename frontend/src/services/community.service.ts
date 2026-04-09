@@ -1,6 +1,8 @@
 // 社区API服务
 import api from './api'
 
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
 export interface PostAuthor {
   id: number
   username: string | null
@@ -121,6 +123,9 @@ export const communityService = {
 
   // 图片上传
   async uploadImage(file: File): Promise<string> {
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      throw new Error('图片大小不能超过 10MB')
+    }
     const formData = new FormData()
     formData.append('file', file)
     const { data } = await api.post('/api/v1/community/upload-image', formData, {
