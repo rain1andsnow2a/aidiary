@@ -21,11 +21,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive sliding puzzle captcha integration with HMAC signing and anti-bot measures
-- Enhanced rate limiting with dual-layer protection (IP-based and captcha-based)
-- Implemented refresh token authentication with cookie-based session management
-- Added security headers middleware for enhanced protection
-- Improved API security measures with mandatory captcha verification for sensitive operations
+- Added RequestIdMiddleware for request tracking with X-Request-ID header generation
+- Enhanced SecurityHeadersMiddleware with comprehensive security headers configuration
+- Implemented standardized error response format with request_id tracking
+- Integrated middleware registration at application startup
+- Added exception handlers with consistent error payload structure
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,11 +41,11 @@
 11. [Appendices](#appendices)
 
 ## Introduction
-This document presents the enhanced security architecture of the 映记 backend system. The system now features a comprehensive security framework including JWT-based authentication with refresh tokens, custom sliding puzzle captcha integration, advanced rate limiting, enhanced API security measures, and robust protection against automated attacks. The architecture focuses on multi-layered security controls including human verification, anti-bot measures, session management, user authorization patterns, CORS configuration, CSRF protection posture, input validation strategies, dependency injection patterns for security services, middleware implementation, rate limiting, brute force protection, and security headers configuration.
+This document presents the enhanced security architecture of the 映记 backend system. The system now features a comprehensive security framework including JWT-based authentication with refresh tokens, custom sliding puzzle captcha integration, advanced rate limiting, enhanced API security measures, robust protection against automated attacks, and comprehensive middleware-based request tracking and security headers. The architecture focuses on multi-layered security controls including human verification, anti-bot measures, session management, user authorization patterns, CORS configuration, CSRF protection posture, input validation strategies, dependency injection patterns for security services, middleware implementation, rate limiting, brute force protection, security headers configuration, request tracking, and standardized error response formats.
 
 ## Project Structure
 The security-relevant parts of the backend are organized around:
-- Application entry and middleware configuration (CORS and security headers)
+- Application entry and middleware configuration (CORS, security headers, request tracking)
 - Core security utilities (JWT, bcrypt, and captcha services)
 - Enhanced rate limiting with dual protection layers
 - Dependency injection for authentication and authorization
@@ -59,7 +59,7 @@ The security-relevant parts of the backend are organized around:
 
 ```mermaid
 graph TB
-A["main.py<br/>Application entry & security headers"] --> B["app/api/v1/auth.py<br/>Auth endpoints with captcha"]
+A["main.py<br/>Application entry & middleware"] --> B["app/api/v1/auth.py<br/>Auth endpoints with captcha"]
 B --> C["app/services/auth_service.py<br/>Auth business logic"]
 C --> D["app/models/database.py<br/>User & VerificationCode"]
 C --> E["app/services/email_service.py<br/>Verification emails"]
@@ -72,10 +72,14 @@ I["app/db.py<br/>DB session factory"] --> C
 J["app/services/captcha_service.py<br/>Sliding puzzle captcha"] --> B
 K["app/core/rate_limit.py<br/>Enhanced rate limiting"] --> B
 L["frontend/SliderCaptcha.tsx<br/>Frontend captcha UI"] --> B
+M["RequestIdMiddleware<br/>Request tracking"] --> A
+N["SecurityHeadersMiddleware<br/>Security headers"] --> A
+O["_error_payload<br/>Standardized error format"] --> A
 ```
 
 **Diagram sources**
-- [main.py:61-73](file://backend/main.py#L61-L73)
+- [main.py:61-87](file://backend/main.py#L61-L87)
+- [main.py:90-156](file://backend/main.py#L90-L156)
 - [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
 - [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
 - [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
@@ -83,7 +87,8 @@ L["frontend/SliderCaptcha.tsx<br/>Frontend captcha UI"] --> B
 - [SliderCaptcha.tsx:58-255](file://frontend/src/components/common/SliderCaptcha.tsx#L58-L255)
 
 **Section sources**
-- [main.py:61-73](file://backend/main.py#L61-L73)
+- [main.py:61-87](file://backend/main.py#L61-L87)
+- [main.py:90-156](file://backend/main.py#L90-L156)
 - [config.py:10-105](file://backend/app/core/config.py#L10-L105)
 
 ## Core Components
@@ -98,6 +103,8 @@ L["frontend/SliderCaptcha.tsx<br/>Frontend captcha UI"] --> B
 - **CORS**: configured origins from settings.
 - **CSRF protection**: Enhanced via captcha requirement and secure cookie handling.
 - **Security headers**: Comprehensive protection headers including CSP, X-Frame-Options, X-Content-Type-Options, and Permissions-Policy.
+- **Request tracking**: X-Request-ID header generation for request correlation and debugging.
+- **Standardized error responses**: Consistent error payload structure across all API endpoints.
 
 **Section sources**
 - [security.py:16-87](file://backend/app/core/security.py#L16-L87)
@@ -105,14 +112,17 @@ L["frontend/SliderCaptcha.tsx<br/>Frontend captcha UI"] --> B
 - [captcha_service.py:15-29](file://backend/app/services/captcha_service.py#L15-L29)
 - [rate_limit.py:10-58](file://backend/app/core/rate_limit.py#L10-L58)
 - [auth_schemas.py:10-21](file://backend/app/schemas/auth.py#L10-L21)
-- [main.py:61-73](file://backend/main.py#L61-L73)
+- [main.py:61-87](file://backend/main.py#L61-L87)
+- [main.py:90-156](file://backend/main.py#L90-L156)
 
 ## Architecture Overview
-The enhanced authentication flow integrates FastAPI routing, dependency injection, service-layer logic, captcha verification, and persistence. The diagram below maps the end-to-end authentication flow from request to response with the new captcha integration.
+The enhanced authentication flow integrates FastAPI routing, dependency injection, service-layer logic, captcha verification, persistence, and comprehensive middleware for request tracking and security headers. The diagram below maps the end-to-end authentication flow from request to response with the new middleware implementations.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
+participant RequestId as "RequestIdMiddleware"
+participant SecurityHeaders as "SecurityHeadersMiddleware"
 participant API as "Auth Endpoints (auth.py)"
 participant Captcha as "Captcha Service"
 participant Deps as "Auth Dependencies (deps.py)"
@@ -120,7 +130,9 @@ participant Service as "AuthService (auth_service.py)"
 participant Security as "Security Utils (security.py)"
 participant DB as "Database (models/database.py)"
 participant Email as "EmailService (email_service.py)"
-Client->>API : "POST /api/v1/auth/captcha"
+Client->>RequestId : "Request with optional X-Request-ID"
+RequestId->>SecurityHeaders : "Pass through middleware chain"
+SecurityHeaders->>API : "Process request"
 API->>Captcha : "generate()"
 Captcha-->>API : "Captcha data with token"
 API-->>Client : "Captcha parameters"
@@ -135,18 +147,12 @@ Email-->>Service : "Success/Failure"
 Service->>DB : "Insert VerificationCode (flush)"
 DB-->>Service : "Persisted"
 Service-->>API : "Success message"
-API-->>Client : "200 OK"
-Client->>API : "POST /api/v1/auth/register"
-API->>Service : "register(email, password, code)"
-Service->>DB : "Verify code, check uniqueness, create User"
-Service->>DB : "Mark code used"
-Service->>Security : "create_access_token(user)"
-Security-->>Service : "JWT access_token"
-Service-->>API : "TokenResponse"
-API-->>Client : "200 OK with token and cookies"
+API-->>Client : "200 OK with X-Request-ID header"
 ```
 
 **Diagram sources**
+- [main.py:81-87](file://backend/main.py#L81-L87)
+- [main.py:69-78](file://backend/main.py#L69-L78)
 - [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
 - [auth.py:64-81](file://backend/app/api/v1/auth.py#L64-L81)
 - [captcha_service.py:46-70](file://backend/app/services/captcha_service.py#L46-L70)
@@ -355,14 +361,82 @@ Config --> Captcha
 - [auth.py:22-504](file://backend/app/api/v1/auth.py#L22-L504)
 - [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
 
-### Middleware Implementation
-- CORS middleware is registered at application startup.
-- **Enhanced**: Security headers middleware with comprehensive protection headers.
-- **Enhanced**: Rate limiting middleware integrated into authentication endpoints.
+### Enhanced Middleware Implementation
+
+#### Request Tracking Middleware
+The RequestIdMiddleware provides comprehensive request tracking capabilities:
+
+- **X-Request-ID Generation**: Automatically generates unique request IDs using UUID4 when not provided by clients.
+- **Request State Tracking**: Stores request ID in request.state for downstream processing.
+- **Response Header Inclusion**: Returns X-Request-ID header in all responses for correlation.
+- **Client Override Support**: Allows clients to provide custom X-Request-ID in requests.
+
+```mermaid
+flowchart TD
+Start(["Incoming Request"]) --> CheckHeader{"X-Request-ID header present?"}
+CheckHeader --> |Yes| UseProvided["Use provided X-Request-ID"]
+CheckHeader --> |No| GenerateUUID["Generate UUID4"]
+UseProvided --> StoreState["Store in request.state.request_id"]
+GenerateUUID --> StoreState
+StoreState --> ProcessNext["Call next middleware/handler"]
+ProcessNext --> AddHeader["Add X-Request-ID to response"]
+AddHeader --> Return(["Return Response"])
+```
+
+**Diagram sources**
+- [main.py:81-87](file://backend/main.py#L81-L87)
 
 **Section sources**
-- [main.py:51-58](file://backend/main.py#L51-L58)
-- [main.py:61-73](file://backend/main.py#L61-L73)
+- [main.py:81-87](file://backend/main.py#L81-L87)
+
+#### Security Headers Middleware
+The SecurityHeadersMiddleware implements comprehensive security headers for all responses:
+
+- **X-Content-Type-Options**: Prevents MIME-type sniffing with "nosniff"
+- **X-Frame-Options**: Blocks clickjacking attacks with "DENY"
+- **X-XSS-Protection**: Enables XSS filtering with "1; mode=block"
+- **Referrer-Policy**: Controls referrer information sharing
+- **Permissions-Policy**: Restricts browser features (camera, microphone, geolocation)
+
+```mermaid
+flowchart TD
+Request(["Incoming Request"]) --> CallNext["Call next handler"]
+CallNext --> GetResponse["Receive response"]
+GetResponse --> AddHeaders["Add security headers"]
+AddHeaders --> Return(["Return secured response"])
+```
+
+**Diagram sources**
+- [main.py:69-78](file://backend/main.py#L69-L78)
+
+**Section sources**
+- [main.py:69-78](file://backend/main.py#L69-L78)
+
+#### Standardized Error Response Format
+The centralized error handling system provides consistent error responses:
+
+- **Unified Error Payload**: Structured response with code, message, data, and request_id fields.
+- **Backward Compatibility**: Includes "detail" field for frontend compatibility.
+- **Request Correlation**: Links errors to specific requests via X-Request-ID.
+- **Exception Handlers**: Handles HTTP exceptions, validation errors, and unhandled exceptions.
+
+```mermaid
+flowchart TD
+Exception(["Exception Occurs"]) --> CheckType{"Exception Type?"}
+CheckType --> |HTTPException| HttpHandler["HTTP Exception Handler"]
+CheckType --> |RequestValidationError| ValidationHandler["Validation Exception Handler"]
+CheckType --> |Other Exception| UnhandledHandler["Unhandled Exception Handler"]
+HttpHandler --> BuildError["Build error payload with request_id"]
+ValidationHandler --> BuildError
+UnhandledHandler --> BuildError
+BuildError --> Return(["Return JSONResponse"])
+```
+
+**Diagram sources**
+- [main.py:90-156](file://backend/main.py#L90-L156)
+
+**Section sources**
+- [main.py:90-156](file://backend/main.py#L90-L156)
 
 ### Rate Limiting and Brute Force Protection
 - **Enhanced**: Dual-layer rate limiting with IP-based sliding window and captcha-based verification.
@@ -400,28 +474,25 @@ Commit --> Done(["Success"])
 - [rate_limit.py:38-49](file://backend/app/core/rate_limit.py#L38-L49)
 - [auth.py:130-131](file://backend/app/api/v1/auth.py#L130-L131)
 
-### Security Headers Configuration
-- **Enhanced**: Comprehensive security headers including Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, and Permissions-Policy.
-- Headers are applied globally via middleware for all responses.
-
-**Section sources**
-- [main.py:61-73](file://backend/main.py#L61-L73)
-
 ### Secure API Endpoint Implementation Example
 - **Enhanced**: Registration flow demonstrates secure handling of verification codes, password hashing, captcha verification, and token issuance with cookie storage.
 - **Enhanced**: Login endpoints support both code-based and password-based authentication with captcha verification.
 - **Enhanced**: Refresh token endpoint handles automatic token renewal via cookie-based authentication.
-- Error responses use appropriate HTTP status codes and messages.
+- Error responses use appropriate HTTP status codes and messages with standardized format.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
+participant RequestId as "RequestIdMiddleware"
+participant SecurityHeaders as "SecurityHeadersMiddleware"
 participant API as "Auth Endpoints"
 participant Captcha as "Captcha Service"
 participant Service as "AuthService"
 participant DB as "Database"
 participant Security as "Security Utils"
-Client->>API : "POST /auth/captcha"
+Client->>RequestId : "POST /auth/register"
+RequestId->>SecurityHeaders : "Pass through middleware"
+SecurityHeaders->>API : "Process request"
 API->>Captcha : "generate()"
 Captcha-->>API : "Captcha data"
 API-->>Client : "Captcha parameters"
@@ -435,10 +506,12 @@ Service->>DB : "Mark code used"
 Service->>Security : "create_access_token(user)"
 Service->>Security : "create_refresh_token(user)"
 Service-->>API : "TokenResponse with cookies"
-API-->>Client : "200 OK with tokens"
+API-->>Client : "200 OK with X-Request-ID header"
 ```
 
 **Diagram sources**
+- [main.py:81-87](file://backend/main.py#L81-L87)
+- [main.py:69-78](file://backend/main.py#L69-L78)
 - [auth.py:83-116](file://backend/app/api/v1/auth.py#L83-L116)
 - [auth.py:64-81](file://backend/app/api/v1/auth.py#L64-L81)
 - [auth_service.py:142-201](file://backend/app/services/auth_service.py#L142-L201)
@@ -455,6 +528,7 @@ API-->>Client : "200 OK with tokens"
 - Verification errors return 400; rate-limit exceeded returns 429.
 - **Enhanced**: Captcha validation errors return 400 with specific error messages.
 - **Enhanced**: Captcha token replay attempts return 400 with "already used" message.
+- **Enhanced**: All error responses include standardized format with request_id correlation.
 - Tests validate proper error responses and validation behavior.
 
 **Section sources**
@@ -542,8 +616,31 @@ The frontend implements a sophisticated sliding puzzle interface:
 **Section sources**
 - [SliderCaptcha.tsx:58-255](file://frontend/src/components/common/SliderCaptcha.tsx#L58-L255)
 
+### Request Tracking and Debugging
+The middleware-based request tracking system provides comprehensive observability:
+
+- **Unique Request Correlation**: X-Request-ID header enables end-to-end request tracing
+- **Consistent Logging**: All requests and responses include correlation identifiers
+- **Debugging Support**: Easy correlation of client requests with server logs
+- **Production Ready**: Minimal performance overhead with efficient UUID generation
+
+**Section sources**
+- [main.py:81-87](file://backend/main.py#L81-L87)
+
+### Standardized Error Response Format
+The centralized error handling ensures consistent error reporting across all API endpoints:
+
+- **Structured Error Payload**: Unified format with code, message, data, and request_id fields
+- **Backward Compatibility**: Maintains "detail" field for frontend compatibility
+- **Request Correlation**: All errors include X-Request-ID for debugging
+- **Comprehensive Coverage**: Handles HTTP exceptions, validation errors, and unhandled exceptions
+- **Developer Experience**: Clear error messages with structured data for programmatic handling
+
+**Section sources**
+- [main.py:90-156](file://backend/main.py#L90-L156)
+
 ## Dependency Analysis
-External dependencies relevant to security include FastAPI, python-jose for JWT, passlib for bcrypt, pydantic/pydantic-settings for configuration and validation, and cryptography libraries for HMAC signing.
+External dependencies relevant to security include FastAPI, python-jose for JWT, passlib for bcrypt, pydantic/pydantic-settings for configuration and validation, cryptography libraries for HMAC signing, and uuid for request tracking.
 
 ```mermaid
 graph TB
@@ -553,6 +650,7 @@ App --> Bcrypt["passlib[bcrypt]"]
 App --> Pydantic["pydantic + pydantic-settings"]
 App --> SMTP["aiosmtplib (optional)"]
 App --> Cryptography["cryptography (for HMAC)"]
+App --> UUID["uuid (for request tracking)"]
 ```
 
 **Diagram sources**
@@ -569,6 +667,8 @@ App --> Cryptography["cryptography (for HMAC)"]
 - **Enhanced**: Captcha service uses memory-based tracking for efficient token validation.
 - **Enhanced**: Rate limiter implements sliding window algorithm with O(1) cleanup complexity.
 - **Enhanced**: Security headers middleware adds minimal overhead to response processing.
+- **Enhanced**: Request tracking middleware has negligible performance impact with UUID generation.
+- **Enhanced**: Error handling system maintains consistent performance across all exception types.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -580,6 +680,9 @@ Common issues and resolutions:
 - **Enhanced**: Captcha validation failures: Check minimum duration (≥300ms) and precision tolerance (±6px).
 - **Enhanced**: Captcha token replay: Ensure tokens are not reused; check memory cleanup mechanism.
 - **Enhanced**: Refresh token issues: Verify cookie storage and automatic renewal flow.
+- **Enhanced**: Request tracking issues: Check X-Request-ID header presence and correlation with logs.
+- **Enhanced**: Security header problems: Verify middleware registration order and response modification.
+- **Enhanced**: Error response format issues: Ensure standardized error payload structure across all endpoints.
 
 **Section sources**
 - [security.py:68-87](file://backend/app/core/security.py#L68-L87)
@@ -587,9 +690,11 @@ Common issues and resolutions:
 - [auth_service.py:118-140](file://backend/app/services/auth_service.py#L118-L140)
 - [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
 - [config.py:98-100](file://backend/app/core/config.py#L98-L100)
+- [main.py:81-87](file://backend/main.py#L81-L87)
+- [main.py:69-78](file://backend/main.py#L69-L78)
 
 ## Conclusion
-The 映记 backend implements a comprehensive security architecture with robust multi-layered protection. The enhanced system features custom sliding puzzle captcha integration with HMAC signing and anti-bot measures, dual-layer rate limiting with IP-based and captcha-based protection, refresh token authentication with cookie-based session management, and comprehensive security headers. The modular design with dependency injection supports maintainable security practices while providing strong protection against automated attacks and brute force attempts.
+The 映记 backend implements a comprehensive security architecture with robust multi-layered protection. The enhanced system features custom sliding puzzle captcha integration with HMAC signing and anti-bot measures, dual-layer rate limiting with IP-based and captcha-based protection, refresh token authentication with cookie-based session management, comprehensive security headers, request tracking with X-Request-ID correlation, and standardized error response formats. The modular design with dependency injection supports maintainable security practices while providing strong protection against automated attacks and brute force attempts. The new middleware-based approach ensures consistent security enforcement across all API endpoints with minimal performance impact.
 
 ## Appendices
 
@@ -599,6 +704,10 @@ The 映记 backend implements a comprehensive security architecture with robust 
 - **Enhanced**: Configure HTTPS-only cookies with secure flag in production environments.
 - **Enhanced**: Implement rate limiting for all public endpoints beyond captcha verification.
 - **Enhanced**: Consider Redis-based distributed rate limiting for multi-instance deployments.
+- **Enhanced**: Enable request tracking middleware for all production deployments.
+- **Enhanced**: Implement comprehensive logging with X-Request-ID correlation for debugging.
 - **Enhanced**: Regular monitoring and logging of security events for anomaly detection.
 - **Enhanced**: Implement token rotation for refresh tokens in high-security scenarios.
 - **Enhanced**: Consider adding additional CAPTCHA challenges for suspicious activities.
+- **Enhanced**: Ensure all error responses include standardized format with request_id for debugging.
+- **Enhanced**: Implement proper exception handling with consistent error payload structure.

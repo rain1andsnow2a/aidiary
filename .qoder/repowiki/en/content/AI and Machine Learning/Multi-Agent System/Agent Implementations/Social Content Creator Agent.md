@@ -13,6 +13,14 @@
 - [test_ai_agents.py](file://backend/test_ai_agents.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated three-style approach from generic "简洁版/情感版/生活感版" to specific "简洁叙事版, 共鸣表达版, 生活行动版"
+- Expanded word count ranges from fixed limits to flexible ranges (60-120, 80-140, 70-140 words respectively)
+- Added new AI avoidance guidelines specifically targeting common AI-generated phrases
+- Enhanced authenticity requirements with stricter human-centered communication patterns
+- Updated JSON parsing logic to handle new response formats consistently
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -26,6 +34,8 @@
 
 ## Introduction
 The Social Content Creator Agent is a specialized AI component responsible for generating multiple versions of social media posts from diary entries. It transforms personal journal content into engaging, authentic social media posts tailored to individual user profiles, incorporating personality traits, communication styles, and preferred catchphrases. This agent plays a crucial role in the community engagement features by enabling users to share meaningful moments from their lives while maintaining their authentic voice.
+
+**Updated** Enhanced with three distinct writing styles (简洁叙事版, 共鸣表达版, 生活行动版) and expanded word count flexibility to produce more natural, human-centered content.
 
 ## Project Structure
 The Social Content Creator Agent is part of a multi-agent AI system that processes diary content through several specialized agents. The agent operates within a structured workflow that includes context collection, timeline extraction, psychological analysis, and finally social content generation.
@@ -224,6 +234,60 @@ LLM --> Posts["Generated Posts"]
 - [agent_impl.py:416-422](file://backend/app/agents/agent_impl.py#L416-L422)
 - [prompts.py:168-208](file://backend/app/agents/prompts.py#L168-L208)
 
+### Three-Style Approach Enhancement
+**Updated** The agent now implements a sophisticated three-style approach with specific writing patterns and expanded word count flexibility:
+
+#### Style Categories and Word Count Ranges
+
+| Style | Name | Word Count Range | Characteristics |
+|-------|------|------------------|-----------------|
+| A | 简洁叙事版 | 60-120 words | Direct storytelling, minimal elaboration |
+| B | 共鸣表达版 | 80-140 words | Emotional connection, shared experience |
+| C | 生活行动版 | 70-140 words | Action-oriented, future-focused |
+
+#### Writing Style Specifications
+Each style follows specific authenticity guidelines:
+
+**简洁叙事版 (Concise Narrative Style)**
+- Focus on direct storytelling
+- Minimal descriptive language
+- Clear, unadorned presentation
+- Word count: 60-120 characters
+
+**共鸣表达版 (Resonant Expression Style)**
+- Emphasizes emotional connection
+- Shared human experiences
+- Deeper personal reflection
+- Word count: 80-140 characters
+
+**生活行动版 (Life Action Style)**
+- Action-oriented content
+- Future-focused perspective
+- Practical insights
+- Word count: 70-140 characters
+
+#### AI Avoidance Guidelines
+**Updated** Enhanced with strict guidelines to prevent artificial AI patterns:
+
+- Avoid phrases: "治愈自己, 与自己和解, 向内求, 答案在路上"
+- No template-based expressions
+- Eliminate excessive positivity
+- Prevent formulaic conclusions
+- Reject clichéd wisdom
+
+#### Authenticity Requirements
+**Updated** Stricter human-centered communication patterns:
+
+- Natural conversational tone
+- Personal vulnerability (small confessions, minor mistakes)
+- Realistic self-reflection
+- Contextual relevance to daily life
+- Avoid overly polished language
+
+**Section sources**
+- [prompts.py:185-215](file://backend/app/agents/prompts.py#L185-L215)
+- [ai.py:836-843](file://backend/app/api/v1/ai.py#L836-L843)
+
 ### Fallback Mechanism
 The agent implements a robust fallback mechanism that ensures content generation even when LLM responses are problematic:
 
@@ -232,9 +296,9 @@ When JSON parsing fails, the agent falls back to generating simple posts:
 
 | Version | Style | Content Strategy |
 |---------|-------|------------------|
-| A | Concise | Extracts first 50 characters from diary content |
-| B | Complete | Uses first 100 characters of diary content |
-| C | Personal | Creates version with diary title context |
+| A | 简洁版 | Extracts first 50 characters from diary content |
+| B | 情感版 | Uses first 100 characters of diary content |
+| C | 生活感版 | Creates version with diary title context |
 
 #### Error Recovery
 The fallback mechanism includes comprehensive error recovery:
@@ -423,6 +487,8 @@ ResolveIssues --> End([Debug Complete])
 
 ## Conclusion
 The Social Content Creator Agent represents a sophisticated implementation of AI-powered content generation that balances creativity with authenticity. Through its advanced JSON parsing capabilities, robust error handling, and deep integration with user profiles, it enables users to transform personal diary entries into engaging social media content that reflects their true voice and personality.
+
+**Updated** The enhanced three-style approach with expanded word count flexibility and strict AI avoidance guidelines ensures more natural, human-centered communication patterns. The agent now produces three distinct writing styles (简洁叙事版, 共鸣表达版, 生活行动版) with specific authenticity requirements and improved content quality.
 
 The agent's role in community engagement extends beyond simple content generation, serving as a bridge between personal reflection and social connection. Its integration with the broader multi-agent system ensures that generated content is contextually appropriate, emotionally resonant, and aligned with users' authentic communication styles.
 

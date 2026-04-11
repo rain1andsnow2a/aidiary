@@ -7,6 +7,10 @@
 - [DiaryEditor.tsx](file://frontend/src/pages/diaries/DiaryEditor.tsx)
 - [DiaryDetail.tsx](file://frontend/src/pages/diaries/DiaryDetail.tsx)
 - [DiaryList.tsx](file://frontend/src/pages/diaries/DiaryList.tsx)
+- [LanguageSwitcher.tsx](file://frontend/src/components/common/LanguageSwitcher.tsx)
+- [index.ts](file://frontend/src/i18n/index.ts)
+- [en-US.json](file://frontend/src/i18n/locales/en-US.json)
+- [zh-CN.json](file://frontend/src/i18n/locales/zh-CN.json)
 - [diary.service.ts](file://frontend/src/services/diary.service.ts)
 - [ai.service.ts](file://frontend/src/services/ai.service.ts)
 - [diaryStore.ts](file://frontend/src/store/diaryStore.ts)
@@ -18,20 +22,31 @@
 - [diary.py](file://backend/app/models/diary.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added comprehensive internationalization documentation covering the complete translation system
+- Updated diary management components section to reflect full language support
+- Added new section on internationalization architecture and implementation
+- Enhanced existing sections with translation coverage details
+- Updated component analysis to include i18n integration patterns
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
-3. [Core Components](#core-components)
-4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+3. [Internationalization Architecture](#internationalization-architecture)
+4. [Core Components](#core-components)
+5. [Architecture Overview](#architecture-overview)
+6. [Detailed Component Analysis](#detailed-component-analysis)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 The Smart Diary System is a modern, AI-enhanced journaling platform that combines a powerful rich text editor with advanced AI features for mood tracking, sentiment analysis, collaborative-like timelines, and social content generation. Built with a React frontend and FastAPI backend, it emphasizes user privacy, performance, and accessibility while delivering a warm, psychological-friendly writing experience.
+
+**Updated** The system now provides comprehensive internationalization support with complete translation coverage across all diary management components, enabling seamless operation in both Chinese and English languages.
 
 Key capabilities:
 - Rich text editing with Lexical, supporting Markdown shortcuts, headings, lists, links, and inline images
@@ -40,11 +55,12 @@ Key capabilities:
 - AI-powered writing assistance: daily guided questions, title generation, and social post suggestions
 - Timeline construction from diary entries with AI refinement
 - CRUD operations, timeline queries, and robust data persistence
+- **Full internationalization support with comprehensive translation coverage**
 - Responsive and accessible UI with thoughtful interactions
 
 ## Project Structure
-The system follows a clear separation of concerns:
-- Frontend (React + TypeScript): Pages, components, services, stores, and types define the user-facing features
+The system follows a clear separation of concerns with integrated internationalization:
+- Frontend (React + TypeScript): Pages, components, services, stores, types, and **i18n configuration** define the user-facing features
 - Backend (FastAPI + SQLAlchemy): API endpoints, services, agents, and models manage data and AI workflows
 
 ```mermaid
@@ -53,6 +69,8 @@ subgraph "Frontend"
 FE_Root["frontend/src"]
 FE_Pages["pages/diaries/*"]
 FE_Components["components/editor/*"]
+FE_Common["components/common/*"]
+FE_i18n["i18n/*"]
 FE_Services["services/*"]
 FE_Store["store/diaryStore.ts"]
 FE_Types["types/diary.ts"]
@@ -66,6 +84,10 @@ BE_Models["models/*"]
 end
 FE_Pages --> FE_Services
 FE_Components --> FE_Services
+FE_Common --> FE_i18n
+FE_i18n --> FE_Pages
+FE_i18n --> FE_Components
+FE_i18n --> FE_Common
 FE_Services --> BE_API
 BE_API --> BE_Services
 BE_Services --> BE_Agents
@@ -78,11 +100,11 @@ BE_Services --> BE_Models
 - [diary_service.py:1-637](file://backend/app/services/diary_service.py#L1-L637)
 - [llm.py:1-220](file://backend/app/agents/llm.py#L1-L220)
 - [diary.py:1-186](file://backend/app/models/diary.py#L1-L186)
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
-- [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
-- [diary.ts:1-128](file://frontend/src/types/diary.ts#L1-L128)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
+- [DiaryList.tsx:1-276](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L276)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 
 **Section sources**
 - [diaries.py:1-501](file://backend/app/api/v1/diaries.py#L1-L501)
@@ -90,11 +112,39 @@ BE_Services --> BE_Models
 - [diary_service.py:1-637](file://backend/app/services/diary_service.py#L1-L637)
 - [llm.py:1-220](file://backend/app/agents/llm.py#L1-L220)
 - [diary.py:1-186](file://backend/app/models/diary.py#L1-L186)
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
-- [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
-- [diary.ts:1-128](file://frontend/src/types/diary.ts#L1-L128)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
+- [DiaryList.tsx:1-276](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L276)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+
+## Internationalization Architecture
+
+The system implements a comprehensive internationalization solution using i18next with automatic language detection and persistent language preferences.
+
+### Language Detection and Storage
+- Automatic browser language detection with fallback to Chinese (zh-CN)
+- Persistent language preference stored in localStorage under 'yinji-language' key
+- Seamless switching between Chinese and English with real-time UI updates
+
+### Translation Coverage
+The translation system covers all user-facing interface elements across:
+- Authentication flows and forms
+- Navigation and menu systems  
+- Diary management operations (create, edit, delete, list)
+- Editor toolbar and formatting controls
+- AI assistance and analysis features
+- Error messages and validation feedback
+- Social post generation and styling
+
+### Implementation Pattern
+Components integrate translations through the `useTranslation` hook, enabling dynamic language switching without page reloads.
+
+**Section sources**
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [en-US.json:1-817](file://frontend/src/i18n/locales/en-US.json#L1-L817)
+- [zh-CN.json:1-817](file://frontend/src/i18n/locales/zh-CN.json#L1-L817)
 
 ## Core Components
 - RichTextEditor (Lexical): Provides a polished writing experience with toolbar, Markdown shortcuts, slash commands, and image insertion
@@ -102,23 +152,23 @@ BE_Services --> BE_Models
 - DiaryEditor: Full-page editor with emotion tags, importance scoring, AI title generation, and guided questions
 - DiaryDetail: Renders formatted markdown content, supports social post generation, and style sampling
 - DiaryList: Paginated list with emotion filtering and delete actions
+- **LanguageSwitcher: Global language selector with flag indicators and persistent preference storage**
+- **Comprehensive Translation System: Complete i18n configuration with automatic detection and fallback**
 - Services: Frontend services for diary and AI operations; backend API endpoints and services orchestrate persistence and AI
 - Stores: Zustand store for managing diary state, pagination, and timeline data
 - Types: Strongly typed interfaces for diaries, timeline events, terrain insights, and growth daily insights
 
 **Section sources**
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L676)
 - [ImageNode.tsx:1-87](file://frontend/src/components/editor/ImageNode.tsx#L1-L87)
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
-- [DiaryDetail.tsx:1-442](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L442)
-- [DiaryList.tsx:1-211](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L211)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
-- [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
-- [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
-- [diary.ts:1-128](file://frontend/src/types/diary.ts#L1-L128)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
+- [DiaryList.tsx:1-276](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L276)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 
 ## Architecture Overview
-The system integrates a React frontend with a FastAPI backend. The frontend communicates with backend APIs through dedicated services. AI features are powered by a configurable LLM client, and data is persisted using SQLAlchemy models.
+The system integrates a React frontend with a FastAPI backend, featuring comprehensive internationalization support. The frontend communicates with backend APIs through dedicated services, with all user-facing text dynamically translated based on the selected language. AI features are powered by a configurable LLM client, and data is persisted using SQLAlchemy models.
 
 ```mermaid
 graph TB
@@ -127,6 +177,8 @@ FE_Detail["DiaryDetail.tsx"]
 FE_List["DiaryList.tsx"]
 FE_RTE["RichTextEditor.tsx"]
 FE_ImageNode["ImageNode.tsx"]
+FE_LanguageSwitcher["LanguageSwitcher.tsx"]
+FE_i18n["i18n/index.ts"]
 FE_DiarySvc["diary.service.ts"]
 FE_AiSvc["ai.service.ts"]
 FE_Store["diaryStore.ts"]
@@ -138,10 +190,17 @@ BE_Models["diary.py"]
 FE_Editor --> FE_RTE
 FE_Editor --> FE_DiarySvc
 FE_Editor --> FE_AiSvc
+FE_Editor --> FE_LanguageSwitcher
 FE_Detail --> FE_AiSvc
+FE_Detail --> FE_LanguageSwitcher
 FE_List --> FE_DiarySvc
+FE_List --> FE_LanguageSwitcher
 FE_Store --> FE_DiarySvc
 FE_RTE --> FE_ImageNode
+FE_i18n --> FE_Editor
+FE_i18n --> FE_Detail
+FE_i18n --> FE_List
+FE_i18n --> FE_LanguageSwitcher
 FE_DiarySvc --> BE_DiariesAPI
 FE_AiSvc --> BE_AiAPI
 BE_DiariesAPI --> BE_Service
@@ -151,11 +210,13 @@ BE_Service --> BE_Models
 ```
 
 **Diagram sources**
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
-- [DiaryDetail.tsx:1-442](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L442)
-- [DiaryList.tsx:1-211](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L211)
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
+- [DiaryList.tsx:1-276](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L276)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L676)
 - [ImageNode.tsx:1-87](file://frontend/src/components/editor/ImageNode.tsx#L1-L87)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 - [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
@@ -169,11 +230,13 @@ BE_Service --> BE_Models
 
 ### Rich Text Editor (Lexical)
 The editor is built on Lexical with plugins for rich text, history, Markdown shortcuts, and change tracking. It supports:
-- Formatting: bold, italic
+- Formatting: bold, italic, underline, strikethrough, code
 - Structural elements: headings, quotes, code blocks, lists, links
 - Inline images via a custom ImageNode
 - Slash command menu for quick actions
 - Real-time conversion to markdown and HTML for persistence and rendering
+
+**Updated** All editor interface elements, including toolbar buttons, formatting controls, and placeholder text, are fully localized with comprehensive translation coverage.
 
 ```mermaid
 classDiagram
@@ -189,15 +252,28 @@ class ImageNode {
 +decorate() : JSX
 +isInline() : boolean
 }
+class TopToolbarPlugin {
++onRequestImage() : void
++uploading : boolean
+}
+class FloatingToolbarPlugin {
++formats : object
++show : boolean
++anchorPos : object
+}
 RichTextEditor --> ImageNode : "inserts and renders"
+RichTextEditor --> TopToolbarPlugin : "uses"
+RichTextEditor --> FloatingToolbarPlugin : "uses"
 ```
 
 **Diagram sources**
-- [RichTextEditor.tsx:252-383](file://frontend/src/components/editor/RichTextEditor.tsx#L252-L383)
+- [RichTextEditor.tsx:573-676](file://frontend/src/components/editor/RichTextEditor.tsx#L573-L676)
 - [ImageNode.tsx:1-87](file://frontend/src/components/editor/ImageNode.tsx#L1-L87)
+- [RichTextEditor.tsx:111-128](file://frontend/src/components/editor/RichTextEditor.tsx#L111-L128)
+- [RichTextEditor.tsx:131-384](file://frontend/src/components/editor/RichTextEditor.tsx#L131-L384)
 
 **Section sources**
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L676)
 - [ImageNode.tsx:1-87](file://frontend/src/components/editor/ImageNode.tsx#L1-L87)
 
 ### Diary Editor Workflow
@@ -205,8 +281,10 @@ The editor page orchestrates:
 - Loading existing diary for edit mode
 - Managing emotion tags and importance score
 - Generating titles via AI
-- Uploading images through the editor’s image picker
+- Uploading images through the editor's image picker
 - Persisting to backend and navigating to detail view
+
+**Updated** All user interactions, form labels, validation messages, and success/error notifications are fully translated across both Chinese and English interfaces.
 
 ```mermaid
 sequenceDiagram
@@ -214,14 +292,18 @@ participant U as "User"
 participant P as "DiaryEditor.tsx"
 participant S as "diary.service.ts"
 participant A as "ai.service.ts"
+participant L as "LanguageSwitcher.tsx"
 participant B as "Backend API"
 U->>P : Open editor
 P->>S : Load diary (edit mode)
 U->>P : Toggle emotion tags / adjust importance
-U->>P : Click "AI 起题"
+U->>P : Click "AI Generate Title"
 P->>A : generateTitle(content, title)
 A-->>P : Suggested title
 U->>P : Write content and insert image
+U->>P : Switch language
+P->>L : changeLanguage()
+L-->>P : Language updated
 U->>P : Save
 P->>S : create/update diary
 S->>B : POST/PUT /api/v1/diaries/*
@@ -231,19 +313,23 @@ P-->>U : Navigate to detail
 ```
 
 **Diagram sources**
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
 - [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 - [diaries.py:55-193](file://backend/app/api/v1/diaries.py#L55-L193)
 
 **Section sources**
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
 - [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 - [diaries.py:55-193](file://backend/app/api/v1/diaries.py#L55-L193)
 
 ### Diary Detail Rendering and Social Posts
 The detail page renders markdown content with headings, emphasis, and inline images. It also supports generating social posts and feeding style samples to improve post quality.
+
+**Updated** All detail page elements, including navigation buttons, emotion tags display, social post generation controls, and success/error notifications are fully localized.
 
 ```mermaid
 flowchart TD
@@ -259,11 +345,11 @@ Copy --> End(["Done"])
 ```
 
 **Diagram sources**
-- [DiaryDetail.tsx:1-442](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L442)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 
 **Section sources**
-- [DiaryDetail.tsx:1-442](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L442)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 
 ### Diary CRUD and Timeline Queries
@@ -418,6 +504,7 @@ USERS ||--o{ GROWTH_DAILY_INSIGHTS : "has"
 - Backend services encapsulate business logic and delegate AI tasks to agents
 - The editor depends on Lexical and custom ImageNode; the detail page depends on markdown rendering utilities
 - State management is centralized in the diary store, reducing prop drilling and improving maintainability
+- **Internationalization is seamlessly integrated across all components through the i18n system**
 
 ```mermaid
 graph LR
@@ -425,9 +512,15 @@ RTE["RichTextEditor.tsx"] --> IMG["ImageNode.tsx"]
 EDITOR["DiaryEditor.tsx"] --> RTE
 EDITOR --> DSV["diary.service.ts"]
 EDITOR --> AISV["ai.service.ts"]
+EDITOR --> LANG["LanguageSwitcher.tsx"]
 DETAIL["DiaryDetail.tsx"] --> AISV
+DETAIL --> LANG
 LIST["DiaryList.tsx"] --> DSV
+LIST --> LANG
 STORE["diaryStore.ts"] --> DSV
+LANG --> I18N["i18n/index.ts"]
+I18N --> EN["en-US.json"]
+I18N --> ZH["zh-CN.json"]
 DSV --> API["diaries.py"]
 AISV --> API_AI["ai.py"]
 API --> SVC["diary_service.py"]
@@ -437,11 +530,15 @@ SVC --> MODELS["diary.py"]
 ```
 
 **Diagram sources**
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L676)
 - [ImageNode.tsx:1-87](file://frontend/src/components/editor/ImageNode.tsx#L1-L87)
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
-- [DiaryDetail.tsx:1-442](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L442)
-- [DiaryList.tsx:1-211](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L211)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
+- [DiaryList.tsx:1-276](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L276)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [en-US.json:1-817](file://frontend/src/i18n/locales/en-US.json#L1-L817)
+- [zh-CN.json:1-817](file://frontend/src/i18n/locales/zh-CN.json#L1-L817)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
 - [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
@@ -457,8 +554,12 @@ SVC --> MODELS["diary.py"]
 - [diary_service.py:1-637](file://backend/app/services/diary_service.py#L1-L637)
 - [llm.py:1-220](file://backend/app/agents/llm.py#L1-L220)
 - [diary.py:1-186](file://backend/app/models/diary.py#L1-L186)
-- [DiaryEditor.tsx:1-368](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L368)
-- [RichTextEditor.tsx:1-383](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L383)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
+- [DiaryDetail.tsx:1-461](file://frontend/src/pages/diaries/DiaryDetail.tsx#L1-L461)
+- [DiaryList.tsx:1-276](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L276)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-L676)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 - [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
 - [diary.ts:1-128](file://frontend/src/types/diary.ts#L1-L128)
@@ -469,26 +570,26 @@ SVC --> MODELS["diary.py"]
 - Pagination and filtering in diary listing reduce network overhead
 - AI requests are asynchronous where possible; consider background tasks for long-running operations
 - Database queries use indexes on user_id, diary_date, and emotion_tags for efficient filtering
-
-[No sources needed since this section provides general guidance]
+- **Internationalization performance is optimized through caching and efficient language switching without page reloads**
 
 ## Troubleshooting Guide
 Common issues and resolutions:
 - Image upload failures: Verify file type and size limits; check upload directory permissions
 - Empty or malformed AI responses: Ensure proper JSON formatting and fallback logic
 - Timeline events not appearing: Confirm user isolation and diary ownership checks
-- State inconsistencies: Use the store’s error handling and clear methods
+- State inconsistencies: Use the store's error handling and clear methods
+- **Language switching issues: Check localStorage 'yinji-language' key and i18n initialization**
+- **Missing translations: Verify translation keys exist in both zh-CN.json and en-US.json files**
 
 **Section sources**
 - [diaries.py:215-249](file://backend/app/api/v1/diaries.py#L215-L249)
 - [ai.py:34-65](file://backend/app/api/v1/ai.py#L34-L65)
 - [diary_service.py:281-637](file://backend/app/services/diary_service.py#L281-L637)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
+- [index.ts:25-30](file://frontend/src/i18n/index.ts#L25-L30)
 
 ## Conclusion
-The Smart Diary System delivers a cohesive, accessible, and AI-enhanced journaling experience. Its modular architecture, robust data models, and thoughtful UI components enable users to write freely, reflect deeply, and gain meaningful insights over time. The integration of rich text editing, emotion tagging, and AI-assisted writing makes it a powerful tool for personal growth and self-awareness.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The Smart Diary System delivers a cohesive, accessible, and AI-enhanced journaling experience with comprehensive internationalization support. Its modular architecture, robust data models, and thoughtful UI components enable users to write freely, reflect deeply, and gain meaningful insights over time. The integration of rich text editing, emotion tagging, AI-assisted writing, and **complete multilingual support** makes it a powerful tool for personal growth and self-awareness across diverse linguistic communities.
 
 ## Appendices
 
@@ -527,6 +628,17 @@ The Smart Diary System delivers a cohesive, accessible, and AI-enhanced journali
 - Diary service: create, list, get, update, delete, getByDate, getRecentTimeline, getTimelineByRange, getTimelineByDate, getEmotionStats, getTerrainData, getGrowthDailyInsight, uploadImage
 - AI service: analyze, analyzeAsync, satirAnalysis, generateSocialPosts, comprehensiveAnalysis, getDailyGuidance, getSocialStyleSamples, saveSocialStyleSamples, getAnalyses, getResultByDiary, getModelInfo, generateTitle
 
+### Internationalization Features
+- **Language Detection**: Automatic browser language detection with fallback to Chinese (zh-CN)
+- **Persistent Preferences**: Language preference stored in localStorage under 'yinji-language' key
+- **Real-time Switching**: Seamless language switching without page reloads
+- **Comprehensive Coverage**: Complete translation of all user-facing interface elements
+- **Bidirectional Support**: Full localization for both Chinese and English languages
+
 **Section sources**
 - [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [en-US.json:1-817](file://frontend/src/i18n/locales/en-US.json#L1-L817)
+- [zh-CN.json:1-817](file://frontend/src/i18n/locales/zh-CN.json#L1-L817)

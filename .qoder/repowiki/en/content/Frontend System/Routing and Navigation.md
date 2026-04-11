@@ -9,7 +9,18 @@
 - [api.ts](file://frontend/src/services/api.ts)
 - [main.tsx](file://frontend/src/main.tsx)
 - [auth.ts](file://frontend/src/types/auth.ts)
+- [PrivacyPolicy.tsx](file://frontend/src/pages/legal/PrivacyPolicy.tsx)
+- [TermsOfService.tsx](file://frontend/src/pages/legal/TermsOfService.tsx)
+- [RefundPolicy.tsx](file://frontend/src/pages/legal/RefundPolicy.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated routing structure documentation to reflect the split between App and AppRoutes components
+- Enhanced authentication redirect handling documentation to include legal pages support
+- Added documentation for legal page routing and navigation
+- Updated guard component behavior to account for enhanced redirect logic
+- Revised architecture diagrams to reflect the new component separation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -25,6 +36,8 @@
 ## Introduction
 This document explains the routing and navigation system of the Yìjì (映记) React application. It covers route configuration, private/public guards, lazy loading, route protection, dynamic and nested routes, redirects, and integration with authentication. It also documents parameter handling, query string management, performance optimization strategies, and error boundary integration.
 
+**Updated** The routing system has been enhanced with improved authentication redirect handling and better separation of concerns through the AppRoutes component structure.
+
 ## Project Structure
 The routing system is centered around:
 - Route constants and lists for public/private routes
@@ -32,66 +45,78 @@ The routing system is centered around:
 - Authentication store and service for protected access
 - Lazy-loaded page components for performance
 - Global HTTP client with interceptors for auth and error handling
+- Legal page routing for privacy, terms, and refund policies
 
 ```mermaid
 graph TB
 subgraph "Frontend"
 A["main.tsx<br/>Application entry"]
-B["App.tsx<br/>Router + Guards + Lazy Pages"]
-C["constants/routes.ts<br/>Route constants & lists"]
-D["store/authStore.ts<br/>Auth state & actions"]
-E["services/auth.service.ts<br/>Auth API client"]
-F["services/api.ts<br/>HTTP client + interceptors"]
-G["types/auth.ts<br/>Auth types"]
+B["App.tsx<br/>App container"]
+C["AppRoutes.tsx<br/>Router + Guards + Lazy Pages"]
+D["constants/routes.ts<br/>Route constants & lists"]
+E["store/authStore.ts<br/>Auth state & actions"]
+F["services/auth.service.ts<br/>Auth API client"]
+G["services/api.ts<br/>HTTP client + interceptors"]
+H["types/auth.ts<br/>Auth types"]
+I["Legal Pages<br/>Privacy, Terms, Refund"]
 end
 A --> B
 B --> C
-B --> D
-D --> E
+C --> D
+C --> E
 E --> F
-D --> G
+F --> G
+E --> H
+C --> I
 ```
 
 **Diagram sources**
-- [main.tsx:1-12](file://frontend/src/main.tsx#L1-L12)
-- [App.tsx:1-242](file://frontend/src/App.tsx#L1-L242)
+- [main.tsx:1-13](file://frontend/src/main.tsx#L1-L13)
+- [App.tsx:260-271](file://frontend/src/App.tsx#L260-L271)
+- [App.tsx:62-258](file://frontend/src/App.tsx#L62-L258)
 - [routes.ts:1-32](file://frontend/src/constants/routes.ts#L1-L32)
-- [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
+- [authStore.ts:1-129](file://frontend/src/store/authStore.ts#L1-L129)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [api.ts:1-107](file://frontend/src/services/api.ts#L1-L107)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
+- [PrivacyPolicy.tsx:1-150](file://frontend/src/pages/legal/PrivacyPolicy.tsx#L1-L150)
 
 **Section sources**
-- [main.tsx:1-12](file://frontend/src/main.tsx#L1-L12)
-- [App.tsx:1-242](file://frontend/src/App.tsx#L1-L242)
+- [main.tsx:1-13](file://frontend/src/main.tsx#L1-L13)
+- [App.tsx:260-271](file://frontend/src/App.tsx#L260-L271)
+- [App.tsx:62-258](file://frontend/src/App.tsx#L62-L258)
 - [routes.ts:1-32](file://frontend/src/constants/routes.ts#L1-L32)
-- [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
+- [authStore.ts:1-129](file://frontend/src/store/authStore.ts#L1-L129)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [api.ts:1-107](file://frontend/src/services/api.ts#L1-L107)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
 
 ## Core Components
 - Route constants and lists define canonical paths and categorize routes as public or private.
-- App router config declares routes, lazy loads page components, and applies guard wrappers.
+- AppRoutes component handles router configuration, guard application, and route rendering.
+- App component serves as the main container for the application.
 - Guard components enforce authentication state and redirect accordingly.
 - Auth store manages user session, token persistence, and initial auth check.
 - Auth service encapsulates API calls for login, registration, logout, and profile retrieval.
 - HTTP client centralizes base URL, timeouts, and request/response interceptors for auth and error handling.
+- Legal pages provide public access to privacy policy, terms of service, and refund policy.
 
 Key responsibilities:
 - Route constants: maintain a single source of truth for route definitions and categories.
-- App router: assemble routes, apply guards, handle redirects, and render lazy components.
+- AppRoutes: assemble routes, apply guards, handle redirects, and render lazy components.
+- App: serve as the main application container with toast provider and browser router.
 - Guards: protect private routes and prevent authenticated users from accessing public routes.
 - Auth store: initialize auth state, persist tokens, and expose auth-aware UI logic.
 - Auth service: integrate with backend APIs for authentication flows.
 - HTTP client: attach tokens, handle 401 errors globally, and standardize requests.
+- Legal pages: provide transparent business information without authentication barriers.
 
 **Section sources**
 - [routes.ts:1-32](file://frontend/src/constants/routes.ts#L1-L32)
-- [App.tsx:32-59](file://frontend/src/App.tsx#L32-L59)
-- [authStore.ts:23-145](file://frontend/src/store/authStore.ts#L23-L145)
-- [auth.service.ts:11-99](file://frontend/src/services/auth.service.ts#L11-L99)
-- [api.ts:6-40](file://frontend/src/services/api.ts#L6-L40)
+- [App.tsx:62-258](file://frontend/src/App.tsx#L62-L258)
+- [authStore.ts:23-129](file://frontend/src/store/authStore.ts#L23-L129)
+- [auth.service.ts:11-118](file://frontend/src/services/auth.service.ts#L11-L118)
+- [api.ts:7-107](file://frontend/src/services/api.ts#L7-L107)
 
 ## Architecture Overview
 The routing architecture combines React Router with custom guard components and a centralized auth store. The system supports:
@@ -101,36 +126,43 @@ The routing architecture combines React Router with custom guard components and 
 - Redirects for legacy or invalid paths
 - Lazy loading for page components
 - Centralized auth via HTTP interceptors
+- Legal page accessibility without authentication
+
+**Updated** The architecture now includes enhanced authentication redirect handling that specifically excludes legal pages from redirect logic.
 
 ```mermaid
 sequenceDiagram
 participant U as "User"
 participant BR as "BrowserRouter"
+participant AR as "AppRoutes"
 participant R as "Routes"
 participant PG as "PublicRoute"
 participant PR as "PrivateRoute"
 participant P as "Page Component"
 participant AS as "Auth Store"
 participant API as "HTTP Client"
+U->>BR : Navigate to "/privacy"
+BR->>AR : Check component
+AR->>R : Match route
+R->>P : Render PrivacyPolicy (no guard)
+U->>P : View privacy policy
+Note over U,P : Legal page accessible without authentication
 U->>BR : Navigate to "/login"
-BR->>R : Match route
+BR->>AR : Check component
+AR->>R : Match route
 R->>PG : Wrap element
 PG->>AS : Check isAuthenticated
 AS-->>PG : isAuthenticated=false
 PG->>P : Render LoginPage
-U->>P : Submit credentials
-P->>API : POST /api/v1/auth/login
-API-->>P : {access_token,user}
-P->>AS : Dispatch login action
-AS-->>U : App re-renders with protected UI
 ```
 
 **Diagram sources**
-- [App.tsx:80-111](file://frontend/src/App.tsx#L80-L111)
+- [App.tsx:124-127](file://frontend/src/App.tsx#L124-L127)
+- [App.tsx:90-122](file://frontend/src/App.tsx#L90-L122)
 - [App.tsx:32-59](file://frontend/src/App.tsx#L32-L59)
-- [authStore.ts:32-50](file://frontend/src/store/authStore.ts#L32-L50)
-- [auth.service.ts:18-28](file://frontend/src/services/auth.service.ts#L18-L28)
-- [api.ts:14-26](file://frontend/src/services/api.ts#L14-L26)
+- [authStore.ts:100-116](file://frontend/src/store/authStore.ts#L100-L116)
+- [auth.service.ts:25-28](file://frontend/src/services/auth.service.ts#L25-L28)
+- [api.ts:52-104](file://frontend/src/services/api.ts#L52-L104)
 
 ## Detailed Component Analysis
 
@@ -146,6 +178,22 @@ Best practices observed:
 **Section sources**
 - [routes.ts:1-32](file://frontend/src/constants/routes.ts#L1-L32)
 
+### App Container and Routing Structure
+**Updated** The application now uses a two-component structure with App serving as the main container and AppRoutes handling the routing logic.
+
+- App component:
+  - Provides the main application container with ToastProvider and BrowserRouter.
+  - Serves as the root component for the entire application.
+- AppRoutes component:
+  - Contains all routing logic, guard application, and route definitions.
+  - Manages authentication state initialization and sprite visibility.
+  - Handles lazy loading and suspense fallbacks.
+  - Implements enhanced redirect logic for authentication handling.
+
+**Section sources**
+- [App.tsx:260-271](file://frontend/src/App.tsx#L260-L271)
+- [App.tsx:62-258](file://frontend/src/App.tsx#L62-L258)
+
 ### Router Setup and Route Protection
 - The router wraps page components with guard wrappers:
   - PublicRoute prevents authenticated users from accessing login/register/forgot-password.
@@ -156,6 +204,8 @@ Best practices observed:
   - "/analysis/:id" redirects to "/analysis".
   - Wildcard "*" redirects to "/welcome".
 
+**Updated** Enhanced authentication redirect handling now includes legal pages in the public paths set, preventing unnecessary redirects for privacy, terms, and refund policies.
+
 Lazy loading:
 - Page components are imported lazily to reduce initial bundle size and improve perceived performance.
 
@@ -163,9 +213,11 @@ Suspense fallback:
 - A global Suspense wrapper provides a loading spinner while lazy chunks are being fetched.
 
 **Section sources**
-- [App.tsx:78-233](file://frontend/src/App.tsx#L78-L233)
-- [App.tsx:12-30](file://frontend/src/App.tsx#L12-L30)
-- [App.tsx:71-77](file://frontend/src/App.tsx#L71-L77)
+- [App.tsx:124-127](file://frontend/src/App.tsx#L124-L127)
+- [App.tsx:178](file://frontend/src/App.tsx#L178)
+- [App.tsx:189](file://frontend/src/App.tsx#L189)
+- [App.tsx:253](file://frontend/src/App.tsx#L253)
+- [App.tsx:32-59](file://frontend/src/App.tsx#L32-L59)
 
 ### Guard Components
 - PublicRoute:
@@ -196,15 +248,44 @@ Guard behavior ensures:
   - Adds Authorization header when a token exists.
   - Handles 401 responses by clearing local storage and redirecting to "/welcome".
 
+**Updated** Enhanced authentication redirect handling:
+- The `handleAuthExpired()` function now includes legal pages (/privacy, /terms, /refund) in the public paths set.
+- This prevents redirects for legal pages even when authentication expires.
+- Improves user experience by allowing access to legal information during authentication issues.
+
 This integration ensures:
 - Seamless authentication flows.
 - Automatic token injection for protected endpoints.
-- Centralized error handling for auth failures.
+- Centralized error handling for auth failures with enhanced redirect logic.
 
 **Section sources**
-- [authStore.ts:23-145](file://frontend/src/store/authStore.ts#L23-L145)
-- [auth.service.ts:11-99](file://frontend/src/services/auth.service.ts#L11-L99)
-- [api.ts:14-40](file://frontend/src/services/api.ts#L14-L40)
+- [authStore.ts:23-129](file://frontend/src/store/authStore.ts#L23-L129)
+- [auth.service.ts:11-118](file://frontend/src/services/auth.service.ts#L11-L118)
+- [api.ts:26-50](file://frontend/src/services/api.ts#L26-L50)
+
+### Legal Page Routing and Navigation
+**New** The routing system now includes dedicated legal pages with public access:
+
+- Privacy Policy (/privacy): Comprehensive privacy policy with gradient styling and navigation links.
+- Terms of Service (/terms): Complete terms and conditions with service descriptions and user obligations.
+- Refund Policy (/refund): Detailed refund policy with subscription and cancellation procedures.
+
+Legal pages characteristics:
+- Accessible without authentication barriers.
+- Integrated navigation links between all legal documents.
+- Responsive design with gradient backgrounds and proper spacing.
+- Return-to-home navigation for seamless user experience.
+
+Navigation integration:
+- Legal pages link to each other for easy cross-referencing.
+- Each page includes navigation back to the main application.
+- Consistent styling and responsive design patterns.
+
+**Section sources**
+- [App.tsx:124-127](file://frontend/src/App.tsx#L124-L127)
+- [PrivacyPolicy.tsx:1-150](file://frontend/src/pages/legal/PrivacyPolicy.tsx#L1-L150)
+- [TermsOfService.tsx:1-130](file://frontend/src/pages/legal/TermsOfService.tsx#L1-L130)
+- [RefundPolicy.tsx:1-122](file://frontend/src/pages/legal/RefundPolicy.tsx#L1-L122)
 
 ### Dynamic Routes and Parameter Handling
 - Dynamic segments:
@@ -219,11 +300,9 @@ Recommendations:
 - Validate parameters in page components and handle missing/invalid IDs gracefully.
 
 **Section sources**
-- [App.tsx:135-158](file://frontend/src/App.tsx#L135-L158)
-- [App.tsx:206-213](file://frontend/src/App.tsx#L206-L213)
-- [routes.ts:10-12](file://frontend/src/constants/routes.ts#L10-L12)
-- [routes.ts:12](file://frontend/src/constants/routes.ts#L12)
-- [routes.ts:14](file://frontend/src/constants/routes.ts#L14)
+- [App.tsx:146-169](file://frontend/src/App.tsx#L146-L169)
+- [App.tsx:228](file://frontend/src/App.tsx#L228)
+- [routes.ts:10-14](file://frontend/src/constants/routes.ts#L10-L14)
 
 ### Redirect Patterns
 - "/timeline" → "/growth"
@@ -235,9 +314,9 @@ These redirects:
 - Improve SEO and UX by consolidating similar routes.
 
 **Section sources**
-- [App.tsx:167](file://frontend/src/App.tsx#L167)
-- [App.tsx:177-179](file://frontend/src/App.tsx#L177-L179)
-- [App.tsx:232](file://frontend/src/App.tsx#L232)
+- [App.tsx:178](file://frontend/src/App.tsx#L178)
+- [App.tsx:189](file://frontend/src/App.tsx#L189)
+- [App.tsx:253](file://frontend/src/App.tsx#L253)
 
 ### Navigation Components and Breadcrumb Implementation
 - No dedicated navigation components or breadcrumb implementation were found in the analyzed files.
@@ -248,8 +327,6 @@ Recommendations:
 - Create reusable navigation components (e.g., NavItem, Breadcrumb) to support active state and breadcrumbs.
 - Integrate with React Router's useLocation/useNavigate for programmatic navigation and active link detection.
 
-[No sources needed since this section does not analyze specific files]
-
 ### Query String Management
 - No explicit query string parsing or management was identified in the analyzed files.
 - Typical approaches include using URLSearchParams or a library like react-query for URL state synchronization.
@@ -258,17 +335,13 @@ Recommendations:
 - Centralize query string handling in a hook or utility to keep pages clean.
 - Persist query state in URL for shareable links and deep linking.
 
-[No sources needed since this section does not analyze specific files]
-
 ### Route Preloading Strategies
 - No explicit preloading or prefetching logic was found in the analyzed files.
 - Current lazy loading occurs on first render of lazy components.
 
 Recommendations:
 - Implement preloading for frequently visited private routes after successful login.
-- Use React Router’s future flags and preload hints if upgrading to newer versions.
-
-[No sources needed since this section does not analyze specific files]
+- Use React Router's future flags and preload hints if upgrading to newer versions.
 
 ### Error Boundary Integration
 - No error boundaries were found in the analyzed files.
@@ -278,49 +351,59 @@ Recommendations:
 - Add error boundaries around lazy-loaded components to gracefully handle loading errors.
 - Surface user-friendly messages and provide retry actions.
 
-[No sources needed since this section does not analyze specific files]
-
 ## Dependency Analysis
 The routing system exhibits clear separation of concerns:
-- App.tsx depends on route constants, auth store, and lazy-loaded page components.
+- App component depends on AppRoutes for routing logic.
+- AppRoutes depends on route constants, auth store, and lazy-loaded page components.
 - Auth store depends on auth service and persists state.
 - Auth service depends on the HTTP client.
 - HTTP client depends on environment configuration and handles interceptors.
+- Legal pages are independent components with navigation integration.
+
+**Updated** The dependency structure now reflects the separation between App and AppRoutes components.
 
 ```mermaid
 graph LR
-RT["constants/routes.ts"] --> APP["App.tsx"]
-ASTORE["store/authStore.ts"] --> APP
-ASVC["services/auth.service.ts"] --> ASTORE
-API["services/api.ts"] --> ASVC
+MAIN["main.tsx"] --> APP["App.tsx"]
+APP --> APPR["AppRoutes.tsx"]
+APPR --> RT["constants/routes.ts"]
+APPR --> ASTORE["store/authStore.ts"]
+ASTORE --> ASVC["services/auth.service.ts"]
+ASVC --> API["services/api.ts"]
 TYPES["types/auth.ts"] --> ASTORE
 TYPES --> ASVC
+APPR --> LEGAL["Legal Pages<br/>Privacy, Terms, Refund"]
 ```
 
 **Diagram sources**
+- [main.tsx:1-13](file://frontend/src/main.tsx#L1-L13)
+- [App.tsx:260-271](file://frontend/src/App.tsx#L260-L271)
+- [App.tsx:62-258](file://frontend/src/App.tsx#L62-L258)
 - [routes.ts:1-32](file://frontend/src/constants/routes.ts#L1-L32)
-- [App.tsx:1-242](file://frontend/src/App.tsx#L1-L242)
-- [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
+- [authStore.ts:1-129](file://frontend/src/store/authStore.ts#L1-L129)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [api.ts:1-107](file://frontend/src/services/api.ts#L1-L107)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
 
 **Section sources**
-- [App.tsx:1-242](file://frontend/src/App.tsx#L1-L242)
-- [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
+- [App.tsx:260-271](file://frontend/src/App.tsx#L260-L271)
+- [App.tsx:62-258](file://frontend/src/App.tsx#L62-L258)
+- [authStore.ts:1-129](file://frontend/src/store/authStore.ts#L1-L129)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [api.ts:1-107](file://frontend/src/services/api.ts#L1-L107)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
 
 ## Performance Considerations
 - Lazy loading is implemented for page components, reducing initial bundle size.
 - Suspense fallback provides a smooth loading experience during chunk fetches.
+- Enhanced authentication redirect handling reduces unnecessary redirects for legal pages.
+- Component separation improves code organization and maintainability.
 - Consider:
   - Preloading critical private routes after authentication.
   - Code-splitting shared components to further optimize bundles.
-  - Using React Router’s future flags for improved performance if upgrading.
+  - Using React Router's future flags for improved performance if upgrading.
 
-[No sources needed since this section provides general guidance]
+**Updated** Performance improvements include reduced redirect overhead for legal pages and better component organization.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -336,12 +419,19 @@ Common issues and resolutions:
   - Symptom: Visiting "/timeline" or "/analysis/:id" navigates unexpectedly.
   - Cause: Defined redirects normalize URLs.
   - Resolution: Use canonical paths "/growth" and "/analysis".
+- Legal page access issues:
+  - Symptom: Legal pages redirect unexpectedly.
+  - Cause: Enhanced redirect logic excludes legal pages from authentication redirects.
+  - Resolution: Legal pages are designed to be accessible without authentication.
+
+**Updated** Added troubleshooting guidance for legal page access scenarios.
 
 **Section sources**
-- [api.ts:28-40](file://frontend/src/services/api.ts#L28-L40)
-- [App.tsx:35-47](file://frontend/src/App.tsx#L35-L47)
-- [App.tsx:167](file://frontend/src/App.tsx#L167)
-- [App.tsx:177-179](file://frontend/src/App.tsx#L177-L179)
+- [api.ts:70-104](file://frontend/src/services/api.ts#L70-L104)
+- [App.tsx:35-49](file://frontend/src/App.tsx#L35-L49)
+- [App.tsx:178](file://frontend/src/App.tsx#L178)
+- [App.tsx:189](file://frontend/src/App.tsx#L189)
+- [api.ts:26-50](file://frontend/src/services/api.ts#L26-L50)
 
 ## Conclusion
-The Yìjì routing system leverages React Router with custom guard components, lazy-loaded page components, and a centralized auth store. It provides clear separation between public and private routes, handles dynamic parameters, and normalizes URLs via redirects. Enhancements such as navigation components, breadcrumbs, query string utilities, preloading strategies, and error boundaries would further improve UX and maintainability.
+The Yìjì routing system leverages React Router with custom guard components, lazy-loaded page components, and a centralized auth store. The system provides clear separation between public and private routes, handles dynamic parameters, and normalizes URLs via redirects. Recent enhancements include improved authentication redirect handling with legal page support, better component separation through the AppRoutes structure, and enhanced user experience for accessing legal documentation. Further improvements such as navigation components, breadcrumbs, query string utilities, preloading strategies, and error boundaries would further enhance UX and maintainability.

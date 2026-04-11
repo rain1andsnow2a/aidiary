@@ -9,6 +9,7 @@
 - [diary.py](file://backend/app/models/diary.py)
 - [community.py](file://backend/app/models/community.py)
 - [assistant.py](file://backend/app/models/assistant.py)
+- [integration.py](file://backend/app/models/integration.py)
 - [__init__.py](file://backend/app/models/__init__.py)
 - [diary_service.py](file://backend/app/services/diary_service.py)
 - [community_service.py](file://backend/app/services/community_service.py)
@@ -16,6 +17,13 @@
 - [rebuild_timeline_events.py](file://backend/scripts/rebuild_timeline_events.py)
 - [requirements.txt](file://backend/requirements.txt)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added PostgreSQL sequence repair mechanism documentation to database initialization section
+- Updated troubleshooting guide to include sequence-related issues
+- Enhanced performance considerations with PostgreSQL-specific optimizations
+- Added new section on migration strategies for SQLite-to-PostgreSQL transitions
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -25,21 +33,22 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Dependency Analysis](#dependency-analysis)
 7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+8. [Migration Strategies and Sequence Repair](#migration-strategies-and-sequence-repair)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document describes the 映记 backend database layer built with SQLAlchemy 2.x ORM and asynchronous sessions. It covers the declarative base architecture, model definitions, relationships, database initialization, migration strategies, schema evolution patterns, query patterns, indexing strategies, performance optimization techniques, data validation and integrity mechanisms, and examples of complex queries and aggregations used across the application.
+This document describes the 映记 backend database layer built with SQLAlchemy 2.x ORM and asynchronous sessions. It covers the declarative base architecture, model definitions, relationships, database initialization with PostgreSQL sequence repair, migration strategies, schema evolution patterns, query patterns, indexing strategies, performance optimization techniques, data validation and integrity mechanisms, and examples of complex queries and aggregations used across the application.
 
 ## Project Structure
-The database layer is organized around a shared declarative base and modular model files grouped by domain. Services encapsulate query logic and business rules, while configuration and lifecycle management initialize the database at startup.
+The database layer is organized around a shared declarative base and modular model files grouped by domain. Services encapsulate query logic and business rules, while configuration and lifecycle management initialize the database at startup with automatic PostgreSQL sequence repair capabilities.
 
 ```mermaid
 graph TB
 subgraph "Core"
 CFG["config.py<br/>Settings"]
-DBMOD["db.py<br/>Engine & Base"]
+DBMOD["db.py<br/>Engine & Base<br/>PostgreSQL Sequence Repair"]
 MAIN["main.py<br/>lifespan init"]
 end
 subgraph "Models"
@@ -47,6 +56,7 @@ MDU["models/database.py<br/>User, VerificationCode"]
 MDD["models/diary.py<br/>Diary, TimelineEvent, AIAnalysis,<br/>SocialPostSample, GrowthDailyInsight"]
 MDC["models/community.py<br/>CommunityPost, PostComment,<br/>PostLike, PostCollect, PostView"]
 MDA["models/assistant.py<br/>AssistantProfile, AssistantSession,<br/>AssistantMessage"]
+MDI["models/integration.py<br/>ExternalIntegrationToken"]
 MDEXP["models/__init__.py<br/>__all__ exports"]
 end
 subgraph "Services"
@@ -63,6 +73,7 @@ DBMOD --> MDU
 DBMOD --> MDD
 DBMOD --> MDC
 DBMOD --> MDA
+DBMOD --> MDI
 SDI --> MDD
 SDI --> MDU
 SCOM --> MDC
@@ -72,13 +83,14 @@ RBT --> SDI
 ```
 
 **Diagram sources**
-- [main.py:19-40](file://backend/main.py#L19-L40)
-- [db.py:26-58](file://backend/app/db.py#L26-L58)
+- [main.py:30-42](file://backend/main.py#L30-L42)
+- [db.py:46-127](file://backend/app/db.py#L46-L127)
 - [config.py:22-26](file://backend/app/core/config.py#L22-L26)
 - [database.py:13-70](file://backend/app/models/database.py#L13-L70)
-- [diary.py:29-186](file://backend/app/models/diary.py#L29-186)
+- [diary.py:29-186](file://backend/app/models/diary.py#L29-L186)
 - [community.py:23-176](file://backend/app/models/community.py#L23-176)
 - [assistant.py:13-78](file://backend/app/models/assistant.py#L13-78)
+- [integration.py:13-40](file://backend/app/models/integration.py#L13-L40)
 - [__init__.py:4-7](file://backend/app/models/__init__.py#L4-L7)
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
 - [community_service.py:13-415](file://backend/app/services/community_service.py#L13-415)
@@ -86,13 +98,14 @@ RBT --> SDI
 - [rebuild_timeline_events.py:19-59](file://backend/scripts/rebuild_timeline_events.py#L19-L59)
 
 **Section sources**
-- [main.py:19-40](file://backend/main.py#L19-L40)
-- [db.py:26-58](file://backend/app/db.py#L26-L58)
+- [main.py:30-42](file://backend/main.py#L30-L42)
+- [db.py:46-127](file://backend/app/db.py#L46-L127)
 - [config.py:22-26](file://backend/app/core/config.py#L22-L26)
 - [database.py:13-70](file://backend/app/models/database.py#L13-L70)
-- [diary.py:29-186](file://backend/app/models/diary.py#L29-186)
+- [diary.py:29-186](file://backend/app/models/diary.py#L29-L186)
 - [community.py:23-176](file://backend/app/models/community.py#L23-176)
-- [assistant.py:13-78](file://backend/app/models/assistant.py#L13-78)
+- [assistant.py:13-78](file://backend/app/models/assistant.py#L13-L78)
+- [integration.py:13-40](file://backend/app/models/integration.py#L13-L40)
 - [__init__.py:4-7](file://backend/app/models/__init__.py#L4-L7)
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
 - [community_service.py:13-415](file://backend/app/services/community_service.py#L13-415)
@@ -104,13 +117,16 @@ RBT --> SDI
   - Asynchronous engine configured via application settings.
   - Shared declarative base class for all models.
   - Dependency-injected async session factory for request-scoped operations.
-- Database Initialization
+- Database Initialization with PostgreSQL Sequence Repair
   - Startup lifecycle initializes all tables by importing model modules and invoking metadata creation.
+  - Automatic detection and repair of missing PostgreSQL sequence defaults for integer primary keys.
+  - Prevents primary key conflicts after SQLite-to-PostgreSQL migrations.
 - Model Modules
   - Users and verification codes.
   - Diary, timeline events, AI analyses, social samples, and growth insights.
   - Community posts, comments, likes, collects, views.
   - Assistant profiles, sessions, and messages.
+  - External integration tokens.
 - Services
   - Encapsulate complex queries, joins, aggregations, and business rules for diary and community domains.
 
@@ -118,11 +134,13 @@ RBT --> SDI
 - [db.py:11-28](file://backend/app/db.py#L11-L28)
 - [db.py:31-43](file://backend/app/db.py#L31-L43)
 - [db.py:45-58](file://backend/app/db.py#L45-L58)
-- [main.py:22-25](file://backend/main.py#L22-L25)
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
+- [main.py:30-42](file://backend/main.py#L30-L42)
 - [database.py:13-70](file://backend/app/models/database.py#L13-L70)
-- [diary.py:29-186](file://backend/app/models/diary.py#L29-186)
+- [diary.py:29-186](file://backend/app/models/diary.py#L29-L186)
 - [community.py:23-176](file://backend/app/models/community.py#L23-176)
-- [assistant.py:13-78](file://backend/app/models/assistant.py#L13-78)
+- [assistant.py:13-78](file://backend/app/models/assistant.py#L13-L78)
+- [integration.py:13-40](file://backend/app/models/integration.py#L13-L40)
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
 - [community_service.py:13-415](file://backend/app/services/community_service.py#L13-415)
 
@@ -132,7 +150,7 @@ The database architecture follows a layered pattern:
 - Engine and Base define the ORM foundation.
 - Models declare tables, columns, indices, and foreign keys.
 - Services orchestrate queries, enforce business rules, and maintain referential integrity.
-- Lifecycle initialization ensures schema availability at startup.
+- Lifecycle initialization ensures schema availability at startup with automatic PostgreSQL sequence repair.
 
 ```mermaid
 graph TB
@@ -146,6 +164,8 @@ BASE --> MOD2["Diary"]
 BASE --> MOD3["TimelineEvent"]
 BASE --> MOD4["CommunityPost"]
 BASE --> MOD5["AssistantSession"]
+BASE --> MOD6["ExternalIntegrationToken"]
+SEQ["PostgreSQL Sequence Repair"] --> BASE
 ```
 
 **Diagram sources**
@@ -158,16 +178,18 @@ BASE --> MOD5["AssistantSession"]
 - [diary.py:67-133](file://backend/app/models/diary.py#L67-133)
 - [community.py:23-57](file://backend/app/models/community.py#L23-57)
 - [assistant.py:36-54](file://backend/app/models/assistant.py#L36-54)
+- [integration.py:13-40](file://backend/app/models/integration.py#L13-L40)
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
 - [community_service.py:13-415](file://backend/app/services/community_service.py#L13-415)
 
 ## Detailed Component Analysis
 
 ### Declarative Base and Initialization
-- Base class is a thin wrapper for SQLAlchemy’s DeclarativeBase.
+- Base class is a thin wrapper for SQLAlchemy's DeclarativeBase.
 - Async engine supports SQLite and PostgreSQL via URL scheme.
 - Session factory provides per-request AsyncSession instances.
 - Initialization imports all model modules to register them with Base.metadata, then creates all tables.
+- **PostgreSQL Sequence Repair**: Automatically detects and fixes missing sequence defaults for integer primary keys to prevent primary key conflicts after migrations.
 
 ```mermaid
 sequenceDiagram
@@ -180,14 +202,25 @@ App->>Lifespan : startup
 Lifespan->>Init : await init_db()
 Init->>Conn : begin()
 Init->>Meta : create_all()
+Note over Conn : PostgreSQL Sequence Repair
+loop For each table
+Conn->>Conn : Check primary key type
+Conn->>Conn : Verify sequence default exists
+alt Missing sequence default
+Conn->>Conn : Create sequence
+Conn->>Conn : Set sequence value
+Conn->>Conn : Set column default
+Conn->>Conn : Make sequence owned by column
+end
+end
 Conn-->>Init : done
 Init-->>Lifespan : success
 Lifespan-->>App : ready
 ```
 
 **Diagram sources**
-- [main.py:22-25](file://backend/main.py#L22-L25)
-- [db.py:45-58](file://backend/app/db.py#L45-L58)
+- [main.py:30-42](file://backend/main.py#L30-L42)
+- [db.py:46-127](file://backend/app/db.py#L46-L127)
 
 **Section sources**
 - [db.py:26-28](file://backend/app/db.py#L26-L28)
@@ -195,7 +228,8 @@ Lifespan-->>App : ready
 - [db.py:19-23](file://backend/app/db.py#L19-L23)
 - [db.py:31-43](file://backend/app/db.py#L31-L43)
 - [db.py:45-58](file://backend/app/db.py#L45-L58)
-- [main.py:22-25](file://backend/main.py#L22-L25)
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
+- [main.py:30-42](file://backend/main.py#L30-L42)
 
 ### Models Overview and Relationships
 
@@ -411,6 +445,29 @@ AssistantSession "1" <-- "many" AssistantMessage : "foreign key"
 - [assistant.py:36-54](file://backend/app/models/assistant.py#L36-54)
 - [assistant.py:57-78](file://backend/app/models/assistant.py#L57-78)
 
+#### Integration Domain
+- ExternalIntegrationToken manages third-party service credentials with encryption.
+- Supports OAuth flows and API key management for external integrations.
+
+```mermaid
+classDiagram
+class ExternalIntegrationToken {
++int id
++int user_id
++string service_name
++string encrypted_token
++datetime expires_at
++string token_type
+}
+User "1" <-- "many" ExternalIntegrationToken : "foreign key"
+```
+
+**Diagram sources**
+- [integration.py:13-40](file://backend/app/models/integration.py#L13-L40)
+
+**Section sources**
+- [integration.py:13-40](file://backend/app/models/integration.py#L13-L40)
+
 ### Query Patterns, Indexing, and Business Rules
 
 #### Diary Queries
@@ -493,6 +550,7 @@ F --> G["Join with CommunityPost and paginate"]
 - Alembic is included in requirements for formal migrations.
 - A standalone migration script demonstrates adding columns to users table safely.
 - Database initialization at startup registers all models and creates tables.
+- **PostgreSQL Sequence Repair**: Automatic detection and repair of missing sequence defaults for integer primary keys to prevent primary key conflicts after SQLite-to-PostgreSQL migrations.
 
 ```mermaid
 flowchart TD
@@ -502,17 +560,20 @@ Plan --> Test["Run migration in staging"]
 Test --> Prod["Deploy migration"]
 Manual["Legacy manual migration"] --> Check["Check existing columns"]
 Check --> Apply["ALTER TABLE if missing"]
+PostgreSQL["PostgreSQL Migration"] --> Detect["Detect missing sequences"]
+Detect --> Repair["Repair sequence defaults"]
+Repair --> Validate["Validate primary key generation"]
 ```
 
 **Diagram sources**
 - [requirements.txt:9](file://backend/requirements.txt#L9)
 - [migrate_add_profile_fields.py:12-54](file://backend/migrate_add_profile_fields.py#L12-L54)
-- [db.py:45-58](file://backend/app/db.py#L45-L58)
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
 
 **Section sources**
 - [requirements.txt:9](file://backend/requirements.txt#L9)
 - [migrate_add_profile_fields.py:12-54](file://backend/migrate_add_profile_fields.py#L12-L54)
-- [db.py:45-58](file://backend/app/db.py#L45-L58)
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
 
 ## Dependency Analysis
 - External dependencies include SQLAlchemy 2.x, aiosqlite, and Alembic.
@@ -550,19 +611,79 @@ MAIN["main.py"] --> DBPY
 - Pagination with OFFSET/LIMIT is straightforward but can degrade for very large pages; consider keyset pagination for heavy workloads.
 - Unique constraints on likes/collects prevent duplicates and support efficient existence checks.
 - Subqueries for isolation and view history reduce redundant scans and improve correctness.
+- **PostgreSQL Sequence Repair**: Automatic sequence repair prevents primary key conflicts and maintains optimal performance during high-volume insert operations.
+- **Connection Pooling**: Proper session management ensures efficient connection reuse and reduces overhead.
 
 [No sources needed since this section provides general guidance]
+
+## Migration Strategies and Sequence Repair
+
+### PostgreSQL Sequence Repair Mechanism
+The database initialization process includes an automatic PostgreSQL sequence repair mechanism designed to address primary key conflicts that commonly occur when migrating from SQLite to PostgreSQL.
+
+#### Detection Process
+The repair mechanism performs the following steps during startup:
+1. **Table Enumeration**: Iterates through all registered tables in Base.metadata.sorted_tables
+2. **Primary Key Analysis**: Identifies tables with exactly one primary key column
+3. **Type Validation**: Confirms the primary key column is an integer type (Integer or BigInteger)
+4. **Default Value Check**: Queries information_schema.columns to verify sequence default exists
+5. **Automatic Repair**: Creates and configures sequences for missing defaults
+
+#### Repair Operations
+For each detected missing sequence default, the system executes:
+1. **Sequence Creation**: Creates a sequence named `{table_name}_{column_name}_seq`
+2. **Value Synchronization**: Sets sequence value to MAX(column) + 1 to prevent conflicts
+3. **Default Assignment**: Sets column default to `nextval('sequence_name')`
+4. **Ownership Configuration**: Makes the sequence owned by the specific column
+
+#### Benefits
+- **Zero Downtime**: Repair occurs during application startup without service interruption
+- **Automatic Recovery**: Eliminates manual intervention for sequence maintenance
+- **Data Integrity**: Prevents primary key conflicts and maintains referential integrity
+- **Migration Safety**: Ensures smooth transitions from SQLite development to PostgreSQL production
+
+```mermaid
+flowchart TD
+Start["Application Startup"] --> CheckDialect{"PostgreSQL?"}
+CheckDialect --> |No| Skip["Skip Sequence Repair"]
+CheckDialect --> |Yes| Iterate["Iterate Tables"]
+Iterate --> PKCheck{"Single PK Column?"}
+PKCheck --> |No| NextTable["Next Table"]
+PKCheck --> |Yes| TypeCheck{"Integer Type?"}
+TypeCheck --> |No| NextTable
+TypeCheck --> |Yes| DefaultCheck{"Has Default?"}
+DefaultCheck --> |Yes| NextTable
+DefaultCheck --> |No| Repair["Repair Sequence"]
+Repair --> CreateSeq["Create Sequence"]
+CreateSeq --> SyncVal["Sync Sequence Value"]
+SyncVal --> SetDefault["Set Column Default"]
+SetDefault --> SetOwned["Set Sequence Ownership"]
+SetOwned --> NextTable
+NextTable --> Done["Initialization Complete"]
+```
+
+**Diagram sources**
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
+
+**Section sources**
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
 
 ## Troubleshooting Guide
 - Database initialization errors
   - Ensure settings.database_url is set and accessible.
   - Verify that model modules are imported during init_db.
+  - **PostgreSQL Sequence Issues**: Check logs for sequence repair operations and verify sequence creation permissions.
 - Session lifecycle issues
   - Use the dependency-injected get_db generator to ensure proper close semantics.
 - Migration failures
   - Prefer Alembic for structured migrations; fallback manual scripts should check existing columns before ALTER TABLE.
+  - **PostgreSQL Migration Problems**: Verify sequence repair completed successfully and check for permission issues on information_schema.
 - Cross-user data exposure
   - Timeline queries include subqueries to ensure diary_id references belong to the requesting user.
+- **Sequence Conflicts**
+  - Monitor application logs for sequence repair messages during startup.
+  - Verify that sequence values are properly synchronized after migration.
+  - Check PostgreSQL privileges for information_schema access.
 
 **Section sources**
 - [config.py:22-26](file://backend/app/core/config.py#L22-L26)
@@ -570,9 +691,10 @@ MAIN["main.py"] --> DBPY
 - [db.py:31-43](file://backend/app/db.py#L31-L43)
 - [migrate_add_profile_fields.py:12-54](file://backend/migrate_add_profile_fields.py#L12-L54)
 - [diary_service.py:545-555](file://backend/app/services/diary_service.py#L545-L555)
+- [db.py:62-127](file://backend/app/db.py#L62-L127)
 
 ## Conclusion
-The 映记 backend employs a clean, modular SQLAlchemy ORM architecture with asynchronous sessions, explicit indexing, and robust initialization. Services encapsulate complex queries and enforce business rules, ensuring data integrity and predictable performance. Formal migrations via Alembic are recommended for production-grade schema evolution, complemented by targeted manual scripts for legacy adjustments.
+The 映记 backend employs a clean, modular SQLAlchemy ORM architecture with asynchronous sessions, explicit indexing, and robust initialization. The recent addition of PostgreSQL sequence repair capabilities ensures seamless migrations from SQLite to PostgreSQL while maintaining data integrity and preventing primary key conflicts. Services encapsulate complex queries and enforce business rules, ensuring predictable performance. Formal migrations via Alembic are recommended for production-grade schema evolution, complemented by targeted manual scripts for legacy adjustments and automatic sequence repair for PostgreSQL deployments.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -596,6 +718,7 @@ The 映记 backend employs a clean, modular SQLAlchemy ORM architecture with asy
 - Unique constraints on likes/collects and growth daily insights.
 - JSON fields validated by service logic; list normalization via custom TypeDecorator in models.
 - Defensive checks in services to prevent cross-user access.
+- **PostgreSQL Sequence Integrity**: Automatic repair mechanism ensures consistent primary key generation across table migrations.
 
 **Section sources**
 - [diary.py:34-38](file://backend/app/models/diary.py#L34-L38)
@@ -606,3 +729,4 @@ The 映记 backend employs a clean, modular SQLAlchemy ORM architecture with asy
 - [community.py:126-128](file://backend/app/models/community.py#L126-L128)
 - [diary.py:13-27](file://backend/app/models/diary.py#L13-L27)
 - [diary_service.py:301-314](file://backend/app/services/diary_service.py#L301-L314)
+- [db.py:62-127](file://backend/app/db.py#L62-L127)

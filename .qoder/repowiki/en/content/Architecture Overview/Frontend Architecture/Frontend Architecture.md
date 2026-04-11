@@ -17,7 +17,21 @@
 - [auth.service.ts](file://frontend/src/services/auth.service.ts)
 - [auth.ts](file://frontend/src/types/auth.ts)
 - [DiaryList.tsx](file://frontend/src/pages/diaries/DiaryList.tsx)
+- [index.ts](file://frontend/src/i18n/index.ts)
+- [en-US.json](file://frontend/src/i18n/locales/en-US.json)
+- [zh-CN.json](file://frontend/src/i18n/locales/zh-CN.json)
+- [LanguageSwitcher.tsx](file://frontend/src/components/common/LanguageSwitcher.tsx)
+- [LoginPage.tsx](file://frontend/src/pages/auth/LoginPage.tsx)
+- [Dashboard.tsx](file://frontend/src/pages/dashboard/Dashboard.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced internationalization system documentation with comprehensive i18next implementation details
+- Added detailed coverage of automatic language detection and persistent language preferences
+- Expanded multilingual support documentation for Chinese and English throughout the application
+- Updated component interaction diagrams to reflect i18n integration patterns
+- Added comprehensive translation dictionary structure and usage examples
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -25,31 +39,37 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Internationalization Implementation](#internationalization-implementation)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document describes the frontend architecture of the YINJI (映记) React application. It covers the React 18+ and TypeScript implementation, component-based design patterns aligned with atomic design principles, state management via Zustand stores, routing with protected/public routes and lazy loading, the service layer for API integration, build system with Vite and TypeScript, UI component library integration, styling with Tailwind CSS, and responsive design. It also includes component interaction diagrams and data flow patterns to help developers understand how the frontend works end-to-end.
+This document describes the frontend architecture of the YINJI (映记) React application. It covers the React 18+ and TypeScript implementation, component-based design patterns aligned with atomic design principles, state management via Zustand stores, routing with protected/public routes and lazy loading, the service layer for API integration, build system with Vite and TypeScript, UI component library integration, styling with Tailwind CSS, responsive design, and comprehensive internationalization implementation. It also includes component interaction diagrams and data flow patterns to help developers understand how the frontend works end-to-end.
 
 ## Project Structure
-The frontend is organized around a clear separation of concerns:
-- Entry point and root app configuration
+The frontend is organized around a clear separation of concerns with comprehensive internationalization support:
+- Entry point and root app configuration with i18n initialization
 - Routing with lazy-loaded pages and route guards
 - State management with Zustand stores
 - Service layer for API integration
 - UI components following atomic design principles
+- Internationalization system with i18next and language switching
 - Build configuration with Vite and TypeScript
 
 ```mermaid
 graph TB
-subgraph "Entry"
+subgraph "Entry & i18n"
 M["main.tsx"]
-A["App.tsx"]
+I["i18n/index.ts"]
+EN["locales/en-US.json"]
+ZH["locales/zh-CN.json"]
+LS["LanguageSwitcher.tsx"]
 end
-subgraph "Routing"
+subgraph "Application Core"
+A["App.tsx"]
 R["React Router DOM"]
 PR["PrivateRoute"]
 PU["PublicRoute"]
@@ -69,12 +89,17 @@ CV["class-variance-authority"]
 CN["cn.ts"]
 BTN["button.tsx"]
 INP["input.tsx"]
+TOAST["toast.tsx"]
 end
 subgraph "Build & Config"
 VITE["vite.config.ts"]
 TS["tsconfig.json"]
 PKG["package.json"]
 end
+M --> I
+I --> EN
+I --> ZH
+I --> LS
 M --> A
 A --> R
 R --> PR
@@ -86,6 +111,7 @@ AUTH_SVC --> API
 BTN --> CV
 BTN --> CN
 INP --> CN
+TOAST --> CN
 T --> BTN
 T --> INP
 VITE --> PKG
@@ -93,8 +119,10 @@ TS --> PKG
 ```
 
 **Diagram sources**
-- [main.tsx:1-12](file://frontend/src/main.tsx#L1-L12)
-- [App.tsx:1-242](file://frontend/src/App.tsx#L1-L242)
+- [main.tsx:1-13](file://frontend/src/main.tsx#L1-L13)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [App.tsx:1-253](file://frontend/src/App.tsx#L1-L253)
 - [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
 - [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
 - [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
@@ -103,46 +131,53 @@ TS --> PKG
 - [cn.ts:1-8](file://frontend/src/utils/cn.ts#L1-L8)
 - [vite.config.ts:1-27](file://frontend/vite.config.ts#L1-L27)
 - [tsconfig.json:1-32](file://frontend/tsconfig.json#L1-L32)
-- [package.json:1-54](file://frontend/package.json#L1-L54)
+- [package.json:1-57](file://frontend/package.json#L1-L57)
 
 **Section sources**
-- [main.tsx:1-12](file://frontend/src/main.tsx#L1-L12)
-- [App.tsx:1-242](file://frontend/src/App.tsx#L1-L242)
-- [package.json:1-54](file://frontend/package.json#L1-L54)
+- [main.tsx:1-13](file://frontend/src/main.tsx#L1-L13)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [App.tsx:1-253](file://frontend/src/App.tsx#L1-L253)
+- [package.json:1-57](file://frontend/package.json#L1-L57)
 - [vite.config.ts:1-27](file://frontend/vite.config.ts#L1-L27)
 - [tsconfig.json:1-32](file://frontend/tsconfig.json#L1-L32)
 
 ## Core Components
-- Application entry and root component: Initializes React 18 Strict Mode, registers the root App, and applies global styles.
+- Application entry and root component: Initializes React 18 Strict Mode, registers the root App, applies global styles, and initializes i18n system.
 - Root routing: Centralizes route definitions, lazy-loading pages, and route guards for authentication.
 - Authentication store: Manages user session, tokens, and authentication actions with persistence.
 - API client: Axios-based HTTP client with request/response interceptors for token injection and error handling.
 - UI primitives: Atomic components (Button, Input) with variant and size support, styled via Tailwind and merged with clsx/tailwind-merge.
 - Utilities: Class name merging helper for robust component styling.
+- Internationalization system: Comprehensive i18n setup with automatic language detection, translation dictionaries, and language switching.
 
 Key implementation references:
-- App root and routing: [App.tsx:61-239](file://frontend/src/App.tsx#L61-L239)
+- App root and routing: [App.tsx:62-250](file://frontend/src/App.tsx#L62-L250)
+- i18n initialization: [index.ts:9-41](file://frontend/src/i18n/index.ts#L9-L41)
 - Authentication store: [authStore.ts:23-145](file://frontend/src/store/authStore.ts#L23-L145)
 - API client: [api.ts:6-42](file://frontend/src/services/api.ts#L6-L42)
 - UI Button: [button.tsx:38-49](file://frontend/src/components/ui/button.tsx#L38-L49)
 - UI Input: [input.tsx:7-21](file://frontend/src/components/ui/input.tsx#L7-L21)
 - Class merge utility: [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7)
+- Language switcher: [LanguageSwitcher.tsx:4-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L4-L24)
 
 **Section sources**
-- [App.tsx:61-239](file://frontend/src/App.tsx#L61-L239)
+- [App.tsx:62-250](file://frontend/src/App.tsx#L62-L250)
+- [index.ts:9-41](file://frontend/src/i18n/index.ts#L9-L41)
 - [authStore.ts:23-145](file://frontend/src/store/authStore.ts#L23-L145)
 - [api.ts:6-42](file://frontend/src/services/api.ts#L6-L42)
 - [button.tsx:38-49](file://frontend/src/components/ui/button.tsx#L38-L49)
 - [input.tsx:7-21](file://frontend/src/components/ui/input.tsx#L7-L21)
 - [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7)
+- [LanguageSwitcher.tsx:4-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L4-L24)
 
 ## Architecture Overview
-The frontend follows a layered architecture:
-- Presentation layer: React components, atomic UI primitives, and page-level components.
+The frontend follows a layered architecture with comprehensive internationalization support:
+- Presentation layer: React components, atomic UI primitives, page-level components, and i18n integration.
 - State management: Zustand stores for global state (auth, diary).
 - Services: Axios-based API client with interceptors and typed service modules.
 - Routing: Protected/private routes with lazy-loaded page components.
 - Styling: Tailwind CSS with atomic component variants and a class merging utility.
+- Internationalization: i18next-based system with automatic language detection and dynamic switching.
 
 ```mermaid
 graph TB
@@ -153,6 +188,7 @@ STORES["Zustand Stores"]
 SERVICES["Service Layer"]
 HTTP["Axios Client"]
 BACKEND["Backend API"]
+I18N["i18n System<br/>i18next + Language Switcher"]
 UI --> PAGES
 PAGES --> ROUTER
 ROUTER --> STORES
@@ -160,6 +196,8 @@ PAGES --> STORES
 STORES --> SERVICES
 SERVICES --> HTTP
 HTTP --> BACKEND
+PAGES --> I18N
+I18N --> UI
 ```
 
 [No sources needed since this diagram shows conceptual workflow, not actual code structure]
@@ -193,13 +231,13 @@ Note over App,Store : "Protected routes redirect unauthenticated users"
 ```
 
 **Diagram sources**
-- [App.tsx:61-130](file://frontend/src/App.tsx#L61-L130)
+- [App.tsx:62-67](file://frontend/src/App.tsx#L62-L67)
 - [authStore.ts:107-132](file://frontend/src/store/authStore.ts#L107-L132)
 - [auth.service.ts:67-70](file://frontend/src/services/auth.service.ts#L67-L70)
 - [api.ts:14-40](file://frontend/src/services/api.ts#L14-L40)
 
 **Section sources**
-- [App.tsx:61-130](file://frontend/src/App.tsx#L61-L130)
+- [App.tsx:62-67](file://frontend/src/App.tsx#L62-L67)
 - [authStore.ts:107-132](file://frontend/src/store/authStore.ts#L107-L132)
 - [auth.service.ts:67-70](file://frontend/src/services/auth.service.ts#L67-L70)
 - [api.ts:14-40](file://frontend/src/services/api.ts#L14-L40)
@@ -225,11 +263,11 @@ RedirectWelcome --> End
 ```
 
 **Diagram sources**
-- [App.tsx:32-59](file://frontend/src/App.tsx#L32-L59)
+- [App.tsx:32-60](file://frontend/src/App.tsx#L32-L60)
 - [App.tsx:78-233](file://frontend/src/App.tsx#L78-L233)
 
 **Section sources**
-- [App.tsx:32-59](file://frontend/src/App.tsx#L32-L59)
+- [App.tsx:32-60](file://frontend/src/App.tsx#L32-L60)
 - [App.tsx:78-233](file://frontend/src/App.tsx#L78-L233)
 
 ### UI Component Library and Styling Patterns
@@ -237,6 +275,7 @@ The UI layer uses atomic design principles with:
 - Base components (Input, Button) leveraging class variance authority for variants and sizes.
 - Utility class merging via cn to combine conditional Tailwind classes safely.
 - Tailwind configuration supporting dark mode, custom color palettes, and responsive design.
+- Toast notifications with i18n integration for localized messages.
 
 ```mermaid
 classDiagram
@@ -250,6 +289,11 @@ class Input {
 +type : string
 +className : string
 }
+class Toast {
++message : string
++type : "success|error|info"
++toast() : function
+}
 class Variants {
 +buttonVariants
 }
@@ -259,18 +303,21 @@ class Utils {
 Button --> Variants : "uses"
 Button --> Utils : "uses"
 Input --> Utils : "uses"
+Toast --> Utils : "uses"
 ```
 
 **Diagram sources**
 - [button.tsx:6-30](file://frontend/src/components/ui/button.tsx#L6-L30)
 - [button.tsx:38-49](file://frontend/src/components/ui/button.tsx#L38-L49)
 - [input.tsx:7-21](file://frontend/src/components/ui/input.tsx#L7-L21)
+- [toast.tsx:17-60](file://frontend/src/components/ui/toast.tsx#L17-L60)
 - [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7)
 
 **Section sources**
 - [button.tsx:6-30](file://frontend/src/components/ui/button.tsx#L6-L30)
 - [button.tsx:38-49](file://frontend/src/components/ui/button.tsx#L38-L49)
 - [input.tsx:7-21](file://frontend/src/components/ui/input.tsx#L7-L21)
+- [toast.tsx:17-60](file://frontend/src/components/ui/toast.tsx#L17-L60)
 - [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7)
 - [tailwind.config.js:1-86](file://frontend/tailwind.config.js#L1-L86)
 
@@ -340,6 +387,92 @@ HasMore --> |No| Idle
 - [DiaryList.tsx:33-46](file://frontend/src/pages/diaries/DiaryList.tsx#L33-L46)
 - [DiaryList.tsx:48-52](file://frontend/src/pages/diaries/DiaryList.tsx#L48-L52)
 
+## Internationalization Implementation
+
+**Updated** The application now includes comprehensive internationalization support using i18next with automatic language detection and dynamic switching capabilities.
+
+### i18n System Architecture
+The internationalization system is built on i18next with the following components:
+
+- **Core i18n Setup**: Central configuration with automatic language detection, fallback languages, and resource loading
+- **Translation Dictionaries**: Separate JSON files for English (US) and Chinese (Simplified) translations
+- **Language Switcher**: Interactive component allowing users to switch between supported languages
+- **Automatic Detection**: Browser language detection with localStorage caching for persistent preferences
+
+### Key Implementation Details
+
+#### i18n Initialization
+The i18n system is initialized in the main entry point with comprehensive configuration:
+
+```mermaid
+flowchart TD
+Init["i18n Initialization"] --> Detector["LanguageDetector"]
+Init --> ReactI18next["initReactI18next"]
+Init --> Resources["Translation Resources"]
+Resources --> EnUS["en-US.json"]
+Resources --> ZhCN["zh-CN.json"]
+Detector --> Order["Detection Order"]
+Order --> LocalStorage["localStorage"]
+Order --> Navigator["navigator"]
+```
+
+**Diagram sources**
+- [index.ts:9-41](file://frontend/src/i18n/index.ts#L9-L41)
+
+#### Translation Dictionary Structure
+The translation dictionaries are organized by functional domains:
+
+- **Common**: Basic UI elements and actions
+- **Auth**: Authentication flows and forms
+- **Navigation**: Menu items and navigation labels
+- **Dashboard**: Main application interface elements
+- **Diary**: Diary management functionality
+- **Editor**: Rich text editing features
+- **Analysis**: AI analysis components
+- **Timeline**: Time-based event tracking
+- **Emotion**: Emotional analysis and visualization
+- **Community**: Social features and interactions
+- **Settings**: User preferences and account management
+- **Errors**: Error messages and validation
+- **Validation**: Form validation messages
+- **Landing**: Marketing and promotional content
+
+#### Language Switching Implementation
+The LanguageSwitcher component provides seamless language switching:
+
+```mermaid
+sequenceDiagram
+participant User as "User"
+participant Switcher as "LanguageSwitcher"
+participant I18n as "i18next"
+participant Components as "React Components"
+User->>Switcher : "Select Language"
+Switcher->>I18n : "changeLanguage(lng)"
+I18n->>Components : "Trigger re-render"
+Components->>Components : "Re-render with new translations"
+```
+
+**Diagram sources**
+- [LanguageSwitcher.tsx:7-9](file://frontend/src/components/common/LanguageSwitcher.tsx#L7-L9)
+
+### Usage Throughout the Application
+The i18n system is integrated throughout the application:
+
+- **Authentication Pages**: Login, registration, and password reset forms
+- **Dashboard**: Navigation menus, statistics, and quick actions
+- **Diary Management**: CRUD operations and editor interface
+- **Analysis Features**: AI analysis results and visualization
+- **Community Features**: Social interactions and posting
+- **Settings**: User preferences and account management
+
+**Section sources**
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812)
+- [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [LoginPage.tsx:14-68](file://frontend/src/pages/auth/LoginPage.tsx#L14-L68)
+- [Dashboard.tsx:10-74](file://frontend/src/pages/dashboard/Dashboard.tsx#L10-L74)
+
 ## Dependency Analysis
 External libraries and their roles:
 - React 18+ and React Router DOM for UI and routing
@@ -350,6 +483,7 @@ External libraries and their roles:
 - date-fns for date formatting
 - Lucide React for icons
 - Vite for build tooling and dev server
+- **i18next ecosystem**: Core i18n functionality, browser language detection, and React integration
 
 ```mermaid
 graph LR
@@ -371,13 +505,14 @@ App --> Tailwind
 App --> Merge
 App --> Icons
 App --> DateFns
+i18n["i18next + ecosystem"] --> App
 ```
 
 **Diagram sources**
-- [package.json:14-36](file://frontend/package.json#L14-L36)
+- [package.json:14-39](file://frontend/package.json#L14-L39)
 
 **Section sources**
-- [package.json:14-36](file://frontend/package.json#L14-L36)
+- [package.json:14-39](file://frontend/package.json#L14-L39)
 
 ## Performance Considerations
 - Lazy loading pages with React.lazy and Suspense reduces initial bundle size and improves time-to-interactive.
@@ -385,6 +520,7 @@ App --> DateFns
 - Axios interceptors centralize token handling and reduce repeated code.
 - Tailwind JIT compilation and minimal CSS usage keep styles efficient.
 - Prefer component-level memoization and controlled re-renders for frequently updated lists (e.g., diary entries).
+- **i18n optimization**: Translation dictionaries are loaded once and cached, minimizing runtime overhead.
 
 [No sources needed since this section provides general guidance]
 
@@ -392,22 +528,27 @@ App --> DateFns
 Common issues and resolutions:
 - 401 Unauthorized errors: The HTTP interceptor clears local storage and redirects to the welcome page. Verify token presence and expiration.
 - Authentication state not persisting: Ensure the auth store is configured with persistence and only persisted slices are saved.
-- Route guard not working: Confirm route guards wrap page components and that the store’s isAuthenticated state updates after checkAuth.
+- Route guard not working: Confirm route guards wrap page components and that the store's isAuthenticated state updates after checkAuth.
 - Styling conflicts: Use the cn utility to merge classes and avoid conflicting Tailwind variants.
+- **Language switching not working**: Verify i18n initialization in main.tsx and check that LanguageSwitcher component is properly importing useTranslation.
+- **Missing translations**: Ensure translation keys exist in both language dictionaries and that the i18n system is properly configured.
 
 **Section sources**
 - [api.ts:28-40](file://frontend/src/services/api.ts#L28-L40)
 - [authStore.ts:136-144](file://frontend/src/store/authStore.ts#L136-L144)
-- [App.tsx:32-59](file://frontend/src/App.tsx#L32-L59)
+- [App.tsx:32-60](file://frontend/src/App.tsx#L32-L60)
 - [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7)
+- [main.tsx:6](file://frontend/src/main.tsx#L6)
+- [LanguageSwitcher.tsx:4-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L4-L24)
 
 ## Conclusion
-The YINJI frontend is structured around a clean, modular architecture:
+The YINJI frontend is structured around a clean, modular architecture with comprehensive internationalization support:
 - React 18+ with TypeScript ensures type safety and modern features.
 - Atomic UI components with Tailwind enable consistent, maintainable styling.
 - Zustand provides straightforward global state management for auth and other domains.
 - React Router handles protected/public routes with lazy loading for optimal performance.
 - A centralized Axios client with interceptors simplifies API integration and error handling.
+- **i18n system**: Comprehensive internationalization with automatic language detection, translation dictionaries, and dynamic language switching.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -448,3 +589,38 @@ ViteDev --> ReactRefresh["React Fast Refresh"]
 **Section sources**
 - [App.tsx:78-233](file://frontend/src/App.tsx#L78-L233)
 - [routes.ts:2-31](file://frontend/src/constants/routes.ts#L2-L31)
+
+### i18n Configuration Reference
+- **Supported Languages**: English (en-US), Chinese (zh-CN)
+- **Fallback Language**: zh-CN
+- **Language Detection**: localStorage → navigator
+- **Translation Keys**: Organized by functional domains
+- **Dynamic Switching**: Real-time language change without page reload
+
+**Section sources**
+- [index.ts:21-30](file://frontend/src/i18n/index.ts#L21-L30)
+- [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812)
+- [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)
+- [LanguageSwitcher.tsx:14-21](file://frontend/src/components/common/LanguageSwitcher.tsx#L14-L21)
+
+### Translation Dictionary Structure
+The translation dictionaries are organized into comprehensive functional domains:
+
+**Common Translations**: Basic UI elements, actions, and system messages
+**Auth Translations**: Authentication flows, form labels, and validation messages
+**Navigation Translations**: Menu items, page titles, and navigation labels
+**Dashboard Translations**: Main interface elements and quick actions
+**Diary Translations**: Diary management operations and editor interface
+**Editor Translations**: Rich text editor controls and guidance
+**Analysis Translations**: AI analysis components and results
+**Timeline Translations**: Time-based event tracking and visualization
+**Emotion Translations**: Emotional analysis and visualization
+**Community Translations**: Social features and interactions
+**Settings Translations**: User preferences and account management
+**Errors Translations**: Error messages and validation feedback
+**Validation Translations**: Form validation messages and constraints
+**Landing Translations**: Marketing content and promotional materials
+
+**Section sources**
+- [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812)
+- [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)

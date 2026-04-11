@@ -2,12 +2,14 @@
 DeepSeek API 客户端
 简化版LLM调用，避免复杂的依赖
 """
-import os
 import httpx
 import json
+import logging
 from typing import Dict, List, Optional, AsyncGenerator
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class DeepSeekClient:
@@ -62,6 +64,7 @@ class DeepSeekClient:
             )
             response.raise_for_status()
             result = response.json()
+            self._log_prompt_cache_usage(result, stream=False)
 
             return result["choices"][0]["message"]["content"]
 
@@ -115,7 +118,9 @@ class DeepSeekClient:
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "stream": True
+            "stream": True,
+            # OpenAI-compatible stream usage summary (DeepSeek supports OpenAI-compatible API)
+            "stream_options": {"include_usage": True},
         }
 
         async with httpx.AsyncClient(timeout=120.0) as client:
@@ -134,12 +139,51 @@ class DeepSeekClient:
                         break
                     try:
                         chunk = json.loads(data)
+                        # Final usage chunk
+                        if chunk.get("usage"):
+                            self._log_prompt_cache_usage(chunk, stream=True)
                         delta = chunk.get("choices", [{}])[0].get("delta", {})
                         content = delta.get("content", "")
                         if content:
                             yield content
                     except Exception:
                         continue
+
+    def _log_prompt_cache_usage(self, response_json: Dict, stream: bool = False) -> None:
+        """
+        记录 DeepSeek Prompt Cache 命中情况，便于持续优化提示词并降低成本。
+        DeepSeek 上下文缓存默认开启，无需额外开关。
+        """
+        usage = response_json.get("usage") or {}
+        hit = usage.get("prompt_cache_hit_tokens")
+        miss = usage.get("prompt_cache_miss_tokens")
+
+        # 兼容没有返回 usage 或未返回缓存字段的情况
+        if hit is None and miss is None:
+            return
+
+        hit = int(hit or 0)
+        miss = int(miss or 0)
+        prompt_tokens = int(usage.get("prompt_tokens") or (hit + miss) or 0)
+        total_prompt = max(hit + miss, prompt_tokens, 1)
+        hit_rate = hit / total_prompt
+
+        # 命中价通常远低于未命中价，这里按 10x 仅做相对估算，不涉及币种
+        relative_cost = miss + (hit * 0.1)
+        baseline_cost = miss + hit
+        saved_ratio = 0.0 if baseline_cost <= 0 else (1 - relative_cost / baseline_cost)
+
+        logger.info(
+            "[DeepSeekCache][%s] model=%s prompt_tokens=%s hit=%s miss=%s "
+            "hit_rate=%.2f%% est_saved=%.2f%%",
+            "stream" if stream else "sync",
+            response_json.get("model", self.model),
+            prompt_tokens,
+            hit,
+            miss,
+            hit_rate * 100,
+            saved_ratio * 100,
+        )
 
 
 # 创建全局实例

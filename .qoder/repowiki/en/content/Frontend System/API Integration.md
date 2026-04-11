@@ -8,6 +8,8 @@
 - [community.service.ts](file://frontend/src/services/community.service.ts)
 - [ai.service.ts](file://frontend/src/services/ai.service.ts)
 - [assistant.service.ts](file://frontend/src/services/assistant.service.ts)
+- [integration.service.ts](file://frontend/src/services/integration.service.ts)
+- [emotion.service.ts](file://frontend/src/services/emotion.service.ts)
 - [authStore.ts](file://frontend/src/store/authStore.ts)
 - [diaryStore.ts](file://frontend/src/store/diaryStore.ts)
 - [auth.ts](file://frontend/src/types/auth.ts)
@@ -17,6 +19,13 @@
 - [DiaryList.tsx](file://frontend/src/pages/diaries/DiaryList.tsx)
 - [package.json](file://frontend/package.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced response interceptor section to document the new unified envelope format handling
+- Updated authentication token management to reflect the improved interceptor logic
+- Added documentation for automatic data field extraction from API responses
+- Updated troubleshooting guide to address envelope format compatibility
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,6 +54,8 @@ DIARY_SVC["diary.service.ts"]
 COMMUNITY_SVC["community.service.ts"]
 AI_SVC["ai.service.ts"]
 ASSISTANT_SVC["assistant.service.ts"]
+INTEGRATION_SVC["integration.service.ts"]
+EMOTION_SVC["emotion.service.ts"]
 end
 subgraph "Stores"
 AUTH_STORE["authStore.ts"]
@@ -64,6 +75,8 @@ API --> DIARY_SVC
 API --> COMMUNITY_SVC
 API --> AI_SVC
 API --> ASSISTANT_SVC
+API --> INTEGRATION_SVC
+API --> EMOTION_SVC
 AUTH_SVC --> AUTH_STORE
 DIARY_SVC --> DIARY_STORE
 AUTH_STORE --> LOGIN_PAGE
@@ -74,12 +87,14 @@ AI_SVC --> T_ANALYSIS
 ```
 
 **Diagram sources**
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
+- [api.ts:1-97](file://frontend/src/services/api.ts#L1-L97)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [diary.service.ts:1-113](file://frontend/src/services/diary.service.ts#L1-L113)
 - [community.service.ts:1-180](file://frontend/src/services/community.service.ts#L1-L180)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
-- [assistant.service.ts:1-128](file://frontend/src/services/assistant.service.ts#L1-L128)
+- [assistant.service.ts:1-127](file://frontend/src/services/assistant.service.ts#L1-L127)
+- [integration.service.ts:1-33](file://frontend/src/services/integration.service.ts#L1-L33)
+- [emotion.service.ts:1-63](file://frontend/src/services/emotion.service.ts#L1-L63)
 - [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
@@ -89,12 +104,14 @@ AI_SVC --> T_ANALYSIS
 - [DiaryList.tsx:1-211](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L211)
 
 **Section sources**
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
+- [api.ts:1-97](file://frontend/src/services/api.ts#L1-L97)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [diary.service.ts:1-113](file://frontend/src/services/diary.service.ts#L1-L113)
 - [community.service.ts:1-180](file://frontend/src/services/community.service.ts#L1-L180)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
-- [assistant.service.ts:1-128](file://frontend/src/services/assistant.service.ts#L1-L128)
+- [assistant.service.ts:1-127](file://frontend/src/services/assistant.service.ts#L1-L127)
+- [integration.service.ts:1-33](file://frontend/src/services/integration.service.ts#L1-L33)
+- [emotion.service.ts:1-63](file://frontend/src/services/emotion.service.ts#L1-L63)
 - [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
@@ -106,22 +123,25 @@ AI_SVC --> T_ANALYSIS
 ## Core Components
 - Shared Axios client with base URL, timeouts, and global headers.
 - Request interceptor adds Authorization header from localStorage.
-- Response interceptor handles 401 globally by clearing tokens and redirecting.
-- Feature services wrap endpoints for authentication, diary, community, AI analysis, and assistant streaming chat.
+- Response interceptor handles 401 globally by clearing tokens and redirecting, and automatically extracts data from unified envelope format.
+- Feature services wrap endpoints for authentication, diary, community, AI analysis, assistant streaming chat, integrations, and emotion analysis.
 - Stores orchestrate service calls, manage loading/error states, and persist minimal auth state.
 
 Key implementation patterns:
 - Strongly typed requests/responses via TypeScript interfaces.
 - FormData support for multipart uploads.
 - Separate streaming chat client for assistant to leverage server-sent events.
+- Unified envelope format support with automatic data extraction.
 
 **Section sources**
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
+- [api.ts:1-97](file://frontend/src/services/api.ts#L1-L97)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [diary.service.ts:1-113](file://frontend/src/services/diary.service.ts#L1-L113)
 - [community.service.ts:1-180](file://frontend/src/services/community.service.ts#L1-L180)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
-- [assistant.service.ts:1-128](file://frontend/src/services/assistant.service.ts#L1-L128)
+- [assistant.service.ts:1-127](file://frontend/src/services/assistant.service.ts#L1-L127)
+- [integration.service.ts:1-33](file://frontend/src/services/integration.service.ts#L1-L33)
+- [emotion.service.ts:1-63](file://frontend/src/services/emotion.service.ts#L1-L63)
 - [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
 
@@ -143,18 +163,22 @@ SVC_DIARY --> HTTP
 SVC_AI["ai.service.ts"] --> HTTP
 SVC_COMMUNITY["community.service.ts"] --> HTTP
 SVC_ASSISTANT["assistant.service.ts"] --> HTTP
-HTTP --> INTERCEPTORS["Interceptors<br/>Request: add Bearer token<br/>Response: 401 cleanup"]
+SVC_INTEGRATION["integration.service.ts"] --> HTTP
+SVC_EMOTION["emotion.service.ts"] --> HTTP
+HTTP --> INTERCEPTORS["Interceptors<br/>Request: add Bearer token<br/>Response: envelope extraction & 401 cleanup"]
 ```
 
 **Diagram sources**
-- [api.ts:14-40](file://frontend/src/services/api.ts#L14-L40)
+- [api.ts:43-94](file://frontend/src/services/api.ts#L43-L94)
 - [authStore.ts:32-132](file://frontend/src/store/authStore.ts#L32-L132)
 - [diaryStore.ts:50-159](file://frontend/src/store/diaryStore.ts#L50-L159)
-- [auth.service.ts:11-99](file://frontend/src/services/auth.service.ts#L11-L99)
-- [diary.service.ts:14-111](file://frontend/src/services/diary.service.ts#L14-L111)
+- [auth.service.ts:11-117](file://frontend/src/services/auth.service.ts#L11-L117)
+- [diary.service.ts:14-112](file://frontend/src/services/diary.service.ts#L14-L112)
 - [ai.service.ts:14-111](file://frontend/src/services/ai.service.ts#L14-L111)
-- [community.service.ts:70-179](file://frontend/src/services/community.service.ts#L70-179)
+- [community.service.ts:70-179](file://frontend/src/services/community.service.ts#L70-L179)
 - [assistant.service.ts:35-127](file://frontend/src/services/assistant.service.ts#L35-L127)
+- [integration.service.ts:18-32](file://frontend/src/services/integration.service.ts#L18-L32)
+- [emotion.service.ts:52-61](file://frontend/src/services/emotion.service.ts#L52-L61)
 
 ## Detailed Component Analysis
 
@@ -163,6 +187,9 @@ HTTP --> INTERCEPTORS["Interceptors<br/>Request: add Bearer token<br/>Response: 
 - Timeout configured for long-running operations.
 - Request interceptor reads access token from localStorage and attaches Authorization header.
 - Response interceptor detects 401 and clears tokens and navigates to welcome page.
+- **Enhanced**: Response interceptor now automatically extracts data from unified envelope format and preserves request metadata.
+
+**Updated** Enhanced response interceptor to handle unified envelope format with automatic data extraction
 
 ```mermaid
 sequenceDiagram
@@ -175,16 +202,18 @@ C->>AX : "HTTP request"
 AX->>INT_REQ : "Attach Authorization header"
 INT_REQ-->>AX : "Configured request"
 AX->>S : "Send request"
-S-->>AX : "Response"
+S-->>AX : "Envelope Response {code, message, request_id, data}"
 AX->>INT_RES : "Handle response"
-INT_RES-->>C : "Success or 401 cleanup"
+INT_RES->>INT_RES : "Extract payload.data"
+INT_RES->>INT_RES : "Set response.requestId"
+INT_RES-->>C : "Return extracted data"
 ```
 
 **Diagram sources**
-- [api.ts:14-40](file://frontend/src/services/api.ts#L14-L40)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 **Section sources**
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
+- [api.ts:1-97](file://frontend/src/services/api.ts#L1-L97)
 
 ### Authentication Service
 Endpoints covered:
@@ -199,6 +228,7 @@ Patterns:
 - Strong typing via User, LoginRequest, LoginResponse, RegisterRequest, VerifyCodeRequest.
 - Avatar upload uses FormData.
 - Store manages token persistence and redirects on auth failures.
+- **Enhanced**: Automatically handles unified envelope format responses.
 
 ```mermaid
 sequenceDiagram
@@ -211,7 +241,8 @@ UI->>STORE : "login(email, code)"
 STORE->>SVC : "login(LoginRequest)"
 SVC->>HTTP : "POST /api/v1/auth/login"
 HTTP->>BE : "Send credentials"
-BE-->>HTTP : "LoginResponse"
+BE-->>HTTP : "Envelope {code, message, request_id, data : LoginResponse}"
+HTTP->>HTTP : "Response interceptor extracts data"
 HTTP-->>SVC : "LoginResponse"
 SVC-->>STORE : "LoginResponse"
 STORE->>STORE : "Persist token, update state"
@@ -220,11 +251,11 @@ STORE-->>UI : "Authenticated"
 
 **Diagram sources**
 - [authStore.ts:32-50](file://frontend/src/store/authStore.ts#L32-L50)
-- [auth.service.ts:19-28](file://frontend/src/services/auth.service.ts#L19-L28)
-- [api.ts:14-26](file://frontend/src/services/api.ts#L14-L26)
+- [auth.service.ts:25-28](file://frontend/src/services/auth.service.ts#L25-L28)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 **Section sources**
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
 - [auth.ts:1-45](file://frontend/src/types/auth.ts#L1-L45)
 - [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
 - [LoginPage.tsx:1-263](file://frontend/src/pages/auth/LoginPage.tsx#L1-L263)
@@ -242,6 +273,7 @@ Patterns:
 - Pagination responses standardized via DiaryListResponse.
 - Range and date filters passed as query params.
 - Image upload uses FormData.
+- **Enhanced**: Unified envelope format support for all endpoints.
 
 ```mermaid
 sequenceDiagram
@@ -254,7 +286,8 @@ UI->>STORE : "fetchDiaries({page, pageSize, emotionTag})"
 STORE->>SVC : "list(params)"
 SVC->>HTTP : "GET /api/v1/diaries/"
 HTTP->>BE : "Fetch paginated diaries"
-BE-->>HTTP : "DiaryListResponse"
+BE-->>HTTP : "Envelope {code, message, request_id, data : DiaryListResponse}"
+HTTP->>HTTP : "Response interceptor extracts data"
 HTTP-->>SVC : "DiaryListResponse"
 SVC-->>STORE : "DiaryListResponse"
 STORE->>STORE : "Update diaries, pagination"
@@ -263,11 +296,11 @@ STORE-->>UI : "Render list"
 
 **Diagram sources**
 - [diaryStore.ts:50-74](file://frontend/src/store/diaryStore.ts#L50-L74)
-- [diary.service.ts:22-31](file://frontend/src/services/diary.service.ts#L22-L31)
-- [api.ts:14-26](file://frontend/src/services/api.ts#L14-L26)
+- [diary.service.ts:22-32](file://frontend/src/services/diary.service.ts#L22-L32)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 **Section sources**
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
+- [diary.service.ts:1-113](file://frontend/src/services/diary.service.ts#L1-L113)
 - [diary.ts:1-128](file://frontend/src/types/diary.ts#L1-L128)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
 - [DiaryList.tsx:1-211](file://frontend/src/pages/diaries/DiaryList.tsx#L1-L211)
@@ -283,6 +316,7 @@ Patterns:
 - Typed responses for lists and paginations.
 - Nested author info in posts and comments.
 - Image upload uses FormData.
+- **Enhanced**: Unified envelope format support for all endpoints.
 
 ```mermaid
 flowchart TD
@@ -293,13 +327,14 @@ Upload --> |Yes| FormData["FormData append"]
 Upload --> |No| Direct["Direct JSON payload"]
 FormData --> Call["Call api.post/put/delete"]
 Direct --> Call
-Call --> Handle["Handle response or error"]
+Call --> Handle["Response interceptor extracts data<br/>from unified envelope"]
 Handle --> End(["Done"])
 ```
 
 **Diagram sources**
 - [community.service.ts:78-130](file://frontend/src/services/community.service.ts#L78-L130)
 - [community.service.ts:142-149](file://frontend/src/services/community.service.ts#L142-L149)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 **Section sources**
 - [community.service.ts:1-180](file://frontend/src/services/community.service.ts#L1-L180)
@@ -315,6 +350,7 @@ Endpoints covered:
 Patterns:
 - Strong typing for analysis responses and metadata.
 - Async task pattern returns task_id for later polling if needed.
+- **Enhanced**: Unified envelope format support for all endpoints.
 
 ```mermaid
 sequenceDiagram
@@ -325,7 +361,8 @@ participant BE as "Backend"
 UI->>SVC : "comprehensiveAnalysis(request)"
 SVC->>HTTP : "POST /api/v1/ai/comprehensive-analysis"
 HTTP->>BE : "Submit RAG request"
-BE-->>HTTP : "AnalysisResponse"
+BE-->>HTTP : "Envelope {code, message, request_id, data : AnalysisResponse}"
+HTTP->>HTTP : "Response interceptor extracts data"
 HTTP-->>SVC : "AnalysisResponse"
 SVC-->>UI : "AnalysisResponse"
 ```
@@ -333,6 +370,7 @@ SVC-->>UI : "AnalysisResponse"
 **Diagram sources**
 - [ai.service.ts:44-47](file://frontend/src/services/ai.service.ts#L44-L47)
 - [analysis.ts:24-44](file://frontend/src/types/analysis.ts#L24-L44)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 **Section sources**
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
@@ -343,6 +381,7 @@ SVC-->>UI : "AnalysisResponse"
 - Uses fetch with SSE-like parsing for event chunks.
 - Manages token injection and streaming lifecycle.
 - Callbacks for meta, chunk, done, and error events.
+- **Note**: Uses the main API client but maintains separate streaming implementation.
 
 ```mermaid
 sequenceDiagram
@@ -365,7 +404,31 @@ SVC-->>UI : "onDone(data)"
 - [assistant.service.ts:69-125](file://frontend/src/services/assistant.service.ts#L69-L125)
 
 **Section sources**
-- [assistant.service.ts:1-128](file://frontend/src/services/assistant.service.ts#L1-L128)
+- [assistant.service.ts:1-127](file://frontend/src/services/assistant.service.ts#L1-L127)
+
+### Integration Service
+Endpoints covered:
+- OpenClaw integration status and token management.
+- Connection lifecycle management.
+
+Patterns:
+- Strong typing for integration status and token responses.
+- **Enhanced**: Unified envelope format support for all endpoints.
+
+**Section sources**
+- [integration.service.ts:1-33](file://frontend/src/services/integration.service.ts#L1-L33)
+
+### Emotion Service
+Endpoints covered:
+- Cluster analysis and individual diary emotion analysis.
+- Statistical summaries and feature explanations.
+
+Patterns:
+- Strong typing for emotion analysis results.
+- **Enhanced**: Unified envelope format support for all endpoints.
+
+**Section sources**
+- [emotion.service.ts:1-63](file://frontend/src/services/emotion.service.ts#L1-L63)
 
 ### Type Definitions
 - Authentication: User, LoginRequest/Response, RegisterRequest, VerifyCodeRequest.
@@ -394,11 +457,11 @@ HTTP --> AXIOS["axios"]
 ```
 
 **Diagram sources**
-- [api.ts:1-43](file://frontend/src/services/api.ts#L1-L43)
+- [api.ts:1-97](file://frontend/src/services/api.ts#L1-L97)
 - [authStore.ts:1-146](file://frontend/src/store/authStore.ts#L1-L146)
 - [diaryStore.ts:1-164](file://frontend/src/store/diaryStore.ts#L1-L164)
-- [auth.service.ts:1-100](file://frontend/src/services/auth.service.ts#L1-L100)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-L112)
+- [auth.service.ts:1-118](file://frontend/src/services/auth.service.ts#L1-L118)
+- [diary.service.ts:1-113](file://frontend/src/services/diary.service.ts#L1-L113)
 
 **Section sources**
 - [package.json:14-36](file://frontend/package.json#L14-L36)
@@ -408,6 +471,7 @@ HTTP --> AXIOS["axios"]
 - Streaming assistant chat avoids polling and reduces latency.
 - Pagination in diary listing prevents large payloads.
 - Minimal auth state persisted to reduce rehydration overhead.
+- **Enhanced**: Unified envelope format reduces response parsing complexity.
 - Consider adding:
   - Request deduplication for concurrent identical requests.
   - Retry with exponential backoff for transient network errors.
@@ -415,14 +479,16 @@ HTTP --> AXIOS["axios"]
   - Throttling for frequent UI-triggered requests (e.g., live filters).
   - React Query for centralized caching, invalidation, and refetching.
 
-[No sources needed since this section provides general guidance]
-
 ## Troubleshooting Guide
 Common issues and remedies:
 - 401 Unauthorized
   - Symptom: Automatic logout and navigation to welcome page.
   - Cause: Expired or invalid token.
   - Resolution: Re-authenticate; ensure interceptor attaches token.
+- **Enhanced**: Unified Envelope Format Issues
+  - Symptom: Missing data in responses or unexpected response structure.
+  - Cause: Backend response format changes or interceptor not extracting data.
+  - Resolution: Verify response interceptor is properly extracting payload.data and preserving request metadata.
 - Network timeouts
   - Symptom: Long-running requests fail.
   - Cause: Default timeout too low for AI or large uploads.
@@ -435,13 +501,11 @@ Common issues and remedies:
   - Resolution: Validate SSE event format and token presence.
 
 **Section sources**
-- [api.ts:28-40](file://frontend/src/services/api.ts#L28-L40)
+- [api.ts:43-94](file://frontend/src/services/api.ts#L43-L94)
 - [assistant.service.ts:73-86](file://frontend/src/services/assistant.service.ts#L73-L86)
 
 ## Conclusion
-The 映记 frontend employs a clean separation of concerns: a shared HTTP client with robust interceptors, feature-specific services with strong typing, and Zustand stores coordinating state and side effects. The assistant service leverages a dedicated streaming client for real-time interactions. The architecture supports scalability, maintainability, and a good developer experience. Extending with caching, retries, and throttling will further improve resilience and performance.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The 映记 frontend employs a clean separation of concerns: a shared HTTP client with robust interceptors, feature-specific services with strong typing, and Zustand stores coordinating state and side effects. The assistant service leverages a dedicated streaming client for real-time interactions. The architecture supports scalability, maintainability, and a good developer experience. The recent enhancement to automatically extract data from the unified envelope format improves response handling consistency across all services. Extending with caching, retries, and throttling will further improve resilience and performance.
 
 ## Appendices
 
@@ -451,27 +515,30 @@ The 映记 frontend employs a clean separation of concerns: a shared HTTP client
 - Timeout configured for long-running operations.
 
 **Section sources**
-- [api.ts:4-12](file://frontend/src/services/api.ts#L4-L12)
+- [api.ts:5-13](file://frontend/src/services/api.ts#L5-L13)
 
 ### Request/Response Transformation
 - Services return raw axios data for flexibility.
 - Strong typing enforced via TypeScript interfaces.
 - Multipart uploads handled via FormData appended to request bodies.
+- **Enhanced**: Response interceptor automatically extracts data from unified envelope format.
 
 **Section sources**
 - [auth.service.ts:90-98](file://frontend/src/services/auth.service.ts#L90-L98)
 - [diary.service.ts:102-110](file://frontend/src/services/diary.service.ts#L102-L110)
 - [community.service.ts:122-130](file://frontend/src/services/community.service.ts#L122-L130)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 ### Authentication Token Management
 - Access token stored in localStorage after successful login.
 - Request interceptor automatically attaches Authorization header.
 - Response interceptor clears tokens on 401 and navigates to welcome.
+- **Enhanced**: Response interceptor preserves request metadata and extracts data from unified envelope format.
 
 **Section sources**
 - [authStore.ts:42](file://frontend/src/store/authStore.ts#L42)
-- [api.ts:14-26](file://frontend/src/services/api.ts#L14-L26)
-- [api.ts:32-37](file://frontend/src/services/api.ts#L32-L37)
+- [api.ts:26-40](file://frontend/src/services/api.ts#L26-L40)
+- [api.ts:43-59](file://frontend/src/services/api.ts#L43-L59)
 
 ### Offline Handling
 - Current implementation assumes online connectivity.
@@ -480,16 +547,12 @@ The 映记 frontend employs a clean separation of concerns: a shared HTTP client
   - Queue requests and replay on reconnect.
   - Use service workers or local storage for read caching.
 
-[No sources needed since this section provides general guidance]
-
 ### Retry Logic
 - Not implemented in current services.
 - Recommended approach:
   - Add axios retry interceptor with exponential backoff.
   - Apply selectively to idempotent GET/PUT/DELETE requests.
   - Respect max attempts and jitter.
-
-[No sources needed since this section provides general guidance]
 
 ### Request Throttling
 - Not implemented in current services.
@@ -498,19 +561,16 @@ The 映记 frontend employs a clean separation of concerns: a shared HTTP client
   - Throttle search or auto-complete endpoints.
   - Use AbortController to cancel stale requests.
 
-[No sources needed since this section provides general guidance]
-
 ### Performance Optimization Techniques
 - Prefer incremental loading and pagination.
 - Lazy load heavy components and images.
 - Memoize derived data in stores.
 - Minimize re-renders by selecting only necessary state.
 
-[No sources needed since this section provides general guidance]
-
 ### Examples of Service Usage
 - Login flow: LoginPage triggers authStore.login, which calls authService.login and persists token.
 - Diary list: DiaryList fetches paginated diaries via diaryStore.fetchDiaries, which calls diaryService.list.
+- **Enhanced**: All services now benefit from automatic unified envelope format handling.
 
 **Section sources**
 - [LoginPage.tsx:42-58](file://frontend/src/pages/auth/LoginPage.tsx#L42-L58)
@@ -521,5 +581,4 @@ The 映记 frontend employs a clean separation of concerns: a shared HTTP client
 - Replace services with mocked implementations in unit tests.
 - Use React Testing Library to mock stores and pass in mocked dependencies.
 - For assistant streaming, mock fetch response body with readable stream and event chunks.
-
-[No sources needed since this section provides general guidance]
+- **Enhanced**: Test unified envelope format responses by returning objects with code, message, request_id, and data fields.

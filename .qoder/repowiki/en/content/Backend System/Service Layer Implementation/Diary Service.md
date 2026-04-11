@@ -11,7 +11,16 @@
 - [agent_impl.py](file://backend/app/agents/agent_impl.py)
 - [diary.service.ts](file://frontend/src/services/diary.service.ts)
 - [diary_types.ts](file://frontend/src/types/diary.ts)
+- [RichTextEditor.tsx](file://frontend/src/components/editor/RichTextEditor.tsx)
+- [DiaryEditor.tsx](file://frontend/src/pages/diaries/DiaryEditor.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced image upload validation documentation to include client-side size validation (10MB limit)
+- Updated image upload handling section to reflect dual-layer validation (client-side and server-side)
+- Added security considerations for image upload validation
+- Updated troubleshooting guide to include client-side validation scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,6 +54,8 @@ end
 subgraph "Frontend"
 FE_SVC["Frontend Service<br/>diary.service.ts"]
 FE_TYPES["Frontend Types<br/>diary_types.ts"]
+FE_EDITOR["Rich Text Editor<br/>RichTextEditor.tsx"]
+FE_DIARY["Diary Editor<br/>DiaryEditor.tsx"]
 end
 FE_SVC --> API
 API --> SVC
@@ -53,29 +64,35 @@ SVC --> SCHEMAS
 SVC --> DB
 SVC --> AGENTS
 AGENTS --> LLM
+FE_EDITOR --> FE_SVC
+FE_DIARY --> FE_SVC
 ```
 
 **Diagram sources**
-- [diaries.py:1-491](file://backend/app/api/v1/diaries.py#L1-491)
+- [diaries.py:1-513](file://backend/app/api/v1/diaries.py#L1-513)
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
 - [diary.py:1-186](file://backend/app/models/diary.py#L1-186)
 - [diary_schema.py:1-101](file://backend/app/schemas/diary.py#L1-101)
 - [db.py:1-59](file://backend/app/db.py#L1-59)
 - [agent_impl.py:1-484](file://backend/app/agents/agent_impl.py#L1-484)
 - [llm.py:1-220](file://backend/app/agents/llm.py#L1-220)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-112)
+- [diary.service.ts:1-118](file://frontend/src/services/diary.service.ts#L1-118)
 - [diary_types.ts:1-128](file://frontend/src/types/diary.ts#L1-128)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-676)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-383)
 
 **Section sources**
-- [diaries.py:1-491](file://backend/app/api/v1/diaries.py#L1-491)
+- [diaries.py:1-513](file://backend/app/api/v1/diaries.py#L1-513)
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
 - [diary.py:1-186](file://backend/app/models/diary.py#L1-186)
 - [diary_schema.py:1-101](file://backend/app/schemas/diary.py#L1-101)
 - [db.py:1-59](file://backend/app/db.py#L1-59)
 - [agent_impl.py:1-484](file://backend/app/agents/agent_impl.py#L1-484)
 - [llm.py:1-220](file://backend/app/agents/llm.py#L1-220)
-- [diary.service.ts:1-112](file://frontend/src/services/diary.service.ts#L1-112)
+- [diary.service.ts:1-118](file://frontend/src/services/diary.service.ts#L1-118)
 - [diary_types.ts:1-128](file://frontend/src/types/diary.ts#L1-128)
+- [RichTextEditor.tsx:1-676](file://frontend/src/components/editor/RichTextEditor.tsx#L1-676)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-383)
 
 ## Core Components
 - DiaryService: Implements CRUD operations for diary entries, including create, read, update, delete, list, and date-based retrieval. Handles word count updates and basic validation.
@@ -89,14 +106,14 @@ AGENTS --> LLM
 Key capabilities:
 - Parameter validation via Pydantic validators and FastAPI dependency injection.
 - Content sanitization through safe text helpers and JSON parsing utilities.
-- Image upload handling with file type and size checks.
+- Image upload handling with dual-layer validation (client-side and server-side) including file type and size checks.
 - Emotion scoring and event type inference from diary content.
 - Timeline event extraction and AI-driven refinement.
 - Integration with agent system for advanced analysis and growth insights.
 
 **Section sources**
 - [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
-- [diaries.py:55-491](file://backend/app/api/v1/diaries.py#L55-491)
+- [diaries.py:55-513](file://backend/app/api/v1/diaries.py#L55-513)
 - [diary.py:29-186](file://backend/app/models/diary.py#L29-186)
 - [diary_schema.py:9-101](file://backend/app/schemas/diary.py#L9-101)
 - [db.py:11-43](file://backend/app/db.py#L11-43)
@@ -166,7 +183,7 @@ Transactions:
 ### Timeline Event Processing
 - upsert_event_from_diary(user_id, diary, force_overwrite_ai): Creates or updates a timeline event based on diary content. Preserves AI-derived events unless forced overwrite.
 - refine_event_from_diary_with_ai(user_id, diary_id): Calls AI to refine summary, emotion tag, importance score, and event type; marks source as AI-generated.
-- rebuild_events_for_user(user_id, start_date, end_date, limit): Rebuilds timeline events for a user’s historical diaries.
+- rebuild_events_for_user(user_id, start_date, end_date, limit): Rebuilds timeline events for a user's historical diaries.
 - get_timeline(user_id, start_date, end_date, limit): Retrieves timeline events with cross-user isolation.
 - get_events_by_date(user_id, target_date): Fetches events for a specific date.
 - get_recent_events(user_id, days): Convenience method to fetch recent events.
@@ -200,20 +217,64 @@ Event extraction logic:
 - [llm.py:13-220](file://backend/app/agents/llm.py#L13-220)
 
 ### Image Upload Handling
-- Endpoint validates file type (JPEG, PNG, GIF, WebP) and size (≤10MB).
-- Generates a unique filename and writes the file to the configured upload directory.
-- Returns a URL path for the uploaded image.
+**Updated** Enhanced with client-side validation for improved user experience and security
+
+The image upload system implements dual-layer validation to ensure optimal performance and security:
+
+#### Backend Validation (Server-side)
+- Validates file type against allowed MIME types: JPEG, PNG, GIF, WebP
+- Enforces 10MB size limit using file.read() to check content length
+- Generates unique filenames with user ID prefix and UUID extension
+- Writes files to configured upload directory with proper error handling
+
+#### Frontend Validation (Client-side)
+- Implements immediate client-side validation using MAX_IMAGE_SIZE_BYTES constant (10MB)
+- Prevents unnecessary network requests for oversized files
+- Provides instant user feedback with clear error messages
+- Maintains consistency with backend validation limits
+
+#### Integration Flow
+```mermaid
+sequenceDiagram
+participant User as "User"
+participant Editor as "RichTextEditor"
+participant Service as "diaryService"
+participant API as "FastAPI"
+participant Server as "Server"
+User->>Editor : "Select image file"
+Editor->>Editor : "Check file.size ≤ 10MB"
+Editor->>Service : "uploadImage(file)"
+Service->>Service : "Validate file.size ≤ 10MB"
+Service->>API : "POST /api/v1/diaries/upload-image"
+API->>Server : "Process upload"
+Server->>Server : "Validate MIME type + size"
+Server-->>API : "Success/Failure"
+API-->>Service : "URL or Error"
+Service-->>Editor : "URL or Error"
+Editor-->>User : "Display result"
+```
+
+**Diagram sources**
+- [diary.service.ts:105-116](file://frontend/src/services/diary.service.ts#L105-L116)
+- [diaries.py:207-240](file://backend/app/api/v1/diaries.py#L207-L240)
 
 **Section sources**
-- [diaries.py:205-238](file://backend/app/api/v1/diaries.py#L205-238)
+- [diaries.py:207-240](file://backend/app/api/v1/diaries.py#L207-L240)
+- [diary.service.ts:14-15](file://frontend/src/services/diary.service.ts#L14-L15)
+- [diary.service.ts:105-116](file://frontend/src/services/diary.service.ts#L105-L116)
+- [RichTextEditor.tsx:591-604](file://frontend/src/components/editor/RichTextEditor.tsx#L591-L604)
 
 ### Frontend Integration
 - Frontend service wraps API endpoints for diary CRUD, timeline queries, emotion statistics, terrain data, and image uploads.
 - Strongly typed interfaces define request/response shapes for TypeScript consumers.
+- RichTextEditor component integrates seamlessly with image upload workflow.
+- DiaryEditor page coordinates image upload with content editing.
 
 **Section sources**
-- [diary.service.ts:14-111](file://frontend/src/services/diary.service.ts#L14-111)
-- [diary_types.ts:6-127](file://frontend/src/types/diary.ts#L6-127)
+- [diary.service.ts:16-117](file://frontend/src/services/diary.service.ts#L16-L117)
+- [diary_types.ts:6-127](file://frontend/src/types/diary.ts#L6-L127)
+- [RichTextEditor.tsx:590-676](file://frontend/src/components/editor/RichTextEditor.tsx#L590-L676)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
 
 ## Architecture Overview
 
@@ -270,10 +331,10 @@ User "1" --> "0..*" TimelineEvent : "owns"
 ```
 
 **Diagram sources**
-- [diary.py:29-186](file://backend/app/models/diary.py#L29-186)
+- [diary.py:29-186](file://backend/app/models/diary.py#L29-L186)
 
 **Section sources**
-- [diary.py:29-186](file://backend/app/models/diary.py#L29-186)
+- [diary.py:29-186](file://backend/app/models/diary.py#L29-L186)
 
 ## Detailed Component Analysis
 
@@ -296,10 +357,10 @@ Refresh --> Return(["Return Diary"])
 ```
 
 **Diagram sources**
-- [diary_service.py:69-105](file://backend/app/services/diary_service.py#L69-105)
+- [diary_service.py:69-105](file://backend/app/services/diary_service.py#L69-L105)
 
 **Section sources**
-- [diary_service.py:69-278](file://backend/app/services/diary_service.py#L69-278)
+- [diary_service.py:69-278](file://backend/app/services/diary_service.py#L69-L278)
 
 ### TimelineService Methods
 - upsert_event_from_diary: Builds payload from diary, checks existing event, preserves AI-derived events unless forced overwrite.
@@ -325,17 +386,17 @@ TS-->>API : "TimelineEvent"
 ```
 
 **Diagram sources**
-- [diary_service.py:410-488](file://backend/app/services/diary_service.py#L410-488)
-- [llm.py:68-92](file://backend/app/agents/llm.py#L68-92)
+- [diary_service.py:410-488](file://backend/app/services/diary_service.py#L410-L488)
+- [llm.py:68-92](file://backend/app/agents/llm.py#L68-L92)
 
 **Section sources**
-- [diary_service.py:281-631](file://backend/app/services/diary_service.py#L281-631)
-- [llm.py:13-220](file://backend/app/agents/llm.py#L13-220)
+- [diary_service.py:281-631](file://backend/app/services/diary_service.py#L281-L631)
+- [llm.py:13-220](file://backend/app/agents/llm.py#L13-L220)
 
 ### API Endpoints and Workflows
 - CRUD endpoints for diaries with response validation.
 - Timeline endpoints for recent, range-based, and date-specific queries.
-- Image upload endpoint with file type and size validation.
+- Image upload endpoint with dual-layer validation (file type and size).
 - Growth daily insight endpoint with AI generation and caching.
 
 ```mermaid
@@ -353,10 +414,10 @@ API-->>FE : "TimelineEvent[]"
 ```
 
 **Diagram sources**
-- [diaries.py:243-258](file://backend/app/api/v1/diaries.py#L243-258)
+- [diaries.py:243-258](file://backend/app/api/v1/diaries.py#L243-L258)
 
 **Section sources**
-- [diaries.py:55-491](file://backend/app/api/v1/diaries.py#L55-491)
+- [diaries.py:55-513](file://backend/app/api/v1/diaries.py#L55-L513)
 
 ## Dependency Analysis
 - Services depend on SQLAlchemy async sessions for transactional operations.
@@ -364,6 +425,7 @@ API-->>FE : "TimelineEvent[]"
 - TimelineService integrates with LLM client for AI-driven refinements.
 - Models define foreign keys and indexes for efficient querying.
 - Frontend service consumes typed API endpoints.
+- RichTextEditor integrates with diaryService for seamless image upload workflow.
 
 ```mermaid
 graph LR
@@ -372,43 +434,51 @@ API --> SVC["DiaryService/TimelineService"]
 SVC --> MODELS["ORM Models"]
 SVC --> DB["Async Session"]
 SVC --> LLM["LLM Client"]
+FE_EDITOR["RichTextEditor"] --> FE_SVC["diaryService"]
+FE_DIARY["DiaryEditor"] --> FE_SVC
 ```
 
 **Diagram sources**
-- [diaries.py:13-27](file://backend/app/api/v1/diaries.py#L13-27)
-- [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
-- [llm.py:13-220](file://backend/app/agents/llm.py#L13-220)
+- [diaries.py:13-27](file://backend/app/api/v1/diaries.py#L13-L27)
+- [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-L637)
+- [llm.py:13-220](file://backend/app/agents/llm.py#L13-L220)
+- [RichTextEditor.tsx:590-676](file://frontend/src/components/editor/RichTextEditor.tsx#L590-L676)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
 
 **Section sources**
-- [diaries.py:13-27](file://backend/app/api/v1/diaries.py#L13-27)
-- [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-637)
-- [llm.py:13-220](file://backend/app/agents/llm.py#L13-220)
+- [diaries.py:13-27](file://backend/app/api/v1/diaries.py#L13-L27)
+- [diary_service.py:66-637](file://backend/app/services/diary_service.py#L66-L637)
+- [llm.py:13-220](file://backend/app/agents/llm.py#L13-L220)
+- [RichTextEditor.tsx:590-676](file://frontend/src/components/editor/RichTextEditor.tsx#L590-L676)
+- [DiaryEditor.tsx:1-383](file://frontend/src/pages/diaries/DiaryEditor.tsx#L1-L383)
 
 ## Performance Considerations
 - Pagination: list_diaries and timeline queries support pagination and limits to control result sizes.
 - Indexes: Models include indexes on frequently queried fields (user_id, diary_date, event_date) to optimize filtering and sorting.
 - Asynchronous operations: Image upload and AI refinement are performed asynchronously to avoid blocking request threads.
 - Transaction boundaries: Services wrap operations in commits to ensure consistency and minimize long-running sessions.
-
-[No sources needed since this section provides general guidance]
+- Client-side validation reduces unnecessary network requests and improves user experience.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
 - Validation errors on content or dates: Ensure content is non-empty and dates conform to expectations; Pydantic validators will raise explicit errors.
 - Unauthorized access to timelines: Timeline queries enforce user isolation; ensure the requesting user owns the diary or the event is unlinked.
 - AI refinement failures: The service logs warnings and falls back to existing event data; retry after checking LLM availability.
-- Image upload failures: Verify file type and size constraints; ensure upload directory permissions allow writing.
+- Image upload failures: 
+  - Verify file type and size constraints meet both client-side (≤10MB) and server-side requirements
+  - Check upload directory permissions allow writing
+  - Ensure client-side validation is not bypassed or disabled
+  - Verify frontend and backend validation limits are consistent
 
 **Section sources**
-- [diary_schema.py:18-32](file://backend/app/schemas/diary.py#L18-32)
-- [diaries.py:216-228](file://backend/app/api/v1/diaries.py#L216-228)
-- [diaries.py:32-51](file://backend/app/api/v1/diaries.py#L32-51)
-- [diary_service.py:410-488](file://backend/app/services/diary_service.py#L410-488)
+- [diary_schema.py:18-32](file://backend/app/schemas/diary.py#L18-L32)
+- [diaries.py:216-240](file://backend/app/api/v1/diaries.py#L216-L240)
+- [diaries.py:32-51](file://backend/app/api/v1/diaries.py#L32-L51)
+- [diary_service.py:410-488](file://backend/app/services/diary_service.py#L410-L488)
+- [diary.service.ts:14-15](file://frontend/src/services/diary.service.ts#L14-L15)
 
 ## Conclusion
-The Diary Service provides a robust foundation for managing diary entries, deriving timeline events, and integrating AI analysis. Its layered architecture ensures clear separation of concerns, strong validation, and scalable operations. The service supports essential workflows for content creation, timeline processing, emotion tagging, and growth insights, with careful attention to user isolation, transaction safety, and asynchronous processing.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The Diary Service provides a robust foundation for managing diary entries, deriving timeline events, and integrating AI analysis. Its layered architecture ensures clear separation of concerns, strong validation, and scalable operations. The service supports essential workflows for content creation, timeline processing, emotion tagging, and growth insights, with careful attention to user isolation, transaction safety, and asynchronous processing. The enhanced image upload validation system provides both security and performance benefits through dual-layer validation.
 
 ## Appendices
 
@@ -428,7 +498,7 @@ The Diary Service provides a robust foundation for managing diary entries, deriv
 - get_growth_daily_insight: GET /api/v1/diaries/growth/daily-insight?target_date=
 
 **Section sources**
-- [diaries.py:55-491](file://backend/app/api/v1/diaries.py#L55-491)
+- [diaries.py:55-513](file://backend/app/api/v1/diaries.py#L55-L513)
 
 ### Example Workflows
 
@@ -443,12 +513,21 @@ The Diary Service provides a robust foundation for managing diary entries, deriv
   2. refine_event_from_diary_with_ai calls LLM to refine summary, emotion tag, importance score, and event type.
   3. Related entities metadata records AI provenance.
 
+- Enhanced Image Upload Workflow
+  1. User selects image file in RichTextEditor
+  2. Client-side validation immediately checks file size (≤10MB) and type
+  3. If validation passes, frontend sends upload request to backend
+  4. Backend performs final validation (MIME type + size) and processes upload
+  5. Generated URL is returned and inserted into editor content
+
 - Common Use Cases
   - Filtering diaries by date range and emotion tags for reporting.
   - Generating daily insights for a specific date using growth daily insight endpoint.
-  - Uploading images to accompany diary entries and returning accessible URLs.
+  - Uploading images to accompany diary entries with immediate client-side validation feedback.
 
 **Section sources**
-- [diaries.py:55-183](file://backend/app/api/v1/diaries.py#L55-183)
-- [diary_service.py:358-488](file://backend/app/services/diary_service.py#L358-488)
-- [diaries.py:376-490](file://backend/app/api/v1/diaries.py#L376-490)
+- [diaries.py:55-183](file://backend/app/api/v1/diaries.py#L55-L183)
+- [diary_service.py:358-488](file://backend/app/services/diary_service.py#L358-L488)
+- [diaries.py:376-513](file://backend/app/api/v1/diaries.py#L376-L513)
+- [diary.service.ts:105-116](file://frontend/src/services/diary.service.ts#L105-L116)
+- [RichTextEditor.tsx:591-604](file://frontend/src/components/editor/RichTextEditor.tsx#L591-L604)

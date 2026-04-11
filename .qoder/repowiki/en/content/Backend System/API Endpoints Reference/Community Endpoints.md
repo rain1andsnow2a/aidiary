@@ -13,7 +13,15 @@
 - [community.service.ts](file://frontend/src/services/community.service.ts)
 - [CreatePostPage.tsx](file://frontend/src/pages/community/CreatePostPage.tsx)
 - [CommunityPage.tsx](file://frontend/src/pages/community/CommunityPage.tsx)
+- [CollectionsPage.tsx](file://frontend/src/pages/community/CollectionsPage.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added documentation for new RESTful interface aliases
+- Updated image upload endpoint documentation to include RESTful alias
+- Updated like and collection endpoints documentation to include RESTful aliases
+- Enhanced endpoint coverage to reflect modern REST-style alternatives
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -27,7 +35,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive API documentation for the community platform endpoints. It covers post management (creation, listing, detail viewing, editing, deletion), interactions (likes, collections), comments, image uploads, and user-specific views (my posts, collections, history). It also documents anonymous posting capabilities, content moderation considerations, user interaction tracking, and ranking-related configurations present in the system.
+This document provides comprehensive API documentation for the community platform endpoints. It covers post management (creation, listing, detail viewing, editing, deletion), interactions (likes, collections), comments, image uploads, and user-specific views (my posts, collections, history). It also documents anonymous posting capabilities, content moderation considerations, user interaction tracking, and ranking-related configurations present in the system. The API now includes modern RESTful interface aliases for enhanced developer experience while maintaining backward compatibility.
 
 ## Project Structure
 The community API is implemented as a FastAPI router under `/api/v1/community` and is mounted into the main application. The backend consists of:
@@ -53,6 +61,7 @@ subgraph "Frontend"
 J["community.service.ts<br/>Typed API Client"]
 K["CreatePostPage.tsx<br/>Anonymous Posting UI"]
 L["CommunityPage.tsx<br/>Discovery & Interaction UI"]
+M["CollectionsPage.tsx<br/>Collection Management UI"]
 end
 A --> B
 B --> C
@@ -64,6 +73,7 @@ F --> H
 J --> B
 K --> J
 L --> J
+M --> J
 ```
 
 **Diagram sources**
@@ -78,6 +88,7 @@ L --> J
 - [community.service.ts:70](file://frontend/src/services/community.service.ts#L70)
 - [CreatePostPage.tsx:65](file://frontend/src/pages/community/CreatePostPage.tsx#L65)
 - [CommunityPage.tsx:50](file://frontend/src/pages/community/CommunityPage.tsx#L50)
+- [CollectionsPage.tsx:40](file://frontend/src/pages/community/CollectionsPage.tsx#L40)
 
 **Section sources**
 - [main.py:74-76](file://backend/main.py#L74-L76)
@@ -93,6 +104,8 @@ L --> J
   - CommunityService handles all CRUD operations, interactions, and derived computations.
 - Data Models
   - SQLAlchemy models represent posts, comments, likes, collections, and views.
+- RESTful Interface Aliases
+  - Modern REST-style alternatives provide consistent URL patterns while maintaining backward compatibility.
 
 **Section sources**
 - [deps.py:18](file://backend/app/core/deps.py#L18)
@@ -298,9 +311,20 @@ Note over API,DB : "Authentication handled by get_current_active_user()"
 - Path Parameter: post_id
 - Response: { liked: boolean }
 
+**Updated** Added RESTful alias endpoint `/api/v1/community/posts/{post_id}/likes`
+
+- Method: POST
+- URL: `/api/v1/community/posts/{post_id}/likes`
+- Authentication: Required
+- Path Parameter: post_id
+- Response: { liked: boolean }
+- Compatibility: RESTful alias maintains identical functionality to the original endpoint
+
 **Section sources**
 - [community.py:245](file://backend/app/api/v1/community.py#L245)
 - [community.py:246](file://backend/app/api/v1/community.py#L246)
+- [community.py:337](file://backend/app/api/v1/community.py#L337)
+- [community.py:343](file://backend/app/api/v1/community.py#L343)
 - [community_service.py:213](file://backend/app/services/community_service.py#L213)
 
 #### Toggle Collect
@@ -310,9 +334,20 @@ Note over API,DB : "Authentication handled by get_current_active_user()"
 - Path Parameter: post_id
 - Response: { collected: boolean }
 
+**Updated** Added RESTful alias endpoint `/api/v1/community/posts/{post_id}/collections`
+
+- Method: POST
+- URL: `/api/v1/community/posts/{post_id}/collections`
+- Authentication: Required
+- Path Parameter: post_id
+- Response: { collected: boolean }
+- Compatibility: RESTful alias maintains identical functionality to the original endpoint
+
 **Section sources**
 - [community.py:261](file://backend/app/api/v1/community.py#L261)
 - [community.py:262](file://backend/app/api/v1/community.py#L262)
+- [community.py:346](file://backend/app/api/v1/community.py#L346)
+- [community.py:352](file://backend/app/api/v1/community.py#L352)
 - [community_service.py:248](file://backend/app/services/community_service.py#L248)
 
 #### List Collections
@@ -327,18 +362,31 @@ Note over API,DB : "Authentication handled by get_current_active_user()"
 - [community.py:276](file://backend/app/api/v1/community.py#L276)
 - [community_service.py:281](file://backend/app/services/community_service.py#L281)
 
-### Image Upload Endpoint
+### Image Upload Endpoints
 
-#### Upload Community Image
+#### Upload Community Image (Action-Oriented)
 - Method: POST
 - URL: `/api/v1/community/upload-image`
 - Authentication: Required
 - Form Data: file (allowed types: jpeg, png, gif, webp; max size: 10MB)
 - Response: { url: string }
 
+**Updated** Added RESTful alias endpoint `/api/v1/community/community-images`
+
+#### Upload Community Image (RESTful Alias)
+- Method: POST
+- URL: `/api/v1/community/community-images`
+- Authentication: Required
+- Form Data: file (allowed types: jpeg, png, gif, webp; max size: 10MB)
+- Response: { url: string }
+- Compatibility: RESTful alias maintains identical functionality to the original endpoint
+- Usage Pattern: Provides consistent REST-style URL structure for image uploads
+
 **Section sources**
 - [community.py:160](file://backend/app/api/v1/community.py#L160)
 - [community.py:161](file://backend/app/api/v1/community.py#L161)
+- [community.py:329](file://backend/app/api/v1/community.py#L329)
+- [community.py:334](file://backend/app/api/v1/community.py#L334)
 
 ### User Views Endpoints
 
@@ -477,6 +525,7 @@ MAIN["main.py"] --> API
 FE["community.service.ts"] --> API
 FEUI1["CreatePostPage.tsx"] --> FE
 FEUI2["CommunityPage.tsx"] --> FE
+FEUI3["CollectionsPage.tsx"] --> FE
 ```
 
 **Diagram sources**
@@ -491,6 +540,7 @@ FEUI2["CommunityPage.tsx"] --> FE
 - [community.service.ts:70](file://frontend/src/services/community.service.ts#L70)
 - [CreatePostPage.tsx:65](file://frontend/src/pages/community/CreatePostPage.tsx#L65)
 - [CommunityPage.tsx:50](file://frontend/src/pages/community/CommunityPage.tsx#L50)
+- [CollectionsPage.tsx:40](file://frontend/src/pages/community/CollectionsPage.tsx#L40)
 
 **Section sources**
 - [community.py:16](file://backend/app/api/v1/community.py#L16)
@@ -503,8 +553,7 @@ FEUI2["CommunityPage.tsx"] --> FE
 - Indexes: Key fields (user_id, post_id, circle_id) are indexed to optimize filtering and joins.
 - Counters: Like/comment/collect counts are maintained in the post entity to avoid expensive subqueries in listing contexts.
 - Asynchronous Operations: SQLAlchemy async session usage supports concurrent operations.
-
-[No sources needed since this section provides general guidance]
+- RESTful Aliases: New endpoints provide consistent URL patterns without additional performance overhead.
 
 ## Troubleshooting Guide
 
@@ -519,6 +568,7 @@ FEUI2["CommunityPage.tsx"] --> FE
 - Update anonymous post: Explicitly blocked; returns 400 with error message.
 - Delete unauthorized resource: Returns 404 when post does not belong to user.
 - Comment operations: Soft-delete sets is_deleted flag and adjusts counters.
+- RESTful alias compatibility: Both action-oriented and RESTful endpoints return identical responses.
 
 **Section sources**
 - [community.py:52](file://backend/app/api/v1/community.py#L52)
@@ -529,4 +579,4 @@ FEUI2["CommunityPage.tsx"] --> FE
 - [community_service.py:192](file://backend/app/services/community_service.py#L192)
 
 ## Conclusion
-The community API provides a robust, authenticated foundation for content creation, discovery, and interaction. It supports anonymous posting, structured moderation-friendly patterns (soft deletes, counters), and scalable pagination. The frontend integrates seamlessly with typed service wrappers, enabling rich user experiences across posts, comments, likes, collections, and browsing history.
+The community API provides a robust, authenticated foundation for content creation, discovery, and interaction. It supports anonymous posting, structured moderation-friendly patterns (soft deletes, counters), and scalable pagination. The API now includes modern RESTful interface aliases that provide consistent URL patterns while maintaining backward compatibility. The frontend integrates seamlessly with typed service wrappers, enabling rich user experiences across posts, comments, likes, collections, and browsing history. The addition of RESTful aliases enhances developer experience with predictable URL structures for common operations like image uploads, likes, and collections.

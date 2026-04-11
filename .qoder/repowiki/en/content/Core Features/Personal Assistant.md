@@ -14,7 +14,19 @@
 - [assistant.service.ts](file://frontend/src/services/assistant.service.ts)
 - [App.tsx](file://frontend/src/App.tsx)
 - [analysis.ts](file://frontend/src/types/analysis.ts)
+- [index.ts](file://frontend/src/i18n/index.ts)
+- [LanguageSwitcher.tsx](file://frontend/src/components/common/LanguageSwitcher.tsx)
+- [zh-CN.json](file://frontend/src/i18n/locales/zh-CN.json)
+- [en-US.json](file://frontend/src/i18n/locales/en-US.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced internationalization documentation for the YinjiSprite assistant component
+- Documented the dual-language support system with Chinese and English translations
+- Updated frontend component architecture to include comprehensive i18n integration
+- Enhanced user interface localization coverage for all assistant messages and interactive elements
+- Added documentation for the LanguageSwitcher component and language detection mechanisms
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -22,11 +34,12 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Internationalization System](#internationalization-system)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 This document describes the Personal Assistant feature centered around a floating AI chat widget and a multi-agent orchestration system. It covers:
@@ -34,15 +47,18 @@ This document describes the Personal Assistant feature centered around a floatin
 - Session management with persistent conversations and context preservation
 - Personality customization and conversational style
 - Agent orchestration coordinating specialized assistants for contextual analysis, therapeutic insights, and social content generation
+- **Enhanced internationalization support with localized AI counselor interactions and therapeutic responses in both Chinese and English**
 - Frontend component architecture and user interaction patterns
 - Backend agent system, prompt engineering strategies, and conversation flow management
-- Integration with other system features and the assistant’s role in the overall user experience
+- Integration with other system features and the assistant's role in the overall user experience
 
 ## Project Structure
-The Personal Assistant spans both backend and frontend:
+The Personal Assistant spans both backend and frontend with comprehensive internationalization support:
 - Backend FastAPI app registers assistant endpoints and integrates with agent orchestration and LLM clients
-- Frontend renders a floating “Yinji Sprite” chat widget with a draggable panel, session list, and message history
+- Frontend renders a floating "Yinji Sprite" chat widget with i18n support for Chinese and English
+- Internationalization system provides seamless language switching and translation management
 - Assistant-related models define profiles, sessions, and messages persisted in the database
+- **LanguageSwitcher component enables users to manually switch between supported languages**
 
 ```mermaid
 graph TB
@@ -57,13 +73,18 @@ F_app["App Root<br/>frontend/src/App.tsx"]
 F_widget["YinjiSprite Widget<br/>frontend/src/components/assistant/YinjiSprite.tsx"]
 F_service["Assistant Service<br/>frontend/src/services/assistant.service.ts"]
 F_types["Types<br/>frontend/src/types/analysis.ts"]
+F_i18n["i18n System<br/>frontend/src/i18n/*"]
+F_switcher["LanguageSwitcher<br/>frontend/src/components/common/LanguageSwitcher.tsx"]
 end
 A_main --> A_assist_api
 A_assist_api --> A_agents
 A_assist_api --> A_models
 F_app --> F_widget
 F_widget --> F_service
+F_widget --> F_i18n
 F_service --> F_types
+F_app --> F_switcher
+F_switcher --> F_i18n
 ```
 
 **Diagram sources**
@@ -71,12 +92,15 @@ F_service --> F_types
 - [assistant.py:26](file://backend/app/api/v1/assistant.py#L26)
 - [YinjiSprite.tsx:3](file://frontend/src/components/assistant/YinjiSprite.tsx#L3)
 - [assistant.service.ts:1](file://frontend/src/services/assistant.service.ts#L1)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [LanguageSwitcher.tsx:1](file://frontend/src/components/common/LanguageSwitcher.tsx#L1)
 
 **Section sources**
 - [main.py:78-80](file://backend/main.py#L78-L80)
 - [assistant.py:26](file://backend/app/api/v1/assistant.py#L26)
 - [YinjiSprite.tsx:3](file://frontend/src/components/assistant/YinjiSprite.tsx#L3)
 - [assistant.service.ts:1](file://frontend/src/services/assistant.service.ts#L1)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 
 ## Core Components
 - Floating chat widget (Yinji Sprite): draggable, resizable panel with session list, message history, and input area
@@ -84,6 +108,7 @@ F_service --> F_types
 - Agent orchestration: multi-step workflow across context collection, timeline extraction, therapeutic analysis, and social content generation
 - LLM client: DeepSeek-compatible client supporting synchronous and streaming completions
 - Assistant models: profiles, sessions, and messages persisted in the database
+- **Internationalization system: comprehensive dual-language support with automatic language detection, manual switching, and localized therapeutic responses**
 
 **Section sources**
 - [YinjiSprite.tsx:20](file://frontend/src/components/assistant/YinjiSprite.tsx#L20)
@@ -91,19 +116,23 @@ F_service --> F_types
 - [orchestrator.py:18](file://backend/app/agents/orchestrator.py#L18)
 - [llm.py:13](file://backend/app/agents/llm.py#L13)
 - [assistant.py](file://backend/app/models/assistant.py#L13)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 
 ## Architecture Overview
-The assistant integrates a streaming chat flow with RAG-enhanced context retrieval and a multi-agent pipeline for deeper analysis.
+The assistant integrates a streaming chat flow with RAG-enhanced context retrieval, multi-agent pipeline for deeper analysis, and comprehensive internationalization support.
 
 ```mermaid
 sequenceDiagram
 participant U as "User"
+participant I18N as "i18n System<br/>frontend/src/i18n/index.ts"
 participant FE as "YinjiSprite Widget<br/>frontend/src/components/assistant/YinjiSprite.tsx"
 participant SVC as "Assistant Service<br/>frontend/src/services/assistant.service.ts"
 participant API as "Assistant API<br/>backend/app/api/v1/assistant.py"
 participant DB as "DB Sessions/Messages<br/>backend/app/models/assistant.py"
 participant ORCH as "Agent Orchestrator<br/>backend/app/agents/orchestrator.py"
 participant LLM as "LLM Client<br/>backend/app/agents/llm.py"
+U->>I18N : "Detect/Select Language"
+I18N-->>FE : "Provide translations"
 U->>FE : "Open widget / type message"
 FE->>SVC : "streamChat(message, session_id)"
 SVC->>API : "POST /assistant/chat/stream"
@@ -113,7 +142,7 @@ API->>LLM : "stream_chat(messages)"
 LLM-->>API : "Token stream"
 API-->>SVC : "SSE : chunk"
 SVC-->>FE : "onChunk(text)"
-FE-->>U : "Render incremental tokens"
+FE-->>U : "Render incremental tokens in selected language"
 API->>DB : "Persist assistant reply"
 API-->>SVC : "SSE : done"
 SVC-->>FE : "onDone({session_id, message_id})"
@@ -124,6 +153,7 @@ SVC-->>FE : "onDone({session_id, message_id})"
 - [assistant.service.ts:69-125](file://frontend/src/services/assistant.service.ts#L69-L125)
 - [assistant.py:277-387](file://backend/app/api/v1/assistant.py#L277-L387)
 - [llm.py:94-143](file://backend/app/agents/llm.py#L94-L143)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 
 ## Detailed Component Analysis
 
@@ -206,7 +236,7 @@ Format --> End(["Return state"])
 
 ### Backend: LLM Client and Compatibility
 - DeepSeek-compatible client supports synchronous and streaming chat
-- Provides wrappers to emulate LangChain’s ChatOpenAI interface for agent components
+- Provides wrappers to emulate LangChain's ChatOpenAI interface for agent components
 - Temperature and response format controls are exposed
 
 ```mermaid
@@ -235,15 +265,17 @@ ChatOpenAI --> DeepSeekClient : "delegates"
 - [llm.py:13-220](file://backend/app/agents/llm.py#L13-L220)
 
 ### Frontend: Chat Widget and Interaction Patterns
-- Floating “Yinji Sprite” with draggable positioning and optional mute state
+- Floating "Yinji Sprite" with draggable positioning and optional mute state
 - Chat panel with session tabs, message history, and input area
 - Streaming UI updates via SSE parsing and optimistic rendering
 - Session lifecycle: create, open, clear, archive
+- **Full internationalization support with automatic language detection and manual switching**
 
 ```mermaid
 flowchart TD
 Load(["Mount Widget"]) --> InitProfile["Load profile & sessions"]
-InitProfile --> OpenPanel{"Open panel?"}
+InitProfile --> DetectLang["Detect/Load Language"]
+DetectLang --> OpenPanel{"Open panel?"}
 OpenPanel --> |No| Drag["Drag sprite"] --> Render["Render sprite/mute UI"]
 OpenPanel --> |Yes| Panel["Render chat panel"]
 Panel --> CreateSession["Create new session"]
@@ -270,6 +302,7 @@ Append --> Persist["Refresh messages after done"]
 - Assistant profile supports nickname and muting
 - Conversational style is influenced by user MBTI and nickname injected into the system prompt
 - Social content generation adapts to user-defined social style and catchphrases
+- **All personality-related messages are fully localized in both Chinese and English, including therapeutic responses and counselor interactions**
 
 **Section sources**
 - [assistant.py:122-157](file://backend/app/api/v1/assistant.py#L122-L157)
@@ -280,12 +313,14 @@ Append --> Persist["Refresh messages after done"]
 - No explicit voice-to-text or audio synthesis endpoints were identified in the assistant API
 - The streaming chat relies on text input and SSE token delivery
 - If voice features are desired, integrate a browser Web Speech API or external STT/TTS service and extend the frontend widget accordingly
+- **Voice-related UI elements would benefit from internationalization support**
 
 [No sources needed since this section provides general guidance]
 
 ### Real-Time Streaming Responses Using Server-Sent Events
 - Backend emits structured SSE events: meta (session/message ids), chunk (token text), done (finalization), error (failure)
 - Frontend parses event lines, dispatches callbacks, and updates the UI incrementally
+- **Streaming responses are fully localized in the user's selected language, including therapeutic counselor interactions**
 
 **Section sources**
 - [assistant.py:343-387](file://backend/app/api/v1/assistant.py#L343-L387)
@@ -296,6 +331,7 @@ Append --> Persist["Refresh messages after done"]
 - Titles are derived from the first user message if not set
 - Messages are persisted after completion and refreshed on done
 - RAG context is built from semantic memory and local diaries
+- **All session-related UI elements are fully localized in the user's selected language**
 
 **Section sources**
 - [assistant.py:287-301](file://backend/app/api/v1/assistant.py#L287-L301)
@@ -306,6 +342,7 @@ Append --> Persist["Refresh messages after done"]
 - Agents use specialized prompts and temperatures tuned for analytical vs creative tasks
 - JSON response formatting is enforced for structured outputs
 - Error handling includes graceful degradation with default/fallback results
+- **Agent prompts support both Chinese and English language variants, enabling localized therapeutic responses**
 
 **Section sources**
 - [agent_impl.py:25-68](file://backend/app/agents/agent_impl.py#L25-L68)
@@ -315,6 +352,47 @@ Append --> Persist["Refresh messages after done"]
 - [agent_impl.py:396-483](file://backend/app/agents/agent_impl.py#L396-L483)
 - [prompts.py:7-244](file://backend/app/agents/prompts.py#L7-L244)
 
+## Internationalization System
+
+### Language Support and Detection
+The Personal Assistant features comprehensive internationalization supporting both Simplified Chinese and American English:
+
+- **Automatic Language Detection**: Uses browser language detection with localStorage caching
+- **Dual Language Resources**: Complete translation files for both Chinese and English
+- **Fallback Mechanism**: Defaults to Chinese (zh-CN) when language detection fails
+- **Manual Switching**: Users can switch languages through the LanguageSwitcher component
+- **Localized AI Counselor Interactions**: All therapeutic responses and counselor interactions are translated
+
+### Translation Key Organization
+The i18n system organizes translations under logical namespaces:
+
+- **sprite namespace**: All assistant-specific UI elements and messages, including therapeutic responses
+- **common namespace**: Shared UI elements and actions
+- **translation**: Default namespace for general application text
+
+### Key Translation Categories
+- **UI Elements**: Buttons, placeholders, headers, and interactive components
+- **Assistant Messages**: All chat responses, system notifications, and contextual help
+- **Session Management**: Chat creation, clearing, archiving, and navigation
+- **Error Handling**: User feedback for failures and edge cases
+- **Personality Elements**: Nickname prompts, greeting messages, and conversational cues
+- **Therapeutic Responses**: AI counselor interactions and healing responses
+
+### Implementation Details
+- **Language Detection**: Automatic detection via navigator.language with localStorage override
+- **Resource Loading**: Dynamic loading of appropriate translation files
+- **Component Integration**: Universal useTranslation hook for all interactive elements
+- **Fallback Strategy**: Graceful degradation when translations are missing
+- **Performance Optimization**: Efficient caching and lazy loading of translation resources
+- **Manual Switching**: LanguageSwitcher component allows users to override automatic detection
+
+**Section sources**
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [LanguageSwitcher.tsx:1-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L24)
+- [zh-CN.json](file://frontend/src/i18n/locales/zh-CN.json)
+- [en-US.json](file://frontend/src/i18n/locales/en-US.json)
+- [YinjiSprite.tsx:55](file://frontend/src/components/assistant/YinjiSprite.tsx#L55)
+
 ## Dependency Analysis
 - Backend FastAPI mounts assistant routes and includes routers for auth, diaries, AI analysis, users, and community
 - Assistant API depends on:
@@ -323,12 +401,15 @@ Append --> Persist["Refresh messages after done"]
   - RAG services for context retrieval
 - Frontend depends on:
   - Assistant service for SSE-based chat
+  - i18n system for language management
   - Types for analysis and assistant entities
+  - LanguageSwitcher for manual language selection
 
 ```mermaid
 graph LR
 FE_App["App.tsx"] --> FE_Widget["YinjiSprite.tsx"]
 FE_Widget --> FE_Service["assistant.service.ts"]
+FE_Widget --> FE_I18n["i18n System"]
 FE_Service --> BE_API["assistant.py"]
 BE_API --> BE_Models["models/assistant.py"]
 BE_API --> BE_LLM["agents/llm.py"]
@@ -338,6 +419,8 @@ BE_Orchestrator --> BE_Agents["agents/agent_impl.py"]
 BE_Orchestrator --> BE_Prompts["agents/prompts.py"]
 BE_Orchestrator --> BE_State["agents/state.py"]
 BE_Main["main.py"] --> BE_API
+FE_I18n --> FE_Translations["zh-CN.json / en-US.json"]
+FE_Switcher["LanguageSwitcher.tsx"] --> FE_I18n
 ```
 
 **Diagram sources**
@@ -345,6 +428,8 @@ BE_Main["main.py"] --> BE_API
 - [assistant.py:26](file://backend/app/api/v1/assistant.py#L26)
 - [YinjiSprite.tsx:3](file://frontend/src/components/assistant/YinjiSprite.tsx#L3)
 - [assistant.service.ts:1](file://frontend/src/services/assistant.service.ts#L1)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [LanguageSwitcher.tsx:1](file://frontend/src/components/common/LanguageSwitcher.tsx#L1)
 
 **Section sources**
 - [main.py:78-80](file://backend/main.py#L78-L80)
@@ -355,6 +440,8 @@ BE_Main["main.py"] --> BE_API
 - RAG context retrieval prioritizes semantic search and falls back to local chunks to balance accuracy and speed
 - Agent orchestration batches steps with structured prompts and JSON formatting to minimize retries
 - Frontend optimizes rendering by appending tokens and refreshing messages after completion
+- **Internationalization performance is optimized through efficient caching and lazy loading of translation resources**
+- **Language switching is handled efficiently through i18next's built-in caching mechanisms**
 
 [No sources needed since this section provides general guidance]
 
@@ -371,15 +458,25 @@ Common issues and remedies:
   - Validate response_format and temperature settings
 - Widget not appearing:
   - Confirm authentication state and that the widget is mounted in the app root
+- **Language switching issues:**
+  - Verify localStorage language preference is accessible
+  - Check translation files are properly loaded
+  - Ensure useTranslation hook is functioning correctly
+  - Confirm LanguageSwitcher component is properly integrated
+- **Missing localized therapeutic responses:**
+  - Verify translation keys exist in both zh-CN.json and en-US.json
+  - Check that sprite namespace contains all required translation keys
+  - Ensure backend agent prompts support the selected language
 
 **Section sources**
 - [assistant.service.ts:69-125](file://frontend/src/services/assistant.service.ts#L69-L125)
 - [assistant.py:295-301](file://backend/app/api/v1/assistant.py#L295-L301)
 - [agent_impl.py:25-68](file://backend/app/agents/agent_impl.py#L25-L68)
 - [App.tsx:234](file://frontend/src/App.tsx#L234)
+- [index.ts:25-30](file://frontend/src/i18n/index.ts#L25-L30)
 
 ## Conclusion
-The Personal Assistant combines a friendly floating chat interface with a robust backend orchestration system. It preserves conversation context, personalizes tone and style, and delivers real-time streaming responses. The modular agent design enables future extensions for richer analysis and content generation, while the frontend widget offers an intuitive, always-available companion for users.
+The Personal Assistant combines a friendly floating chat interface with a robust backend orchestration system and comprehensive internationalization support. It preserves conversation context, personalizes tone and style, delivers real-time streaming responses, and provides seamless bilingual experience in both Chinese and English. The modular agent design enables future extensions for richer analysis and content generation, while the frontend widget offers an intuitive, always-available companion for users across different linguistic backgrounds. **The enhanced internationalization ensures that therapeutic counselor interactions and all assistant messages are fully localized, creating a more personalized and culturally appropriate user experience.**
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -427,3 +524,28 @@ The Personal Assistant combines a friendly floating chat interface with a robust
 **Section sources**
 - [assistant.service.ts:3-29](file://frontend/src/services/assistant.service.ts#L3-L29)
 - [analysis.ts:3-142](file://frontend/src/types/analysis.ts#L3-L142)
+
+### Internationalization Keys: Assistant UI Elements
+- **sprite namespace**: greeting, askNickname, nicknamePlaceholder, newChat, clear, deleteChat, emptyHint, inputPlaceholder, title, muteAssistant, wakeAssistant, defaultName, nicknameSaved, nicknameFailed, newSessionFailed, sessionCleared, clearFailed, sessionDeleted, deleteFailed, replyFailed, sendFailed
+- **common namespace**: confirm
+- **translation namespace**: default translation resources for general application text
+
+**Section sources**
+- [YinjiSprite.tsx:104-105](file://frontend/src/components/assistant/YinjiSprite.tsx#L104-L105)
+- [YinjiSprite.tsx:258](file://frontend/src/components/assistant/YinjiSprite.tsx#L258)
+- [YinjiSprite.tsx:260-263](file://frontend/src/components/assistant/YinjiSprite.tsx#L260-L263)
+- [YinjiSprite.tsx:279](file://frontend/src/components/assistant/YinjiSprite.tsx#L279)
+- [YinjiSprite.tsx:288-291](file://frontend/src/components/assistant/YinjiSprite.tsx#L288-L291)
+- [YinjiSprite.tsx:309-312](file://frontend/src/components/assistant/YinjiSprite.tsx#L309-L312)
+- [YinjiSprite.tsx:361-368](file://frontend/src/components/assistant/YinjiSprite.tsx#L361-L368)
+- [YinjiSprite.tsx:445-451](file://frontend/src/components/assistant/YinjiSprite.tsx#L445-L451)
+- [YinjiSprite.tsx:469](file://frontend/src/components/assistant/YinjiSprite.tsx#L469)
+- [YinjiSprite.tsx:478-479](file://frontend/src/components/assistant/YinjiSprite.tsx#L478-L479)
+- [YinjiSprite.tsx:484](file://frontend/src/components/assistant/YinjiSprite.tsx#L484)
+- [YinjiSprite.tsx:492](file://frontend/src/components/assistant/YinjiSprite.tsx#L492)
+- [YinjiSprite.tsx:500](file://frontend/src/components/assistant/YinjiSprite.tsx#L500)
+- [YinjiSprite.tsx:503](file://frontend/src/components/assistant/YinjiSprite.tsx#L503)
+- [YinjiSprite.tsx:519](file://frontend/src/components/assistant/YinjiSprite.tsx#L519)
+- [YinjiSprite.tsx:527](file://frontend/src/components/assistant/YinjiSprite.tsx#L527)
+- [YinjiSprite.tsx:538](file://frontend/src/components/assistant/YinjiSprite.tsx#L538)
+- [YinjiSprite.tsx:570](file://frontend/src/components/assistant/YinjiSprite.tsx#L570)

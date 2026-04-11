@@ -9,7 +9,15 @@
 - [database.py](file://backend/app/models/database.py)
 - [config.py](file://backend/app/core/config.py)
 - [community.md](file://docs/功能文档/社区.md)
+- [community.service.ts](file://frontend/src/services/community.service.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated image upload validation section to reflect 10MB client-side size limit enforcement
+- Added client-side validation details to troubleshooting guide
+- Enhanced upload safety section with comprehensive validation coverage
+- Updated API definitions to include client-side validation behavior
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,12 +50,12 @@ Service --> Vector["Vector DB (Qdrant)<br/>Integration Point"]
 ```
 
 **Diagram sources**
-- [community.py:1-324](file://backend/app/api/v1/community.py#L1-L324)
+- [community.py:1-353](file://backend/app/api/v1/community.py#L1-L353)
 - [community_service.py:1-415](file://backend/app/services/community_service.py#L1-L415)
 - [community.py:1-176](file://backend/app/models/community.py#L1-L176)
 
 **Section sources**
-- [community.py:1-324](file://backend/app/api/v1/community.py#L1-L324)
+- [community.py:1-353](file://backend/app/api/v1/community.py#L1-L353)
 - [community_service.py:1-415](file://backend/app/services/community_service.py#L1-L415)
 - [community.py:1-176](file://backend/app/models/community.py#L1-L176)
 
@@ -68,7 +76,7 @@ Key capabilities:
 - [community_service.py:13-415](file://backend/app/services/community_service.py#L13-L415)
 - [community.py:13-176](file://backend/app/models/community.py#L13-L176)
 - [community.py:1-124](file://backend/app/schemas/community.py#L1-L124)
-- [community.py:1-324](file://backend/app/api/v1/community.py#L1-L324)
+- [community.py:1-353](file://backend/app/api/v1/community.py#L1-L353)
 
 ## Architecture Overview
 The community service follows a layered architecture:
@@ -260,18 +268,26 @@ API-->>Client : "{liked : ...}"
 - Validation: Pydantic schemas enforce content length and field constraints.
 - Upload safety: Image upload endpoint validates MIME type and size.
 
+**Updated** Enhanced with client-side validation for improved security and performance
+
 Spam prevention strategies:
 - Rate limiting and request caps are recommended at the API gateway or middleware level (not implemented in the current code).
 - Content moderation workflows can be integrated by extending service methods to call external moderation APIs or local keyword filtering before persistence.
 
 ```mermaid
 flowchart TD
-Start(["Incoming Post/Comment"]) --> Validate["Validate schema and lengths"]
-Validate --> AnonCheck{"is_anonymous?"}
+Start(["Incoming Post/Comment/Image"]) --> Validate["Validate schema and lengths"]
+Validate --> SizeCheck{"Image size <= 10MB?"}
+SizeCheck --> |Yes| MimeCheck{"Valid MIME type?"}
+SizeCheck --> |No| RejectSize["Reject: Too large"]
+MimeCheck --> |Yes| AnonCheck{"is_anonymous?"}
+MimeCheck --> |No| RejectMime["Reject: Invalid type"]
 AnonCheck --> |Yes| HideAuthor["Hide author in response"]
 AnonCheck --> |No| ShowAuthor["Show author info"]
 HideAuthor --> Persist["Persist entity"]
 ShowAuthor --> Persist
+RejectSize --> Error["Return 400 error"]
+RejectMime --> Error
 Persist --> SoftDelete["Soft-delete on moderation flag"]
 SoftDelete --> FilteredListings["Filter is_deleted=False in queries"]
 ```
@@ -340,12 +356,10 @@ Option --> Return["Return items"]
 - No built-in reputation metrics are present in the current code.
 - Suggested extension: Track user activity (posts, likes given/received, comments) and derive a reputation score to influence content visibility or moderation thresholds.
 
-[No sources needed since this section proposes future enhancements]
-
 ### Content Management Scenarios
-- Creating an anonymous post in the “growth” circle with images.
-- Listing posts in the “peace” circle with pagination.
-- Liking a post and checking current user’s like state.
+- Creating an anonymous post in the "growth" circle with images.
+- Listing posts in the "peace" circle with pagination.
+- Liking a post and checking current user's like state.
 - Commenting anonymously on a post and deleting own comment.
 - Collecting a post and viewing collection history.
 - Uploading an image for a post with size/type validation.
@@ -373,13 +387,13 @@ Service --> Config["Settings (Qdrant)"]
 ```
 
 **Diagram sources**
-- [community.py:1-324](file://backend/app/api/v1/community.py#L1-L324)
+- [community.py:1-353](file://backend/app/api/v1/community.py#L1-L353)
 - [community_service.py:1-415](file://backend/app/services/community_service.py#L1-L415)
 - [community.py:1-124](file://backend/app/schemas/community.py#L1-L124)
 - [config.py:72-88](file://backend/app/core/config.py#L72-L88)
 
 **Section sources**
-- [community.py:1-324](file://backend/app/api/v1/community.py#L1-L324)
+- [community.py:1-353](file://backend/app/api/v1/community.py#L1-L353)
 - [community_service.py:1-415](file://backend/app/services/community_service.py#L1-L415)
 - [community.py:1-124](file://backend/app/schemas/community.py#L1-L124)
 - [config.py:72-88](file://backend/app/core/config.py#L72-L88)
@@ -389,8 +403,7 @@ Service --> Config["Settings (Qdrant)"]
 - Pagination: Always use page/page_size bounds to avoid heavy queries.
 - Count queries: Separate COUNT queries before fetching paginated rows to compute total_pages efficiently.
 - Vector search: Limit top_k and apply filters to reduce payload sizes.
-
-[No sources needed since this section provides general guidance]
+- **Updated** Client-side validation reduces server load by preventing oversized file uploads before they reach the server.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -398,7 +411,7 @@ Common issues and resolutions:
 - Anonymous post edit attempts: Attempting to update an anonymous post raises an error; only non-anonymous posts can be edited.
 - Nonexistent post/comment: Operations return 404 Not Found; verify IDs and soft-deleted states.
 - Unauthorized actions: Deleting posts/comments requires ownership; otherwise returns 404.
-- Image upload errors: Only allowed MIME types and size limits are accepted; adjust client accordingly.
+- **Updated** Image upload errors: Both client-side and server-side validation enforce 10MB size limits and supported MIME types (jpeg, png, gif, webp); adjust client accordingly.
 
 **Section sources**
 - [community_service.py:43-45](file://backend/app/services/community_service.py#L43-L45)
@@ -409,8 +422,6 @@ Common issues and resolutions:
 
 ## Conclusion
 The community service provides a robust foundation for anonymous post management, interaction handling, and content discovery. It enforces validation, handles anonymous identities, and integrates with a vector database for recommendation. Moderation-ready patterns (soft deletion, visibility controls, upload validation) are established. Extending the system with trending algorithms, reputation scoring, and explicit moderation workflows would further strengthen the platform.
-
-[No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
@@ -429,7 +440,7 @@ The community service provides a robust foundation for anonymous post management
 - list_collected_posts(): Returns posts saved by the user.
 - record_view(): Records a view entry.
 - list_view_history(): Returns last view per post, deduplicated.
-- upload_image(): Validates MIME and size; returns URL.
+- **Updated** upload_image(): Validates MIME type and size (10MB limit) on both client and server; returns URL.
 
 **Section sources**
 - [community.py:39-56](file://backend/app/api/v1/community.py#L39-L56)
@@ -463,3 +474,15 @@ The community service provides a robust foundation for anonymous post management
 
 **Section sources**
 - [config.py:72-88](file://backend/app/core/config.py#L72-L88)
+
+### Client-Side Validation Details
+**New** The frontend implements comprehensive client-side validation to enhance user experience and reduce server load:
+
+- **Size Validation**: Images larger than 10MB trigger immediate client-side rejection with user-friendly error messages
+- **Type Validation**: Only supports jpeg, png, gif, webp formats as enforced by server-side validation
+- **Error Handling**: Clear error messages guide users to select appropriate image files
+- **Performance Benefits**: Prevents unnecessary network requests for oversized files
+
+**Section sources**
+- [community.service.ts:4](file://frontend/src/services/community.service.ts#L4-L4)
+- [community.service.ts:125-135](file://frontend/src/services/community.service.ts#L125-L135)

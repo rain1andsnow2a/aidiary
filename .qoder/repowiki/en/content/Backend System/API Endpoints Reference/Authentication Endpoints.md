@@ -15,16 +15,15 @@
 - [auth.service.ts](file://frontend/src/services/auth.service.ts)
 - [auth.ts](file://frontend/src/types/auth.ts)
 - [SliderCaptcha.tsx](file://frontend/src/components/common/SliderCaptcha.tsx)
+- [main.py](file://backend/main.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added new captcha endpoints: `/api/v1/auth/captcha` and `/api/v1/auth/captcha/verify`
-- Enhanced existing authentication endpoints with mandatory captcha verification
-- Implemented comprehensive sliding puzzle captcha system with signature verification
-- Updated request schemas to include captcha_token, captcha_x, and captcha_duration fields
-- Integrated captcha validation into all verification code sending endpoints
-- Added frontend slider captcha component with canvas-based puzzle verification
+- Added comprehensive RESTful API interface aliases alongside existing action-oriented routes
+- New endpoints include `/registration-codes`, `/registration-verifications`, `/login-codes`, `/password-sessions`, `/verification-sessions`, `/password-reset-codes`, `/password-resets`, and `/token-refreshes`
+- Each endpoint provides both traditional action-style paths and modern REST-style alternatives for gradual migration
+- Enhanced API documentation to cover both legacy and new RESTful endpoint variants
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -32,18 +31,21 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Captcha System](#captcha-system)
-7. [Cookie-Based Authentication System](#cookie-based-authentication-system)
-8. [Dual-Token Authentication](#dual-token-authentication)
-9. [Automatic Refresh Mechanism](#automatic-refresh-mechanism)
-10. [Rate Limiting Implementation](#rate-limiting-implementation)
-11. [Dependency Analysis](#dependency-analysis)
-12. [Performance Considerations](#performance-considerations)
-13. [Troubleshooting Guide](#troubleshooting-guide)
-14. [Conclusion](#conclusion)
+6. [RESTful API Interface Aliases](#restful-api-interface-aliases)
+7. [Captcha System](#captcha-system)
+8. [Cookie-Based Authentication System](#cookie-based-authentication-system)
+9. [Dual-Token Authentication](#dual-token-authentication)
+10. [Automatic Refresh Mechanism](#automatic-refresh-mechanism)
+11. [Rate Limiting Implementation](#rate-limiting-implementation)
+12. [Dependency Analysis](#dependency-analysis)
+13. [Performance Considerations](#performance-considerations)
+14. [Troubleshooting Guide](#troubleshooting-guide)
+15. [Conclusion](#conclusion)
 
 ## Introduction
 This document provides comprehensive API documentation for the authentication system that has migrated from token-based to cookie-based authentication. The system now implements a dual-token authentication system with httpOnly cookies, automatic refresh capabilities, comprehensive rate limiting, and an integrated sliding puzzle captcha system. It covers all authentication-related HTTP endpoints including registration, login, password reset, logout, and user information retrieval. The documentation details HTTP methods, URL patterns, request/response schemas, authentication requirements, parameter validation rules, error handling, verification code system, JWT token generation, session management with cookies, and the new captcha verification system.
+
+**Updated** The system now provides both traditional action-oriented routes and modern RESTful API interface aliases to facilitate gradual migration from legacy endpoints to resource-oriented patterns.
 
 ## Project Structure
 The authentication system is implemented in the backend using FastAPI and structured into several key components with cookie-based session management and integrated captcha verification:
@@ -103,7 +105,7 @@ SliderCaptcha --> API
 - [captcha_service.py:1](file://backend/app/services/captcha_service.py#L1)
 
 **Section sources**
-- [auth.py:1-504](file://backend/app/api/v1/auth.py#L1-L504)
+- [auth.py:1-579](file://backend/app/api/v1/auth.py#L1-L579)
 - [auth.py:1-109](file://backend/app/schemas/auth.py#L1-L109)
 - [auth_service.py:1-358](file://backend/app/services/auth_service.py#L1-L358)
 - [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
@@ -661,6 +663,244 @@ Refreshes the access token using the refresh token cookie for seamless user expe
 **Section sources**
 - [auth.py:415](file://backend/app/api/v1/auth.py#L415-L464)
 
+## RESTful API Interface Aliases
+
+**Updated** The authentication system now provides comprehensive RESTful API interface aliases alongside existing action-oriented routes to facilitate gradual migration from legacy endpoints to modern resource-oriented patterns.
+
+### RESTful Endpoint Architecture
+
+The system maintains backward compatibility while introducing modern RESTful endpoints that follow resource-oriented naming conventions:
+
+```mermaid
+graph TB
+subgraph "Legacy Action-Oriented Routes"
+LegacyReg["/auth/register/send-code<br/>/auth/register/verify<br/>/auth/register"]
+LegacyLogin["/auth/login/send-code<br/>/auth/login<br/>/auth/login/password"]
+LegacyReset["/auth/reset-password/send-code<br/>/auth/reset-password"]
+LegacySession["/auth/logout<br/>/auth/me<br/>/auth/refresh"]
+end
+subgraph "Modern RESTful Aliases"
+RESTReg["/auth/registration-codes<br/>/auth/registration-verifications<br/>/auth/register"]
+RESTLogin["/auth/login-codes<br/>/auth/verification-sessions<br/>/auth/password-sessions"]
+RESTReset["/auth/password-reset-codes<br/>/auth/password-resets"]
+RESTSession["/auth/token-refreshes<br/>/auth/logout<br/>/auth/me"]
+end
+LegacyReg --> RESTReg
+LegacyLogin --> RESTLogin
+LegacyReset --> RESTReset
+LegacySession --> RESTSession
+```
+
+**Diagram sources**
+- [auth.py:506](file://backend/app/api/v1/auth.py#L506-L579)
+
+### Registration RESTful Endpoints
+
+#### Registration Codes (`POST /auth/registration-codes`)
+**Alias for:** `/auth/register/send-code`
+
+Sends a 6-digit verification code to the user's email for registration with mandatory captcha verification.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/registration-codes`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `type`: string (optional) - Must be "register" if provided
+- `captcha_token`: string (required) - Captcha verification token
+- `captcha_x`: number (required) - User's sliding position
+- `captcha_duration`: number (required) - Sliding duration in milliseconds
+
+**Response Schema:**
+- `success`: boolean - Operation status
+- `message`: string - Operation result message
+
+**Section sources**
+- [auth.py:510](file://backend/app/api/v1/auth.py#L510-L516)
+
+#### Registration Verifications (`POST /auth/registration-verifications`)
+**Alias for:** `/auth/register/verify`
+
+Verifies a registration verification code without completing registration with authentication rate limiting.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/registration-verifications`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `code`: string (required) - 6-digit verification code
+- `type`: string (optional) - Must be "register" if provided
+
+**Response Schema:**
+- `success`: boolean - Operation status
+- `message`: string - Operation result message
+
+**Section sources**
+- [auth.py:519](file://backend/app/api/v1/auth.py#L519-L525)
+
+### Login RESTful Endpoints
+
+#### Login Codes (`POST /auth/login-codes`)
+**Alias for:** `/auth/login/send-code`
+
+Sends a 6-digit verification code to the user's email for login with mandatory captcha verification.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/login-codes`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `type`: string (optional) - Must be "login" if provided
+- `captcha_token`: string (required) - Captcha verification token
+- `captcha_x`: number (required) - User's sliding position
+- `captcha_duration`: number (required) - Sliding duration in milliseconds
+
+**Response Schema:**
+- `success`: boolean - Operation status
+- `message`: string - Operation result message
+
+**Section sources**
+- [auth.py:528](file://backend/app/api/v1/auth.py#L528-L534)
+
+#### Verification Sessions (`POST /auth/verification-sessions`)
+**Alias for:** `/auth/login`
+
+Creates a new verification code-based session by logging a user in using a verification code.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/verification-sessions`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `code`: string (required) - 6-digit verification code
+
+**Response Schema:**
+- `access_token`: string - JWT access token
+- `token_type`: string - Token type (always "bearer")
+- `user`: object - User information (id, email, username, etc.)
+
+**Cookie Management:**
+- Sets httpOnly cookies for both access_token and refresh_token
+- Access token: 30 minutes expiration
+- Refresh token: 7 days expiration
+
+**Section sources**
+- [auth.py:546](file://backend/app/api/v1/auth.py#L546-L552)
+
+#### Password Sessions (`POST /auth/password-sessions`)
+**Alias for:** `/auth/login/password`
+
+Creates a new password-based session by logging a user in using email and password.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/password-sessions`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `password`: string (required) - User's password
+
+**Response Schema:**
+- `access_token`: string - JWT access token
+- `token_type`: string - Token type (always "bearer")
+- `user`: object - User information (id, email, username, etc.)
+
+**Cookie Management:**
+- Sets httpOnly cookies for both access_token and refresh_token
+- Access token: 30 minutes expiration
+- Refresh token: 7 days expiration
+
+**Section sources**
+- [auth.py:537](file://backend/app/api/v1/auth.py#L537-L543)
+
+### Password Reset RESTful Endpoints
+
+#### Password Reset Codes (`POST /auth/password-reset-codes`)
+**Alias for:** `/auth/reset-password/send-code`
+
+Sends a 6-digit verification code for password reset with mandatory captcha verification.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/password-reset-codes`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `type`: string (optional) - Must be "reset" if provided
+- `captcha_token`: string (required) - Captcha verification token
+- `captcha_x`: number (required) - User's sliding position
+- `captcha_duration`: number (required) - Sliding duration in milliseconds
+
+**Response Schema:**
+- `success`: boolean - Operation status
+- `message`: string - Operation result message
+
+**Section sources**
+- [auth.py:555](file://backend/app/api/v1/auth.py#L555-L561)
+
+#### Password Resets (`POST /auth/password-resets`)
+**Alias for:** `/auth/reset-password`
+
+Resets a user's password using verification code with comprehensive rate limiting.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/password-resets`  
+**Authentication:** No authentication required  
+
+**Request Schema:**
+- `email`: string (required) - User's email address
+- `code`: string (required) - 6-digit verification code
+- `new_password`: string (required) - New password (minimum 6 characters)
+
+**Response Schema:**
+- `success`: boolean - Operation status
+- `message`: string - Operation result message
+
+**Section sources**
+- [auth.py:564](file://backend/app/api/v1/auth.py#L564-L570)
+
+### Token Refresh RESTful Endpoint
+
+#### Token Refreshes (`POST /auth/token-refreshes`)
+**Alias for:** `/auth/refresh`
+
+Refreshes the access token using the refresh token cookie for seamless user experience.
+
+**HTTP Method:** POST  
+**URL Pattern:** `/auth/token-refreshes`  
+**Authentication:** Refresh token cookie required  
+
+**Request Schema:** None  
+**Response Schema:**
+- `access_token`: string - New JWT access token
+- `token_type`: string - Token type (always "bearer")
+- `user`: object - User information (id, email, username, etc.)
+
+**Cookie Management:**
+- Validates refresh token from httpOnly cookie
+- Issues new access token with updated cookie
+- Maintains refresh token cookie unchanged
+
+**Section sources**
+- [auth.py:573](file://backend/app/api/v1/auth.py#L573-L578)
+
+### Migration Benefits
+
+The RESTful API interface aliases provide several benefits for gradual system migration:
+
+1. **Backward Compatibility**: Legacy endpoints continue to work without modification
+2. **Resource-Oriented Design**: Modern RESTful naming follows industry best practices
+3. **Gradual Migration**: Teams can migrate endpoints incrementally without breaking changes
+4. **Consistent Patterns**: RESTful endpoints follow predictable resource naming conventions
+5. **Improved Developer Experience**: Clearer endpoint semantics for developers
+
+**Section sources**
+- [auth.py:506](file://backend/app/api/v1/auth.py#L506-L579)
+
 ## Captcha System
 
 The authentication system now includes a comprehensive sliding puzzle captcha system designed to prevent automated attacks and bot submissions:
@@ -860,6 +1100,14 @@ class AuthAPI {
 +logout()
 +get_current_user_info()
 +refresh_access_token()
++create_registration_code()
++create_registration_verification()
++create_login_code()
++create_verification_session()
++create_password_session()
++create_password_reset_code()
++create_password_reset()
++create_token_refresh()
 }
 class AuthService {
 +send_verification_code()
@@ -1068,6 +1316,11 @@ The authentication system implements several performance optimizations with cook
   - **Cause**: Expired refresh token or user deactivation
   - **Solution**: Force re-login to obtain new refresh token
 
+**RESTful Endpoint Migration:**
+- **Issue**: RESTful endpoints not working as expected
+  - **Cause**: Using legacy endpoints while expecting RESTful behavior
+  - **Solution**: Use the new RESTful endpoint patterns for resource-oriented operations
+
 ### Client Integration Examples
 
 **Frontend SDK Usage:**
@@ -1148,36 +1401,79 @@ curl -X POST "http://localhost:8000/api/v1/auth/captcha/verify" \
   -H "Content-Type: application/json" \
   -d '{"token":"captchatoken","slide_x":120,"duration":800}'
 
-# Send registration code with captcha verification
+# Legacy registration flow
 curl -X POST "http://localhost:8000/api/v1/auth/register/send-code" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","type":"register","captcha_token":"captchatoken","captcha_x":120,"captcha_duration":800}'
 
-# Verify registration code
+# RESTful registration flow
+curl -X POST "http://localhost:8000/api/v1/auth/registration-codes" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","type":"register","captcha_token":"captchatoken","captcha_x":120,"captcha_duration":800}'
+
+# Legacy verification flow
 curl -X POST "http://localhost:8000/api/v1/auth/register/verify" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","code":"123456","type":"register"}'
 
-# Complete registration (returns cookies automatically)
+# RESTful verification flow
+curl -X POST "http://localhost:8000/api/v1/auth/registration-verifications" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","code":"123456","type":"register"}'
+
+# Legacy registration completion
 curl -X POST "http://localhost:8000/api/v1/auth/register" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"securepassword","code":"123456"}'
 
-# Login with verification code (returns cookies automatically)
+# Legacy login flow
 curl -X POST "http://localhost:8000/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","code":"123456"}'
 
-# Login with password (returns cookies automatically)
+# RESTful verification session
+curl -X POST "http://localhost:8000/api/v1/auth/verification-sessions" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","code":"123456"}'
+
+# Legacy password login
 curl -X POST "http://localhost:8000/api/v1/auth/login/password" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"securepassword"}'
 
+# RESTful password session
+curl -X POST "http://localhost:8000/api/v1/auth/password-sessions" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"securepassword"}'
+
+# Legacy password reset flow
+curl -X POST "http://localhost:8000/api/v1/auth/reset-password/send-code" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","type":"reset","captcha_token":"captchatoken","captcha_x":120,"captcha_duration":800}'
+
+# RESTful password reset code
+curl -X POST "http://localhost:8000/api/v1/auth/password-reset-codes" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","type":"reset","captcha_token":"captchatoken","captcha_x":120,"captcha_duration":800}'
+
+# Legacy password reset
+curl -X POST "http://localhost:8000/api/v1/auth/reset-password" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","code":"123456","new_password":"newsecurepassword"}'
+
+# RESTful password reset
+curl -X POST "http://localhost:8000/api/v1/auth/password-resets" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","code":"123456","new_password":"newsecurepassword"}'
+
+# Legacy refresh flow
+curl -X POST "http://localhost:8000/api/v1/auth/refresh"
+
+# RESTful token refresh
+curl -X POST "http://localhost:8000/api/v1/auth/token-refreshes"
+
 # Get current user info (uses cookies automatically)
 curl -X GET "http://localhost:8000/api/v1/auth/me"
-
-# Manual refresh (uses refresh cookie)
-curl -X POST "http://localhost:8000/api/v1/auth/refresh"
 
 # Logout (clears cookies)
 curl -X POST "http://localhost:8000/api/v1/auth/logout"
@@ -1199,7 +1495,10 @@ The authentication system provides a comprehensive, secure, and user-friendly au
 - **Flexible Verification System**: Comprehensive verification code system with configurable expiration and rate limits
 - **Developer-Friendly**: Well-documented APIs with clear request/response schemas, captcha integration, and comprehensive error handling
 - **Production Ready**: Includes proper database transactions, email delivery, security best practices, and frontend integration
+- **RESTful API Evolution**: Provides modern RESTful endpoint aliases alongside legacy action-oriented routes for gradual migration
 
 The system balances security requirements with usability, providing multiple authentication pathways while maintaining strong security controls. The cookie-based approach eliminates the need for manual token management while providing enhanced protection against common security vulnerabilities. The dual-token system ensures long-term session stability while maintaining security through automatic refresh mechanisms. The comprehensive rate limiting implementation protects the system from abuse while maintaining good user experience. The integrated captcha system provides robust protection against automated attacks and bot submissions.
 
-The modular architecture allows for easy maintenance and extension of authentication features as requirements evolve, with clear separation of concerns between cookie management, token handling, rate limiting, captcha verification, and business logic. The addition of mandatory captcha verification significantly enhances the system's security posture while maintaining a smooth user experience through the frontend slider component integration.
+**Updated** The addition of RESTful API interface aliases represents a significant evolution toward modern API design patterns while maintaining backward compatibility. The resource-oriented naming convention improves developer experience and follows industry best practices, enabling teams to gradually migrate from legacy endpoints to modern RESTful patterns without disrupting existing functionality.
+
+The modular architecture allows for easy maintenance and extension of authentication features as requirements evolve, with clear separation of concerns between cookie management, token handling, rate limiting, captcha verification, and business logic. The comprehensive RESTful endpoint aliases provide a clear migration path for teams adopting modern API design principles while preserving the reliability and security of the existing authentication infrastructure.

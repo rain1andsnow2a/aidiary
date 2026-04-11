@@ -19,11 +19,10 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for new captcha verification integration
-- Updated authentication endpoints to include captcha parameters (captcha_token, captcha_x, captcha_duration)
-- Documented captcha service implementation with security validation
-- Added frontend integration details for slider captcha component
-- Updated method signatures to reflect captcha parameter handling
+- Enhanced timezone handling with unified UTC datetime methods (_utc_now, _ensure_aware_utc) for authentication verification
+- Improved consistency across timestamp comparisons in verification code validation
+- Added backward compatibility for historical naive datetime values
+- Strengthened authentication verification reliability across different timezones
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -39,7 +38,7 @@
 ## Introduction
 This document provides comprehensive documentation for the authentication service implementation. It covers the user registration process, email verification workflow, password hashing and validation, JWT token generation and management, session handling, and security measures. The documentation includes method signatures for register_user(), authenticate_user(), verify_email(), refresh_token(), and logout(), along with parameter validation, error handling strategies, rate limiting mechanisms, and integration with the security module. It explains the relationship with database models, password security practices, and CORS configuration, and provides examples of successful authentication flows and common error scenarios.
 
-**Updated** Enhanced with new captcha verification integration that adds an additional layer of security against automated attacks and bot activity.
+**Updated** Enhanced with improved timezone handling through unified UTC datetime methods (_utc_now, _ensure_aware_utc) that prevent timezone-related authentication issues and ensure consistent timestamp comparisons across different environments.
 
 ## Project Structure
 The authentication service is implemented using a layered architecture with clear separation of concerns:
@@ -84,26 +83,26 @@ Config --> Email_Service
 ```
 
 **Diagram sources**
-- [auth.py:1-504](file://backend/app/api/v1/auth.py#L1-L504)
-- [auth_service.py:1-358](file://backend/app/services/auth_service.py#L1-L358)
+- [auth.py:1-579](file://backend/app/api/v1/auth.py#L1-L579)
+- [auth_service.py:1-370](file://backend/app/services/auth_service.py#L1-L370)
 - [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
-- [security.py:1-92](file://backend/app/core/security.py#L1-L92)
+- [security.py:1-87](file://backend/app/core/security.py#L1-L87)
 - [database_models.py:1-70](file://backend/app/models/database.py#L1-L70)
-- [config.py:1-105](file://backend/app/core/config.py#L1-L105)
+- [config.py:1-125](file://backend/app/core/config.py#L1-L125)
 - [deps.py:1-103](file://backend/app/core/deps.py#L1-L103)
-- [email_service.py:1-226](file://backend/app/services/email_service.py#L1-L226)
+- [email_service.py:1-228](file://backend/app/services/email_service.py#L1-L228)
 - [auth_frontend_service.ts:11-118](file://frontend/src/services/auth.service.ts#L11-L118)
 - [SliderCaptcha.tsx:58-377](file://frontend/src/components/common/SliderCaptcha.tsx#L58-L377)
 
 **Section sources**
-- [auth.py:1-504](file://backend/app/api/v1/auth.py#L1-L504)
-- [auth_service.py:1-358](file://backend/app/services/auth_service.py#L1-L358)
+- [auth.py:1-579](file://backend/app/api/v1/auth.py#L1-L579)
+- [auth_service.py:1-370](file://backend/app/services/auth_service.py#L1-L370)
 - [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
-- [security.py:1-92](file://backend/app/core/security.py#L1-L92)
+- [security.py:1-87](file://backend/app/core/security.py#L1-L87)
 - [database_models.py:1-70](file://backend/app/models/database.py#L1-L70)
-- [config.py:1-105](file://backend/app/core/config.py#L1-L105)
+- [config.py:1-125](file://backend/app/core/config.py#L1-L125)
 - [deps.py:1-103](file://backend/app/core/deps.py#L1-L103)
-- [email_service.py:1-226](file://backend/app/services/email_service.py#L1-L226)
+- [email_service.py:1-228](file://backend/app/services/email_service.py#L1-L228)
 
 ## Core Components
 The authentication service consists of several key components working together to provide secure user authentication:
@@ -118,7 +117,7 @@ The API layer provides comprehensive authentication endpoints including:
 
 ### Authentication Service
 The AuthService class encapsulates all business logic for authentication operations, including:
-- Verification code generation and validation
+- Verification code generation and validation with enhanced timezone handling
 - User registration and login processing with captcha verification
 - Password hashing and verification
 - Token creation and management
@@ -139,17 +138,17 @@ The security module handles cryptographic operations:
 ### Database Models
 Two primary models support the authentication system:
 - User model with comprehensive profile information
-- VerificationCode model for OTP management
+- VerificationCode model for OTP management with timezone-aware timestamps
 
 **Section sources**
-- [auth.py:25-504](file://backend/app/api/v1/auth.py#L25-L504)
-- [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
+- [auth.py:25-579](file://backend/app/api/v1/auth.py#L25-L579)
+- [auth_service.py:16-370](file://backend/app/services/auth_service.py#L16-L370)
 - [captcha_service.py:15-137](file://backend/app/services/captcha_service.py#L15-L137)
-- [security.py:12-92](file://backend/app/core/security.py#L12-L92)
+- [security.py:12-87](file://backend/app/core/security.py#L12-L87)
 - [database_models.py:13-70](file://backend/app/models/database.py#L13-L70)
 
 ## Architecture Overview
-The authentication system follows a clean architecture pattern with clear separation between presentation, application, and infrastructure layers, enhanced with captcha security:
+The authentication system follows a clean architecture pattern with clear separation between presentation, application, and infrastructure layers, enhanced with captcha security and improved timezone handling:
 
 ```mermaid
 sequenceDiagram
@@ -172,7 +171,7 @@ Service->>DB : Check recent requests (rate limit)
 Service->>DB : Check user exists (registration)
 Service->>Email : Generate and send verification code
 Email-->>Service : Email sent status
-Service->>DB : Store verification code record
+Service->>DB : Store verification code record with UTC timestamp
 DB-->>Service : Transaction committed
 Service-->>API : Success response
 API-->>Client : {"success" : true, "message" : "..."}
@@ -180,13 +179,14 @@ API-->>Client : {"success" : true, "message" : "..."}
 
 **Diagram sources**
 - [auth.py:64-90](file://backend/app/api/v1/auth.py#L64-L90)
-- [auth_service.py:19-98](file://backend/app/services/auth_service.py#L19-L98)
+- [auth_service.py:19-109](file://backend/app/services/auth_service.py#L19-L109)
 - [captcha_service.py:46-70](file://backend/app/services/captcha_service.py#L46-L70)
 - [email_service.py:48-155](file://backend/app/services/email_service.py#L48-L155)
 
 The architecture ensures:
 - **Separation of Concerns**: Each component has a specific responsibility
 - **Security by Design**: Passwords are hashed, tokens are validated, rate limiting prevents abuse, and captcha protects against bots
+- **Timezone Consistency**: Unified UTC datetime handling prevents timezone-related authentication failures
 - **Extensibility**: New authentication methods can be added without changing existing components
 - **Testability**: Each component can be tested independently
 - **Bot Protection**: Multi-layered security including captcha verification
@@ -213,11 +213,11 @@ SendCode --> VerifyCaptcha["Verify captcha with captcha_service"]
 VerifyCaptcha --> ValidateEmail["Validate Email Format"]
 ValidateEmail --> CheckRateLimit["Check Rate Limit (5min, 3 requests)"]
 CheckRateLimit --> CheckExisting["Check if Email Exists"]
-CheckExisting --> GenerateCode["Generate 6-digit Code"]
-GenerateCode --> StoreCode["Store in Database"]
+CheckExisting --> GenerateCode["Generate 6-digit Code with UTC timestamp"]
+GenerateCode --> StoreCode["Store in Database with timezone-aware expires_at"]
 StoreCode --> SendEmail["Send Email via SMTP"]
 SendEmail --> VerifyCode["Verify Registration Code"]
-VerifyCode --> ValidateCode["Validate Code & Expiration"]
+VerifyCode --> ValidateCode["Validate Code & Expiration using UTC comparison"]
 ValidateCode --> CreateUser["Create User Account"]
 CreateUser --> HashPassword["Hash Password (bcrypt)"]
 HashPassword --> CompleteRegistration["Complete Registration"]
@@ -227,13 +227,13 @@ CreateToken --> Success([Success Response])
 
 **Diagram sources**
 - [auth.py:83-149](file://backend/app/api/v1/auth.py#L83-L149)
-- [auth_service.py:19-201](file://backend/app/services/auth_service.py#L19-L201)
+- [auth_service.py:19-109](file://backend/app/services/auth_service.py#L19-L109)
 - [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
 - [email_service.py:48-155](file://backend/app/services/email_service.py#L48-L155)
 
 #### Login Workflow with Captcha
 The system supports multiple login methods with captcha protection:
-- **Verification Code Login**: Email-based authentication with captcha verification
+- **Verification Code Login**: Email-based authentication with captcha verification and UTC timestamp validation
 - **Password Login**: Traditional username/password authentication
 - **Session Management**: JWT-based persistent sessions with cookie handling
 
@@ -287,7 +287,7 @@ The password reset process ensures secure account recovery with captcha protecti
 1. **Get Captcha**: Frontend retrieves captcha data
 2. **User Completes Captcha**: User slides puzzle piece
 3. **Send Reset Code**: Validates captcha before sending reset code
-4. **Verify Reset Code**: Confirms code validity
+4. **Verify Reset Code**: Confirms code validity using UTC timestamp comparison
 5. **Update Password**: Hashes and updates user password
 
 ```mermaid
@@ -297,11 +297,11 @@ GetCaptcha --> UserSlide["User completes sliding puzzle"]
 UserSlide --> SendResetCode["POST /auth/reset-password/send-code<br/>with captcha_token, captcha_x, captcha_duration"]
 SendResetCode --> VerifyCaptcha["Verify captcha with captcha_service"]
 VerifyCaptcha --> ValidateEmail["Validate Email Exists"]
-ValidateEmail --> GenerateResetCode["Generate 6-digit Code"]
-GenerateResetCode --> StoreResetCode["Store in Database"]
+ValidateEmail --> GenerateResetCode["Generate 6-digit Code with UTC timestamp"]
+GenerateResetCode --> StoreResetCode["Store in Database with timezone-aware expires_at"]
 StoreResetCode --> SendResetEmail["Send Reset Email"]
 SendResetEmail --> VerifyResetCode["Verify Reset Code"]
-VerifyResetCode --> ValidateResetCode["Validate Code & Expiration"]
+VerifyResetCode --> ValidateResetCode["Validate Code & Expiration using UTC comparison"]
 ValidateResetCode --> UpdatePassword["Update User Password"]
 UpdatePassword --> HashNewPassword["Hash New Password"]
 HashNewPassword --> CompleteReset["Complete Reset"]
@@ -310,11 +310,24 @@ CompleteReset --> Success([Success Response])
 
 **Diagram sources**
 - [auth.py:345-402](file://backend/app/api/v1/auth.py#L345-L402)
-- [auth_service.py:288-341](file://backend/app/services/auth_service.py#L288-L341)
+- [auth_service.py:288-353](file://backend/app/services/auth_service.py#L288-L353)
 - [captcha_service.py:73-123](file://backend/app/services/captcha_service.py#L73-L123)
 
 ### Authentication Service Implementation
-The AuthService class provides centralized business logic for all authentication operations:
+The AuthService class provides centralized business logic for all authentication operations with enhanced timezone handling:
+
+#### Enhanced Timezone Handling Methods
+The service now includes specialized methods for consistent UTC datetime handling:
+
+**_utc_now()**
+- Returns timezone-aware UTC datetime instances
+- Prevents naive/aware datetime comparison errors
+- Ensures consistent timestamp handling across all verification operations
+
+**_ensure_aware_utc(dt: datetime) -> datetime**
+- Converts naive datetimes to timezone-aware UTC
+- Maintains existing timezone-aware datetimes in UTC
+- Provides backward compatibility for historical data
 
 #### Method Signatures and Parameters
 The service exposes the following key methods:
@@ -322,7 +335,7 @@ The service exposes the following key methods:
 **register_user()**
 - Parameters: db (AsyncSession), email (str), password (str), code (str), username (Optional[str])
 - Returns: Tuple[bool, str, Optional[User]]
-- Validation: Email uniqueness, password length (>=6), code verification
+- Validation: Email uniqueness, password length (>=6), code verification with UTC timestamp comparison
 
 **authenticate_user()**
 - Parameters: db (AsyncSession), email (str), password (str)
@@ -332,7 +345,7 @@ The service exposes the following key methods:
 **verify_email()**
 - Parameters: db (AsyncSession), email (str), code (str), code_type (str)
 - Returns: Tuple[bool, str]
-- Validation: Code existence, expiration, type matching
+- Validation: Code existence, expiration using UTC comparison, type matching
 
 **refresh_token()**
 - Not implemented in current codebase
@@ -369,12 +382,12 @@ The system implements industry-standard password security:
 #### Rate Limiting Mechanisms
 Multiple layers of rate limiting prevent abuse:
 - **5-minute Window**: Maximum 3 verification code requests per email
-- **Code Expiration**: 5-minute validity period for all verification codes
+- **Code Expiration**: 5-minute validity period for all verification codes using UTC timestamps
 - **Account Lockout**: Disabled accounts cannot authenticate
 - **Captcha Anti-Bot**: Minimum 300ms sliding duration prevents automation
 
 **Section sources**
-- [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
+- [auth_service.py:16-370](file://backend/app/services/auth_service.py#L16-L370)
 - [auth_schemas.py:10-21](file://backend/app/schemas/auth.py#L10-L21)
 - [config.py:52-61](file://backend/app/core/config.py#L52-L61)
 - [auth.py:64-115](file://backend/app/api/v1/auth.py#L64-L115)
@@ -437,11 +450,11 @@ The token validation process:
 - **Payload Extraction**: Retrieves user claims safely
 
 **Section sources**
-- [security.py:12-92](file://backend/app/core/security.py#L12-L92)
+- [security.py:12-87](file://backend/app/core/security.py#L12-L87)
 - [config.py:28-37](file://backend/app/core/config.py#L28-L37)
 
 ### Database Model Relationships
-The authentication system uses two primary models with clear relationships:
+The authentication system uses two primary models with clear relationships and timezone-aware timestamps:
 
 ```mermaid
 erDiagram
@@ -477,9 +490,10 @@ USERS ||--o{ VERIFICATION_CODES : "generates"
 
 Key model characteristics:
 - **User Model**: Comprehensive profile storage with optional fields
-- **VerificationCode Model**: OTP management with type categorization
+- **VerificationCode Model**: OTP management with type categorization and timezone-aware timestamps
 - **Indexing**: Email fields are indexed for efficient lookups
 - **Constraints**: Unique email constraint prevents duplicates
+- **Timezone Support**: Both created_at and expires_at fields support timezone-aware datetime values
 
 **Section sources**
 - [database_models.py:13-70](file://backend/app/models/database.py#L13-L70)
@@ -514,7 +528,7 @@ Frontend token handling:
 - [SliderCaptcha.tsx:58-377](file://frontend/src/components/common/SliderCaptcha.tsx#L58-L377)
 
 ## Dependency Analysis
-The authentication system exhibits strong modularity with clear dependency relationships, enhanced with captcha integration:
+The authentication system exhibits strong modularity with clear dependency relationships, enhanced with captcha integration and improved timezone handling:
 
 ```mermaid
 graph TB
@@ -554,13 +568,13 @@ AuthAPI --> Pydantic
 ```
 
 **Diagram sources**
-- [auth.py:1-504](file://backend/app/api/v1/auth.py#L1-L504)
-- [auth_service.py:1-358](file://backend/app/services/auth_service.py#L1-L358)
+- [auth.py:1-579](file://backend/app/api/v1/auth.py#L1-L579)
+- [auth_service.py:1-370](file://backend/app/services/auth_service.py#L1-L370)
 - [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
-- [security.py:1-92](file://backend/app/core/security.py#L1-L92)
-- [email_service.py:1-226](file://backend/app/services/email_service.py#L1-L226)
+- [security.py:1-87](file://backend/app/core/security.py#L1-L87)
+- [email_service.py:1-228](file://backend/app/services/email_service.py#L1-L228)
 - [database_models.py:1-70](file://backend/app/models/database.py#L1-L70)
-- [config.py:1-105](file://backend/app/core/config.py#L1-L105)
+- [config.py:1-125](file://backend/app/core/config.py#L1-L125)
 - [deps.py:1-103](file://backend/app/core/deps.py#L1-L103)
 
 ### Circular Dependency Prevention
@@ -580,26 +594,28 @@ Critical external dependencies and their roles:
 - **aiosmtplib/smtplib**: Email sending capabilities
 
 **Section sources**
-- [auth.py:1-504](file://backend/app/api/v1/auth.py#L1-L504)
-- [auth_service.py:1-358](file://backend/app/services/auth_service.py#L1-L358)
+- [auth.py:1-579](file://backend/app/api/v1/auth.py#L1-L579)
+- [auth_service.py:1-370](file://backend/app/services/auth_service.py#L1-L370)
 - [captcha_service.py:1-137](file://backend/app/services/captcha_service.py#L1-L137)
-- [security.py:1-92](file://backend/app/core/security.py#L1-L92)
-- [email_service.py:1-226](file://backend/app/services/email_service.py#L1-L226)
+- [security.py:1-87](file://backend/app/core/security.py#L1-L87)
+- [email_service.py:1-228](file://backend/app/services/email_service.py#L1-L228)
 
 ## Performance Considerations
-The authentication system is designed for optimal performance and scalability with captcha integration:
+The authentication system is designed for optimal performance and scalability with captcha integration and enhanced timezone handling:
 
 ### Database Optimization
 - **Connection Pooling**: Async database connections minimize latency
 - **Indexing Strategy**: Email fields are indexed for fast lookups
 - **Transaction Management**: Atomic operations ensure data consistency
 - **Query Optimization**: Efficient queries with minimal data transfer
+- **Timezone-Aware Queries**: Optimized timestamp comparisons using UTC
 
 ### Caching Strategies
 - **Rate Limiting Cache**: In-memory rate limiting prevents excessive database queries
 - **Token Validation Cache**: Recent token validation results cached
 - **Configuration Cache**: Environment settings loaded once at startup
 - **Captcha Token Cache**: Used tokens tracked in memory for fast validation
+- **UTC Timestamp Cache**: Consistent timezone handling reduces conversion overhead
 
 ### Asynchronous Operations
 - **Non-blocking I/O**: Database and email operations use async/await
@@ -615,6 +631,11 @@ The authentication system is designed for optimal performance and scalability wi
 - **In-Memory Tracking**: Used captcha tokens stored in memory for fast lookup
 - **Automatic Cleanup**: Expired tokens cleaned up periodically
 - **Minimal Database Calls**: Captcha verification primarily uses in-memory data
+
+### Timezone Handling Performance
+- **UTC Standardization**: Eliminates timezone conversion overhead
+- **Consistent Comparisons**: Reduces edge-case failures and retries
+- **Backward Compatibility**: Graceful handling of historical naive timestamps
 
 ## Troubleshooting Guide
 
@@ -685,6 +706,19 @@ The authentication system is designed for optimal performance and scalability wi
 - Check captcha service configuration
 - Implement captcha retry mechanism
 
+#### Timezone-Related Authentication Failures
+**Symptoms**: Verification code expiration errors despite recent generation
+**Causes**:
+- Mixed naive and timezone-aware datetime values
+- Different server timezones causing comparison failures
+- Historical data with naive timestamps
+
+**Solutions**:
+- Ensure all datetime operations use UTC timezone
+- Verify server timezone configuration
+- Check database timezone settings
+- Review application timezone configuration
+
 ### Error Handling Patterns
 The system implements consistent error handling:
 - **HTTP Status Codes**: Appropriate status codes for different error types
@@ -699,6 +733,7 @@ Recommended testing approaches:
 - **Load Testing**: Performance testing under concurrent authentication load
 - **Security Testing**: Penetration testing and vulnerability assessment
 - **Captcha Testing**: Manual testing of captcha verification logic
+- **Timezone Testing**: Edge-case testing with different server timezones
 
 **Section sources**
 - [auth.py:36-51](file://backend/app/api/v1/auth.py#L36-L51)
@@ -709,13 +744,15 @@ Recommended testing approaches:
 ## Conclusion
 The authentication service implementation demonstrates robust security practices, clean architecture, and comprehensive functionality. The system provides multiple authentication methods, strong password protection, rate limiting, JWT-based session management, and enhanced security through captcha verification. The modular design ensures maintainability and extensibility while the comprehensive error handling and testing support provide reliability and confidence in production deployment.
 
-**Updated** The addition of captcha verification significantly enhances security by preventing automated attacks and bot activity. The sliding puzzle verification provides an additional layer of protection beyond traditional email verification, making the system more resilient against spam and abuse.
+**Updated** The addition of enhanced timezone handling through _utc_now() and _ensure_aware_utc() methods significantly improves authentication reliability by preventing timezone-related issues and ensuring consistent timestamp comparisons across different environments. This enhancement makes the system more robust when deployed across different timezones and prevents edge-case failures that could occur with mixed naive and timezone-aware datetime values.
 
 Key strengths of the implementation include:
 - **Security First**: Industry-standard password hashing and token management
 - **Multi-Layered Protection**: Captcha verification, rate limiting, and token validation
+- **Timezone Resilience**: Unified UTC datetime handling prevents timezone-related authentication failures
+- **Backward Compatibility**: Graceful handling of historical naive timestamp data
 - **User Experience**: Flexible authentication methods with clear error messaging
 - **Scalability**: Asynchronous operations and efficient database design
 - **Maintainability**: Clean separation of concerns and comprehensive documentation
 
-The system is ready for production deployment with proper environment configuration and monitoring in place, providing robust protection against both automated attacks and manual abuse.
+The system is ready for production deployment with proper environment configuration and monitoring in place, providing robust protection against both automated attacks and manual abuse, while ensuring reliable authentication across different timezone configurations.

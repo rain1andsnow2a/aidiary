@@ -13,85 +13,120 @@
 - [index.css](file://frontend/src/index.css)
 - [postcss.config.js](file://frontend/postcss.config.js)
 - [package.json](file://frontend/package.json)
+- [index.ts](file://frontend/src/i18n/index.ts)
+- [en-US.json](file://frontend/src/i18n/locales/en-US.json)
+- [zh-CN.json](file://frontend/src/i18n/locales/zh-CN.json)
+- [LanguageSwitcher.tsx](file://frontend/src/components/common/LanguageSwitcher.tsx)
+- [LoginPage.tsx](file://frontend/src/pages/auth/LoginPage.tsx)
+- [Loading.tsx](file://frontend/src/components/common/Loading.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced internationalization documentation with comprehensive coverage of the i18n system
+- Documented translation key patterns and hierarchical structure
+- Added detailed language switching capabilities and dynamic language support
+- Included practical examples of i18n usage across UI components
+- Updated component integration patterns to demonstrate proper translation key implementation
+- Expanded troubleshooting guidance for internationalization issues
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Accessibility and UX Features](#accessibility-and-ux-features)
-9. [Styling Architecture and Design System](#styling-architecture-and-design-system)
-10. [Usage Examples and Customization Guidelines](#usage-examples-and-customization-guidelines)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+5. [Internationalization System](#internationalization-system)
+6. [Detailed Component Analysis](#detailed-component-analysis)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Accessibility and UX Features](#accessibility-and-ux-features)
+10. [Styling Architecture and Design System](#styling-architecture-and-design-system)
+11. [Usage Examples and Customization Guidelines](#usage-examples-and-customization-guidelines)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the UI component library used in the 映记 React application. It focuses on the custom components built with Radix UI primitives and styled with Tailwind CSS, including buttons, form controls, cards, toast notifications, and confirmation dialogs. It explains the styling architecture, design system principles, accessibility features, responsive patterns, TypeScript integration, and contribution standards for extending the library.
+This document describes the UI component library used in the 映记 React application. It focuses on the custom components built with Radix UI primitives and styled with Tailwind CSS, including buttons, form controls, cards, toast notifications, and confirmation dialogs. The library now includes comprehensive internationalization support with proper translation key patterns and dynamic language switching capabilities. It explains the styling architecture, design system principles, accessibility features, responsive patterns, TypeScript integration, and contribution standards for extending the library.
 
 ## Project Structure
-The UI components live under the frontend/src/components/ui directory and are consumed by the application via the root App component. Styling is centralized in Tailwind CSS with a design system built around CSS variables and layered styles.
+The UI components live under the frontend/src/components/ui directory and are consumed by the application via the root App component. The internationalization system is integrated through react-i18next with automatic language detection and localStorage persistence. Styling is centralized in Tailwind CSS with a design system built around CSS variables and layered styles.
 
 ```mermaid
 graph TB
 subgraph "Application Root"
 APP["App.tsx"]
-end
+END
 subgraph "UI Components"
 BTN["button.tsx"]
 CARD["card.tsx"]
 INPUT["input.tsx"]
 TOAST["toast.tsx"]
 CONFIRM["confirm-dialog.tsx"]
-end
+LANGSWITCH["LanguageSwitcher.tsx"]
+LOADING["Loading.tsx"]
+END
+subgraph "Internationalization"
+I18N["i18n/index.ts"]
+ENJSON["locales/en-US.json"]
+ZHJSON["locales/zh-CN.json"]
+END
 subgraph "Styling"
 CN["cn.ts"]
 TAILWIND["tailwind.config.js"]
 CSS["index.css"]
 POSTCSS["postcss.config.js"]
-end
+END
 APP --> BTN
 APP --> CARD
 APP --> INPUT
 APP --> TOAST
 APP --> CONFIRM
+APP --> LANGSWITCH
 BTN --> CN
 CARD --> CN
 INPUT --> CN
 TOAST --> CN
 CONFIRM --> CN
+LANGSWITCH --> I18N
+LOADING --> I18N
+I18N --> ENJSON
+I18N --> ZHJSON
 CN --> TAILWIND
 TAILWIND --> CSS
 POSTCSS --> TAILWIND
 ```
 
 **Diagram sources**
-- [App.tsx:61-242](file://frontend/src/App.tsx#L61-L242)
+- [App.tsx:62-250](file://frontend/src/App.tsx#L62-L250)
 - [button.tsx:1-52](file://frontend/src/components/ui/button.tsx#L1-L52)
 - [card.tsx:1-57](file://frontend/src/components/ui/card.tsx#L1-L57)
 - [input.tsx:1-25](file://frontend/src/components/ui/input.tsx#L1-L25)
 - [toast.tsx:1-61](file://frontend/src/components/ui/toast.tsx#L1-L61)
 - [confirm-dialog.tsx:1-77](file://frontend/src/components/ui/confirm-dialog.tsx#L1-L77)
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [Loading.tsx:1-57](file://frontend/src/components/common/Loading.tsx#L1-L57)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812)
+- [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)
 - [cn.ts:1-8](file://frontend/src/utils/cn.ts#L1-L8)
 - [tailwind.config.js:1-86](file://frontend/tailwind.config.js#L1-L86)
 - [index.css:1-153](file://frontend/src/index.css#L1-L153)
 - [postcss.config.js:1-7](file://frontend/postcss.config.js#L1-L7)
 
 **Section sources**
-- [App.tsx:61-242](file://frontend/src/App.tsx#L61-L242)
+- [App.tsx:62-250](file://frontend/src/App.tsx#L62-L250)
 - [package.json:14-36](file://frontend/package.json#L14-L36)
 
 ## Core Components
-This section documents the primary UI components and their roles in the application.
+This section documents the primary UI components and their roles in the application, including their internationalization capabilities.
 
 - Button: A variant-rich button built with class variance authority and Radix UI focus-visible semantics.
 - Card: A semantic grouping component with header, title, description, content, and footer slots.
 - Input: A styled text input with focus-visible ring and disabled states.
 - Toast: A provider-driven notification system with transient messages and animated entries.
 - ConfirmDialog: A modal-style confirmation dialog with optional danger styling.
+- LanguageSwitcher: A component that enables dynamic language switching with persistent storage.
+- Loading: A universal loading indicator with internationalized accessibility labels.
 
 **Section sources**
 - [button.tsx:1-52](file://frontend/src/components/ui/button.tsx#L1-L52)
@@ -99,9 +134,11 @@ This section documents the primary UI components and their roles in the applicat
 - [input.tsx:1-25](file://frontend/src/components/ui/input.tsx#L1-L25)
 - [toast.tsx:1-61](file://frontend/src/components/ui/toast.tsx#L1-L61)
 - [confirm-dialog.tsx:1-77](file://frontend/src/components/ui/confirm-dialog.tsx#L1-L77)
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [Loading.tsx:1-57](file://frontend/src/components/common/Loading.tsx#L1-L57)
 
 ## Architecture Overview
-The UI library integrates Tailwind CSS for atomic styling, class-variance-authority for variant composition, and Radix UI primitives for accessible interactions. The toast system is provider-based and mounted globally, while other components are composable and theme-aware through CSS variables.
+The UI library integrates Tailwind CSS for atomic styling, class-variance-authority for variant composition, and Radix UI primitives for accessible interactions. The internationalization system uses react-i18next with automatic language detection, localStorage persistence, and comprehensive translation key structures. The toast system is provider-based and mounted globally, while other components are composable and theme-aware through CSS variables.
 
 ```mermaid
 graph TB
@@ -112,30 +149,146 @@ end
 subgraph "Utility Layer"
 CNUTIL["cn.ts<br/>clsx + tailwind-merge"]
 end
+subgraph "Internationalization Layer"
+I18N["i18n/index.ts<br/>react-i18next + detector"]
+ENJSON["en-US.json<br/>translation keys"]
+ZHJSON["zh-CN.json<br/>translation keys"]
+LANGSWITCH["LanguageSwitcher.tsx<br/>dynamic switching"]
+LOADING["Loading.tsx<br/>i18n accessibility"]
+end
 subgraph "Components"
 BUTTON["Button<br/>variants + sizes"]
 CARD["Card<br/>header/title/description/content/footer"]
 INPUT["Input"]
 TOAST["ToastProvider + toast()"]
 CONFIRM["ConfirmDialog"]
-end
+END
 CSSVARS --> TWCONFIG
 CNUTIL --> BUTTON
 CNUTIL --> CARD
 CNUTIL --> INPUT
 CNUTIL --> TOAST
 CNUTIL --> CONFIRM
+I18N --> ENJSON
+I18N --> ZHJSON
+LANGSWITCH --> I18N
+LOADING --> I18N
+BUTTON --> CNUTIL
+CARD --> CNUTIL
+INPUT --> CNUTIL
+TOAST --> CNUTIL
+CONFIRM --> CNUTIL
 ```
 
 **Diagram sources**
 - [index.css:1-153](file://frontend/src/index.css#L1-L153)
 - [tailwind.config.js:19-82](file://frontend/tailwind.config.js#L19-L82)
 - [cn.ts:1-8](file://frontend/src/utils/cn.ts#L1-L8)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
+- [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812)
+- [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [Loading.tsx:1-57](file://frontend/src/components/common/Loading.tsx#L1-L57)
 - [button.tsx:6-30](file://frontend/src/components/ui/button.tsx#L6-L30)
 - [card.tsx:5-56](file://frontend/src/components/ui/card.tsx#L5-L56)
 - [input.tsx:7-21](file://frontend/src/components/ui/input.tsx#L7-L21)
 - [toast.tsx:17-60](file://frontend/src/components/ui/toast.tsx#L17-L60)
 - [confirm-dialog.tsx:15-75](file://frontend/src/components/ui/confirm-dialog.tsx#L15-L75)
+
+## Internationalization System
+
+### i18n Configuration
+The application uses react-i18next with comprehensive configuration for automatic language detection, localStorage persistence, and fallback mechanisms.
+
+**Key Features:**
+- Automatic language detection via browser and localStorage
+- Fallback to Chinese (zh-CN) when no language detected
+- JSON-based translation files with hierarchical key structures
+- Dynamic language switching with immediate UI updates
+- Interpolation support for dynamic content
+- Local storage persistence with custom key 'yinji-language'
+
+```mermaid
+flowchart TD
+START["Application Start"] --> INIT["Initialize i18n"]
+INIT --> DETECT["Detect Browser Language"]
+DETECT --> STORAGE["Check localStorage 'yinji-language'"]
+STORAGE --> FALLBACK["Fallback to zh-CN"]
+FALLBACK --> LOAD["Load Translation Files"]
+LOAD --> PROVIDER["Wrap App with I18n Provider"]
+PROVIDER --> SWITCH["Language Switcher Active"]
+SWITCH --> DYNAMIC["Dynamic Language Updates"]
+```
+
+**Diagram sources**
+- [index.ts:9-41](file://frontend/src/i18n/index.ts#L9-L41)
+- [LanguageSwitcher.tsx:4-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L4-L24)
+
+### Translation Key Structure
+Translation keys are organized hierarchically for better maintainability and scoping:
+
+- `common`: Basic UI elements and actions (loading, save, cancel, delete, edit, create, search, back, next, confirm, success, error, warning, submit, copy, update, complete, reset, close, open, yes, no, ok, or, language, settings, profile, logout, login, register)
+- `auth`: Authentication-related strings (login, register, forgotPassword, guidedQuestions)
+- `navigation`: Navigation and menu items (dashboard, diaries, timeline, analysis, emotion, community, settings, myDiaries, writeDiary, myPosts, collections, profile, growth)
+- `diary`: Diary-specific content (title, newDiary, editDiary, deleteDiary, deleteConfirm, diaryList, diaryDetail, noDiaries, noTitle, updateSuccess, saveSuccess, saveFailed, needContentForTitle, titleGenerated, titleGenerateFailed, momentGenerated, generateFailed, copyFailed, copied, copy, pasteHistory, diaryImage, saveStyleFailed, notFound, backToList, socialPost, generateSocialPost, generating, totalDiaries, wordCount, words, searchPlaceholder, deleteSuccess, deleteFailed, createdAt, updatedAt, emotionTags, importance, isAnalyzed, notAnalyzed, generateTitle, analyzing, analyzeSuccess, analyzeFailed, emotion subcategory)
+- `editor`: Editor interface strings (title, content, titlePlaceholder, contentPlaceholder, saveSuccess, saveFailed, unsavedChanges, insertImage, bold, italic, aiTitle)
+- `analysis`: AI analysis content (various analysis-related strings)
+- `timeline`: Timeline-related strings (various timeline-related strings)
+- `emotion`: Emotion tracking content (emotion categories and labels)
+- `community`: Community features (various community-related strings)
+- `settings`: Settings interface (various settings-related strings)
+- `dashboard`: Dashboard content (various dashboard-related strings)
+- `errors`: Error messages (various error-related strings)
+- `validation`: Form validation messages (various validation-related strings)
+- `captcha`: Security verification (various captcha-related strings)
+- `growth`: Growth center content (various growth-related strings)
+- `landing`: Landing page content (various landing-related strings)
+- `sprite`: AI sprite content (various sprite-related strings)
+- `communityPage`: Community page content (various community page-related strings)
+- `createPost`: Post creation content (various post creation-related strings)
+- `icebergOverview`: Iceberg analysis content (various iceberg overview-related strings)
+- `analysisResult`: Analysis result content (various analysis result-related strings)
+- `satirIceberg`: Satir iceberg model content (various satir iceberg-related strings)
+- `profileSettings`: Profile settings content (various profile settings-related strings)
+
+**Section sources**
+- [index.ts:13-20](file://frontend/src/i18n/index.ts#L13-L20)
+- [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812)
+- [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)
+
+### Language Switching Implementation
+The LanguageSwitcher component provides seamless language switching with persistent storage:
+
+**Features:**
+- Real-time language switching without page reload
+- Country flag indicators for better UX (🇨🇳 for Chinese, 🇺🇸 for English)
+- Persistent language preference in localStorage under key 'yinji-language'
+- Immediate UI updates across all components using react-i18next
+- Comprehensive language coverage with two supported languages
+- Proper accessibility attributes and keyboard navigation support
+
+**Section sources**
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [index.ts:26-30](file://frontend/src/i18n/index.ts#L26-L30)
+
+### Component Integration Patterns
+UI components integrate with i18n through the useTranslation hook and translation keys:
+
+**Usage Examples:**
+- Direct translation: `t('auth.login.title')`
+- Interpolated content: `t('diary.totalDiaries', { count: 5 })`
+- Conditional translations: `t(mode === 'password' ? 'auth.login.password' : 'auth.register.verificationCode')`
+- Form field labels and placeholders
+- Toast notifications with localized messages
+- Button labels and action text
+- Loading indicators with accessible labels
+- Confirmation dialog text and button labels
+
+**Section sources**
+- [LoginPage.tsx:14-68](file://frontend/src/pages/auth/LoginPage.tsx#L14-L68)
+- [Loading.tsx:10-47](file://frontend/src/components/common/Loading.tsx#L10-L47)
+- [en-US.json:34-105](file://frontend/src/i18n/locales/en-US.json#L34-L105)
+- [zh-CN.json:34-105](file://frontend/src/i18n/locales/zh-CN.json#L34-L105)
 
 ## Detailed Component Analysis
 
@@ -239,7 +392,7 @@ participant Caller as "Component"
 participant API as "toast()"
 participant Provider as "ToastProvider"
 participant DOM as "Overlay Container"
-Caller->>API : toast(message, type)
+Caller->>API : toast(t('common.success'), 'success')
 API->>Provider : addToast(message, type)
 Provider->>Provider : push toast to state
 Provider->>DOM : render toast item
@@ -283,21 +436,60 @@ Wait --> Close(["Close dialog"])
 **Section sources**
 - [confirm-dialog.tsx:1-77](file://frontend/src/components/ui/confirm-dialog.tsx#L1-L77)
 
+### Language Switcher Component
+- Purpose: Enables dynamic language switching with persistent storage.
+- Features: Real-time switching, country flags, localStorage persistence.
+- Integration: Works seamlessly with the i18n system for immediate UI updates.
+- Accessibility: Proper ARIA labels and keyboard navigation support.
+
+```mermaid
+classDiagram
+class LanguageSwitcherProps {
++lng : string
+}
+class LanguageSwitcher {
++changeLanguage(lng : string)
++render() : JSX.Element
+}
+LanguageSwitcher --> LanguageSwitcherProps : "accepts"
+```
+
+**Diagram sources**
+- [LanguageSwitcher.tsx:4-24](file://frontend/src/components/common/LanguageSwitcher.tsx#L4-L24)
+
+**Section sources**
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+
+### Loading Component
+- Purpose: Universal loading indicator with internationalized accessibility labels.
+- Features: Multiple size variants (sm, md, lg), accessible ARIA labels, screen reader support.
+- Integration: Uses useTranslation hook for loading text and proper accessibility attributes.
+- Accessibility: Includes sr-only span for screen readers with localized loading text.
+
+**Section sources**
+- [Loading.tsx:1-57](file://frontend/src/components/common/Loading.tsx#L1-L57)
+
 ## Dependency Analysis
-The UI components depend on shared utilities and Tailwind configuration. The toast system depends on the provider being mounted at the application root.
+The UI components depend on shared utilities and Tailwind configuration. The internationalization system adds react-i18next dependencies and translation files. The toast system depends on the provider being mounted at the application root.
 
 ```mermaid
 graph LR
 PKG["package.json<br/>dependencies/plugins"] --> RADIX["@radix-ui/*"]
 PKG --> CVA["class-variance-authority"]
 PKG --> CLSX["clsx + tailwind-merge"]
+PKG --> I18NEXT["i18next + react-i18next"]
 CN["cn.ts"] --> TWCSS["Tailwind CSS"]
 BTN["button.tsx"] --> CN
 CARD["card.tsx"] --> CN
 INPUT["input.tsx"] --> CN
 TOAST["toast.tsx"] --> CN
 CONFIRM["confirm-dialog.tsx"] --> CN
+LANGSWITCH["LanguageSwitcher.tsx"] --> I18NEXT
+LOADING["Loading.tsx"] --> I18NEXT
+I18N["i18n/index.ts"] --> ENJSON["en-US.json"]
+I18N --> ZHJSON["zh-CN.json"]
 APP["App.tsx"] --> TOAST
+APP --> LANGSWITCH
 ```
 
 **Diagram sources**
@@ -308,6 +500,9 @@ APP["App.tsx"] --> TOAST
 - [input.tsx:3](file://frontend/src/components/ui/input.tsx#L3)
 - [toast.tsx:3](file://frontend/src/components/ui/toast.tsx#L3)
 - [confirm-dialog.tsx:1](file://frontend/src/components/ui/confirm-dialog.tsx#L1)
+- [LanguageSwitcher.tsx:1](file://frontend/src/components/common/LanguageSwitcher.tsx#L1)
+- [Loading.tsx:1-3](file://frontend/src/components/common/Loading.tsx#L1-L3)
+- [index.ts:1-44](file://frontend/src/i18n/index.ts#L1-L44)
 - [App.tsx:5-6](file://frontend/src/App.tsx#L5-L6)
 
 **Section sources**
@@ -318,19 +513,26 @@ APP["App.tsx"] --> TOAST
 - Minimal re-renders: Components are lightweight wrappers; avoid unnecessary prop churn.
 - Toast lifecycle: Automatic cleanup prevents memory leaks; keep message count reasonable.
 - CSS variables: Centralized theme values reduce repaints and enable smooth dark mode transitions.
-
-[No sources needed since this section provides general guidance]
+- i18n optimization: Lazy loading of translation files and efficient key lookup for better performance.
+- Language persistence: localStorage caching reduces repeated language detection overhead.
+- Component memoization: Consider using React.memo for frequently rendered components.
 
 ## Accessibility and UX Features
 - Focus management: Buttons and inputs apply focus-visible rings for keyboard navigation.
 - Screen reader support: Confirm dialog includes aria-label on the backdrop close button.
 - Keyboard navigation: Components rely on native semantics; ensure parent containers manage focus order.
 - Motion preferences: Provide reduced-motion alternatives where animations are used.
+- Language switching: Proper ARIA labels and keyboard navigation for language selector.
+- Dynamic updates: Seamless language switching without disrupting user experience.
+- Loading states: Accessible loading indicators with proper ARIA attributes and screen reader support.
+- Form validation: Internationalized error messages and validation feedback.
 
 **Section sources**
 - [button.tsx:7](file://frontend/src/components/ui/button.tsx#L7)
 - [input.tsx:12-18](file://frontend/src/components/ui/input.tsx#L12-L18)
 - [confirm-dialog.tsx:31](file://frontend/src/components/ui/confirm-dialog.tsx#L31)
+- [LanguageSwitcher.tsx:14-22](file://frontend/src/components/common/LanguageSwitcher.tsx#L14-L22)
+- [Loading.tsx:21-44](file://frontend/src/components/common/Loading.tsx#L21-L44)
 
 ## Styling Architecture and Design System
 - Theme tokens: CSS variables define semantic colors and radii; Tailwind reads these via hsl().
@@ -376,12 +578,27 @@ COMPONENTS --> RENDER["Rendered with merged classes"]
 
 - Toast
   - Wrap app with ToastProvider once at root.
-  - Trigger notifications via toast(message, type).
+  - Trigger notifications via toast(t('common.success'), type).
   - Reference: [toast.tsx:13-31](file://frontend/src/components/ui/toast.tsx#L13-L31), [App.tsx:69](file://frontend/src/App.tsx#L69)
 
 - ConfirmDialog
   - Controlled via open prop; handle onConfirm/onCancel callbacks.
   - Reference: [confirm-dialog.tsx:15-75](file://frontend/src/components/ui/confirm-dialog.tsx#L15-L75)
+
+- Language Switcher
+  - Integrates with i18n system for dynamic language switching.
+  - Reference: [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+
+- Loading Component
+  - Use size variants (sm, md, lg) for different contexts.
+  - Accessible loading with proper ARIA labels.
+  - Reference: [Loading.tsx:10-47](file://frontend/src/components/common/Loading.tsx#L10-L47)
+
+- Internationalization
+  - Use translation keys from structured JSON files.
+  - Support interpolation with variables: t('diary.totalDiaries', { count: 5 }).
+  - Conditional translations based on component state.
+  - Reference: [index.ts:13-20](file://frontend/src/i18n/index.ts#L13-L20), [en-US.json:153](file://frontend/src/i18n/locales/en-US.json#L153)
 
 - Theming and customization
   - Adjust CSS variables in :root to change semantic colors.
@@ -390,12 +607,14 @@ COMPONENTS --> RENDER["Rendered with merged classes"]
 
 - TypeScript integration
   - Props extend native HTML attributes; ensure type safety for custom props.
+  - i18n types are properly typed with react-i18next.
   - Reference: [button.tsx:32-36](file://frontend/src/components/ui/button.tsx#L32-L36), [input.tsx:5](file://frontend/src/components/ui/input.tsx#L5), [confirm-dialog.tsx:4-13](file://frontend/src/components/ui/confirm-dialog.tsx#L4-L13)
 
 - Contribution standards
   - Use cn for class merging; define variants with class-variance-authority.
   - Keep components thin; rely on Tailwind utilities.
   - Add aria-* attributes where appropriate.
+  - Implement proper translation keys for new UI strings.
   - Reference: [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7), [button.tsx:6-30](file://frontend/src/components/ui/button.tsx#L6-L30)
 
 **Section sources**
@@ -404,6 +623,9 @@ COMPONENTS --> RENDER["Rendered with merged classes"]
 - [input.tsx:5-21](file://frontend/src/components/ui/input.tsx#L5-L21)
 - [toast.tsx:13-31](file://frontend/src/components/ui/toast.tsx#L13-L31)
 - [confirm-dialog.tsx:15-75](file://frontend/src/components/ui/confirm-dialog.tsx#L15-L75)
+- [LanguageSwitcher.tsx:1-25](file://frontend/src/components/common/LanguageSwitcher.tsx#L1-L25)
+- [Loading.tsx:10-47](file://frontend/src/components/common/Loading.tsx#L10-L47)
+- [index.ts:13-20](file://frontend/src/i18n/index.ts#L13-L20)
 - [index.css:5-41](file://frontend/src/index.css#L5-L41)
 - [tailwind.config.js:19-67](file://frontend/tailwind.config.js#L19-L67)
 - [cn.ts:5-7](file://frontend/src/utils/cn.ts#L5-L7)
@@ -427,6 +649,28 @@ COMPONENTS --> RENDER["Rendered with merged classes"]
   - Verify open prop and callback handlers are wired correctly.
   - Reference: [confirm-dialog.tsx:25](file://frontend/src/components/ui/confirm-dialog.tsx#L25), [confirm-dialog.tsx:33](file://frontend/src/components/ui/confirm-dialog.tsx#L33)
 
+- Language switching not working
+  - Ensure i18n is initialized before components use translations.
+  - Verify translation keys exist in JSON files.
+  - Check localStorage persistence for language preference under key 'yinji-language'.
+  - Reference: [index.ts:6](file://frontend/src/i18n/index.ts#L6), [LanguageSwitcher.tsx:7-9](file://frontend/src/components/common/LanguageSwitcher.tsx#L7-L9)
+
+- Translation keys not found
+  - Verify key structure matches JSON hierarchy.
+  - Check for typos in translation key paths.
+  - Ensure translation files are properly loaded.
+  - Reference: [en-US.json:1-812](file://frontend/src/i18n/locales/en-US.json#L1-L812), [zh-CN.json:1-812](file://frontend/src/i18n/locales/zh-CN.json#L1-L812)
+
+- Loading indicator accessibility issues
+  - Ensure proper aria-label and sr-only span are present.
+  - Verify useTranslation hook is properly imported and used.
+  - Reference: [Loading.tsx:21-44](file://frontend/src/components/common/Loading.tsx#L21-L44)
+
+- Internationalization performance issues
+  - Check for excessive re-renders in components using t() function.
+  - Consider memoizing components that frequently use translations.
+  - Verify translation files are not excessively large.
+
 **Section sources**
 - [App.tsx:69](file://frontend/src/App.tsx#L69)
 - [toast.tsx:17-31](file://frontend/src/components/ui/toast.tsx#L17-L31)
@@ -436,6 +680,9 @@ COMPONENTS --> RENDER["Rendered with merged classes"]
 - [input.tsx:12-18](file://frontend/src/components/ui/input.tsx#L12-L18)
 - [confirm-dialog.tsx:25](file://frontend/src/components/ui/confirm-dialog.tsx#L25)
 - [confirm-dialog.tsx:33](file://frontend/src/components/ui/confirm-dialog.tsx#L33)
+- [LanguageSwitcher.tsx:7-9](file://frontend/src/components/common/LanguageSwitcher.tsx#L7-L9)
+- [index.ts:6](file://frontend/src/i18n/index.ts#L6)
+- [Loading.tsx:21-44](file://frontend/src/components/common/Loading.tsx#L21-L44)
 
 ## Conclusion
-The 映记 UI component library leverages Radix UI primitives and Tailwind CSS to deliver accessible, themeable, and composable components. The design system centers on CSS variables and Tailwind’s utility-first approach, enabling consistent styling and easy customization. By following the documented patterns and contribution standards, teams can extend the library while maintaining accessibility, responsiveness, and performance.
+The 映记 UI component library leverages Radix UI primitives and Tailwind CSS to deliver accessible, themeable, and composable components. The design system centers on CSS variables and Tailwind's utility-first approach, enabling consistent styling and easy customization. The newly integrated internationalization system provides comprehensive language support with automatic detection, dynamic switching, and structured translation keys. The library now includes proper accessibility features for loading states, comprehensive troubleshooting guidance, and optimized performance considerations. By following the documented patterns and contribution standards, teams can extend the library while maintaining accessibility, responsiveness, performance, and multilingual capabilities.

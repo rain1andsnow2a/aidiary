@@ -3,6 +3,8 @@
 <cite>
 **Referenced Files in This Document**
 - [AnalysisOverview.tsx](file://frontend/src/pages/analysis/AnalysisOverview.tsx)
+- [AnalysisResult.tsx](file://frontend/src/pages/analysis/AnalysisResult.tsx)
+- [SatirIceberg.tsx](file://frontend/src/pages/analysis/SatirIceberg.tsx)
 - [Loading.tsx](file://frontend/src/components/common/Loading.tsx)
 - [button.tsx](file://frontend/src/components/ui/button.tsx)
 - [analysis.ts](file://frontend/src/types/analysis.ts)
@@ -15,14 +17,18 @@
 - [llm.py](file://backend/app/agents/llm.py)
 - [diary.py](file://backend/app/models/diary.py)
 - [diary.schema.py](file://backend/app/schemas/diary.py)
+- [en-US.json](file://frontend/src/i18n/locales/en-US.json)
+- [zh-CN.json](file://frontend/src/i18n/locales/zh-CN.json)
+- [index.ts](file://frontend/src/i18n/index.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive visual enhancement documentation for ice-themed decorative elements
-- Documented iceberg images during idle states and loading screen animations
-- Updated button styling documentation with gradient backgrounds and hover effects
-- Enhanced visual design system documentation with new color schemes and styling patterns
+- Documented comprehensive internationalization implementation for analysis components
+- Added translation key structure documentation for AnalysisOverview, AnalysisResult, and SatirIceberg
+- Updated visual enhancement documentation to include multilingual support
+- Enhanced internationalization architecture with react-i18next integration
+- Documented translation key categories and naming conventions
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,32 +36,40 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Visual Enhancement System](#visual-enhancement-system)
-7. [Dependency Analysis](#dependency-analysis)
-8. [Performance Considerations](#performance-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
+6. [Internationalization System](#internationalization-system)
+7. [Visual Enhancement System](#visual-enhancement-system)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Analysis Overview Component is a sophisticated React-based interface that presents comprehensive psychological insights derived from user journal entries using the Satir Iceberg Model. This component serves as the primary user interface for displaying multi-layered analysis results, featuring five distinct depth levels that progressively reveal deeper psychological patterns and insights.
 
+**Updated** The component now features comprehensive internationalization support with consistent multilingual UI elements across AnalysisOverview, AnalysisResult, and SatirIceberg components. All analysis-related UI elements utilize translation keys for seamless language switching between Chinese and English.
+
 The component integrates advanced AI-powered analysis capabilities, combining Retrieval-Augmented Generation (RAG) techniques with multi-agent orchestration to provide users with meaningful self-reflection opportunities. It transforms raw journal data into structured insights about behavior patterns, emotional trends, cognitive processes, core beliefs, and deepest desires.
 
-**Updated** Enhanced with comprehensive ice-themed visual design system including decorative elements, loading animations, and improved button styling with gradient backgrounds and hover effects.
+Enhanced with comprehensive ice-themed visual design system including decorative elements, loading animations, and improved button styling with gradient backgrounds and hover effects.
 
 ## Project Structure
 
-The Analysis Overview Component follows a clear separation of concerns across the frontend and backend architecture:
+The Analysis Overview Component follows a clear separation of concerns across the frontend and backend architecture with integrated internationalization support:
 
 ```mermaid
 graph TB
 subgraph "Frontend Layer"
 AO[AnalysisOverview.tsx]
+AR[AnalysisResult.tsx]
+SI[SatirIceberg.tsx]
 AS[ai.service.ts]
 AT[analysis.ts]
 LC[Loading Component]
 BT[Button Component]
+I18N[i18n System]
+EN[en-US.json]
+ZH[zh-CN.json]
 end
 subgraph "Backend Layer"
 API[AI API Endpoints]
@@ -70,6 +84,13 @@ subgraph "External Services"
 DEEPSEEK[DeepSeek API]
 end
 AO --> AS
+AR --> AS
+SI --> AR
+AO --> I18N
+AR --> I18N
+SI --> I18N
+I18N --> EN
+I18N --> ZH
 AS --> API
 API --> ORCH
 ORCH --> AGENTS
@@ -79,18 +100,25 @@ API --> RAG
 API --> MODELS
 LLM --> DEEPSEEK
 AO --> LC
+AR --> LC
+SI --> LC
 AO --> BT
+AR --> BT
 ```
 
 **Diagram sources**
-- [AnalysisOverview.tsx:1-415](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L1-L415)
+- [AnalysisOverview.tsx:1-425](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L1-L425)
+- [AnalysisResult.tsx:1-401](file://frontend/src/pages/analysis/AnalysisResult.tsx#L1-L401)
+- [SatirIceberg.tsx:1-220](file://frontend/src/pages/analysis/SatirIceberg.tsx#L1-L220)
 - [Loading.tsx:1-55](file://frontend/src/components/common/Loading.tsx#L1-L55)
 - [button.tsx:1-52](file://frontend/src/components/ui/button.tsx#L1-L52)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 - [ai.py:268-388](file://backend/app/api/v1/ai.py#L268-L388)
 
 **Section sources**
-- [AnalysisOverview.tsx:1-415](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L1-L415)
+- [AnalysisOverview.tsx:1-425](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L1-L425)
+- [AnalysisResult.tsx:1-401](file://frontend/src/pages/analysis/AnalysisResult.tsx#L1-L401)
+- [SatirIceberg.tsx:1-220](file://frontend/src/pages/analysis/SatirIceberg.tsx#L1-L220)
 - [ai.service.ts:1-112](file://frontend/src/services/ai.service.ts#L1-L112)
 - [ai.py:268-388](file://backend/app/api/v1/ai.py#L268-L388)
 
@@ -98,31 +126,31 @@ AO --> BT
 
 ### Frontend Analysis Component
 
-The Analysis Overview Component is built around several key frontend elements with enhanced visual design:
+The Analysis Overview Component is built around several key frontend elements with enhanced visual design and comprehensive internationalization support:
 
 #### Iceberg Layer Configuration
 The component defines five distinct layers of psychological analysis, each with unique visual styling and semantic meaning:
 
-| Layer | Depth Level | Purpose | Visual Indicators |
-|-------|-------------|---------|-------------------|
-| Behavior | Surface Level | Observable actions and patterns | Wave icon, sky blue gradients |
-| Emotion | Subsurface Level | Feelings and emotional patterns | Droplet icon, blue gradients |
-| Cognition | Deeper Level | Thinking patterns and beliefs | Brain icon, indigo gradients |
-| Belief | Deep Level | Core values and life principles | Key icon, violet gradients |
-| Yearning | Deepest Level | Fundamental desires and life energy | Heart icon, purple gradients |
+| Layer | Depth Level | Purpose | Visual Indicators | Translation Keys |
+|-------|-------------|---------|-------------------|------------------|
+| Behavior | Surface Level | Observable actions and patterns | Wave icon, sky blue gradients | `icebergOverview.layers.behavior` |
+| Emotion | Subsurface Level | Feelings and emotional patterns | Droplet icon, blue gradients | `icebergOverview.layers.emotion` |
+| Cognition | Deeper Level | Thinking patterns and beliefs | Brain icon, indigo gradients | `icebergOverview.layers.cognition` |
+| Belief | Deep Level | Core values and life principles | Key icon, violet gradients | `icebergOverview.layers.belief` |
+| Yearning | Deepest Level | Fundamental desires and life energy | Heart icon, purple gradients | `icebergOverview.layers.yearning` |
 
 #### Interactive Card System
 Each layer is presented as an expandable card with smooth animations and progressive disclosure:
 
-- **Summary View**: Initial collapsed state showing layer summary
-- **Expanded Details**: Full breakdown of patterns, evidence, and insights
+- **Summary View**: Initial collapsed state showing layer summary with translated labels
+- **Expanded Details**: Full breakdown of patterns, evidence, and insights with localized content
 - **Visual Enhancements**: Color-coded indicators, emotion flow visualization
 - **Progressive Animation**: Staggered entrance effects for depth perception
 - **Ice-Themed Styling**: Layer-specific gradient backgrounds and border styles
 
 #### Evidence Presentation
 The component displays supporting evidence with:
-- **Source Attribution**: Diary dates and titles
+- **Source Attribution**: Diary dates and titles with proper localization
 - **Relevance Scoring**: Quality indicators for each evidence piece
 - **Context Snippets**: Extracted text fragments from original entries
 - **Reason Classification**: Why each piece was selected for analysis
@@ -137,7 +165,7 @@ The component incorporates comprehensive ice-themed decorative elements:
 **Section sources**
 - [AnalysisOverview.tsx:8-60](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L8-L60)
 - [AnalysisOverview.tsx:80-238](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L80-L238)
-- [AnalysisOverview.tsx:240-415](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L240-L415)
+- [AnalysisOverview.tsx:240-425](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L240-L425)
 
 ### Backend Analysis Pipeline
 
@@ -166,18 +194,21 @@ The analysis pipeline coordinates multiple specialized agents:
 
 ## Architecture Overview
 
-The Analysis Overview Component implements a comprehensive microservices architecture with clear separation between presentation, business logic, and data processing layers:
+The Analysis Overview Component implements a comprehensive microservices architecture with clear separation between presentation, business logic, and data processing layers, enhanced with internationalization support:
 
 ```mermaid
 sequenceDiagram
 participant User as User Interface
 participant FE as Frontend Service
+participant I18N as i18n System
 participant BE as Backend API
 participant RAG as RAG Service
 participant Agents as Agent Orchestrator
 participant LLM as DeepSeek API
 participant DB as Database
 User->>FE : Request Analysis
+FE->>I18N : Get Translation Keys
+I18N-->>FE : Localized Strings
 FE->>BE : comprehensiveAnalysis()
 BE->>DB : Fetch Journal Entries
 DB-->>BE : Return Diaries
@@ -191,6 +222,8 @@ Agents-->>BE : Return Structured Analysis
 BE->>DB : Store Analysis Results
 DB-->>BE : Confirm Storage
 BE-->>FE : Return Complete Analysis
+FE->>I18N : Format Results with Translations
+I18N-->>FE : Localized Analysis Data
 FE-->>User : Display Results with Visual Enhancements
 Note over User,DB : Analysis Stored for Future Reference
 ```
@@ -270,7 +303,7 @@ The component utilizes improved button styling with:
 
 **Section sources**
 - [AnalysisOverview.tsx:8-60](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L8-L60)
-- [AnalysisOverview.tsx:241-415](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L241-L415)
+- [AnalysisOverview.tsx:241-425](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L241-L425)
 - [button.tsx:6-30](file://frontend/src/components/ui/button.tsx#L6-L30)
 
 ### Backend Processing Pipeline
@@ -416,6 +449,92 @@ ICEBERG_ANALYSIS_RESPONSE ||--|| YEARNING_LAYER
 - [analysis.ts:119-139](file://frontend/src/types/analysis.ts#L119-L139)
 - [analysis.ts:46-139](file://frontend/src/types/analysis.ts#L46-L139)
 
+## Internationalization System
+
+### Translation Key Structure
+
+The analysis components utilize a comprehensive translation key system with structured categorization:
+
+#### Translation Key Categories
+
+**Analysis Overview (icebergOverview)**
+- `title`: "Iceberg Journey" / "冰山之旅"
+- `analysisFailed`: "Iceberg analysis failed" / "冰山分析失败"
+- `dive1-dive4`: Diving progression labels
+- `layers`: Layer-specific translations with sublabels
+- `processingTime`: "Processing time {{time}}s" / "分析耗时 {{time}}s"
+
+**Analysis Result (analysisResult)**
+- `aiAnalysis`: "AI Analysis" / "AI 分析"
+- `satirModel`: "Satir Iceberg Model" / "萨提亚冰山模型"
+- `timelineEvent`: "Timeline Event" / "时间轴事件"
+- `healingResponse`: "Healing Response" / "疗愈回复"
+- `socialPosts`: "Social Posts" / "朋友圈文案"
+
+**Satir Iceberg (satirIceberg)**
+- `behaviorLayer`: "Behavior Layer" / "行为层"
+- `emotionLayer`: "Emotion Layer" / "情绪层"
+- `cognitiveLayer`: "Cognitive Layer" / "认知层"
+- `beliefLayer`: "Belief Layer" / "信念层"
+- `existenceLayer`: "Existence Layer" / "存在层"
+
+#### Translation Key Implementation
+
+All components implement internationalization through react-i18next:
+
+```typescript
+// AnalysisOverview.tsx
+const { t } = useTranslation();
+// Usage examples:
+t('icebergOverview.layers.behavior')
+t('icebergOverview.startJourney')
+t('icebergOverview.expand')
+
+// AnalysisResult.tsx  
+const { t } = useTranslation();
+// Usage examples:
+t('analysisResult.aiAnalysis')
+t('analysisResult.satirModel')
+t('analysisResult.timelineEvent')
+
+// SatirIceberg.tsx
+const { t } = useTranslation();
+// Usage examples:
+t('satirIceberg.behaviorLayer')
+t('satirIceberg.emotionLayer')
+```
+
+#### Language Detection and Fallback
+
+The i18n system provides automatic language detection with fallback support:
+
+```typescript
+// i18n/index.ts
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      'zh-CN': { translation: zh_CN },
+      'en-US': { translation: en_US },
+    },
+    fallbackLng: 'zh-CN',
+    detection: {
+      order: ['localStorage', 'navigator'],
+      lookupLocalStorage: 'yinji-language',
+      caches: ['localStorage'],
+    },
+  });
+```
+
+**Section sources**
+- [AnalysisOverview.tsx:246](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L246)
+- [AnalysisResult.tsx:19](file://frontend/src/pages/analysis/AnalysisResult.tsx#L19)
+- [SatirIceberg.tsx:12](file://frontend/src/pages/analysis/SatirIceberg.tsx#L12)
+- [en-US.json:625-666](file://frontend/src/i18n/locales/en-US.json#L625-L666)
+- [zh-CN.json:625-666](file://frontend/src/i18n/locales/zh-CN.json#L625-L666)
+- [index.ts:9-41](file://frontend/src/i18n/index.ts#L9-L41)
+
 ## Visual Enhancement System
 
 ### Ice-Themed Decorative Elements
@@ -495,16 +614,21 @@ The component implements a comprehensive animation framework:
 
 ## Dependency Analysis
 
-The Analysis Overview Component exhibits strong modularity with clear dependency boundaries:
+The Analysis Overview Component exhibits strong modularity with clear dependency boundaries and comprehensive internationalization support:
 
 ```mermaid
 graph TD
 subgraph "Frontend Dependencies"
 AO[AnalysisOverview.tsx]
+AR[AnalysisResult.tsx]
+SI[SatirIceberg.tsx]
 AT[analysis.ts]
 AS[ai.service.ts]
 LC[Loading Component]
 BT[Button Component]
+I18N[i18n System]
+EN[en-US.json]
+ZH[zh-CN.json]
 end
 subgraph "Backend Dependencies"
 API[ai.py]
@@ -520,6 +644,8 @@ DS[DeepSeek API]
 SQL[SQLAlchemy ORM]
 end
 AO --> AS
+AR --> AS
+SI --> AR
 AS --> API
 API --> ORCH
 ORCH --> AGENT
@@ -531,32 +657,48 @@ API --> MODELS
 RAG --> SQL
 MODELS --> SQL
 AO --> LC
+AR --> LC
+SI --> LC
 AO --> BT
+AR --> BT
+SI --> BT
+AO --> I18N
+AR --> I18N
+SI --> I18N
+I18N --> EN
+I18N --> ZH
 style AO fill:#e1f5fe
-style API fill:#f3e5f5
-style DS fill:#fff3e0
+style AR fill:#e8f5e8
+style SI fill:#f3e5f5
+style API fill:#fff3e0
+style DS fill:#ffebee
 ```
 
 **Diagram sources**
 - [AnalysisOverview.tsx:1-6](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L1-L6)
+- [AnalysisResult.tsx:1-11](file://frontend/src/pages/analysis/AnalysisResult.tsx#L1-L11)
+- [SatirIceberg.tsx:1-5](file://frontend/src/pages/analysis/SatirIceberg.tsx#L1-L5)
 - [ai.py:23-31](file://backend/app/api/v1/ai.py#L23-L31)
 - [llm.py:13-220](file://backend/app/agents/llm.py#L13-L220)
 
 ### Component Coupling Analysis
 
-The component demonstrates excellent separation of concerns with enhanced visual integration:
+The component demonstrates excellent separation of concerns with enhanced visual integration and comprehensive internationalization:
 
 - **Frontend**: Pure UI logic with minimal business logic and comprehensive visual enhancements
 - **Backend**: Well-structured API layer with clear service boundaries
 - **Data Access**: Clean SQLAlchemy models with proper relationships
 - **External Integration**: Dedicated LLM client with clear interface
 - **Visual Components**: Separate loading and button components for reusability
+- **Internationalization**: Centralized i18n system with structured translation keys
 
 ### Potential Circular Dependencies
 No circular dependencies detected in the analysis component structure.
 
 **Section sources**
 - [AnalysisOverview.tsx:1-6](file://frontend/src/pages/analysis/AnalysisOverview.tsx#L1-L6)
+- [AnalysisResult.tsx:1-11](file://frontend/src/pages/analysis/AnalysisResult.tsx#L1-L11)
+- [SatirIceberg.tsx:1-5](file://frontend/src/pages/analysis/SatirIceberg.tsx#L1-L5)
 - [ai.py:23-31](file://backend/app/api/v1/ai.py#L23-L31)
 - [diary.py:29-133](file://backend/app/models/diary.py#L29-L133)
 
@@ -633,6 +775,21 @@ The backend implements comprehensive optimization techniques:
 4. Verify all visual assets are properly loaded
 5. Check gradient rendering support in older browsers
 
+#### Internationalization Issues
+**Symptoms**: Missing translations or fallback text
+**Causes**:
+- Missing translation keys in locale files
+- Incorrect key naming conventions
+- Language detection failures
+- Cache synchronization issues
+
+**Solutions**:
+1. Verify translation keys exist in both locale files
+2. Check key naming follows established conventions
+3. Clear localStorage language preference
+4. Restart application to reload translations
+5. Validate i18n configuration
+
 ### Backend Troubleshooting
 
 #### API Response Failures
@@ -686,13 +843,15 @@ The backend implements comprehensive optimization techniques:
 
 The Analysis Overview Component represents a sophisticated implementation of modern web application architecture, seamlessly integrating frontend interactivity with backend AI-powered analysis capabilities. The component successfully bridges the gap between complex psychological analysis and intuitive user experience through careful design and implementation choices.
 
-**Updated** The component now features comprehensive visual enhancements including ice-themed decorative elements, iceberg images during idle states, animated exploration graphics for loading screens, and improved button styling with gradient backgrounds and hover effects. These enhancements significantly improve the user experience while maintaining the technical excellence and architectural integrity of the original design.
+**Updated** The component now features comprehensive internationalization support with consistent multilingual UI elements across AnalysisOverview, AnalysisResult, and SatirIceberg components. All analysis-related UI elements utilize structured translation keys for seamless language switching between Chinese and English, while maintaining the technical excellence and architectural integrity of the original design.
 
 ### Key Strengths
 
 **Architectural Excellence**: The component demonstrates excellent separation of concerns with clear frontend/backend boundaries, modular agent systems, and robust data flow patterns.
 
 **Enhanced User Experience**: The comprehensive visual enhancement system creates an immersive ice-themed experience with decorative elements, loading animations, and polished interactive components.
+
+**Internationalization Excellence**: The centralized i18n system with structured translation keys ensures consistent multilingual support across all analysis components, enabling seamless language switching and cultural adaptation.
 
 **User Experience Innovation**: The progressive disclosure approach, smooth animations, and layered presentation create an engaging and meaningful user journey through psychological self-discovery.
 
@@ -708,4 +867,6 @@ The Analysis Overview Component represents a sophisticated implementation of mod
 
 **Visual Asset Management**: Consider implementing more efficient asset loading strategies and fallback mechanisms for better performance.
 
-The Analysis Overview Component serves as an exemplary model for building complex, data-driven applications that prioritize both technical excellence and user experience. Its modular architecture, clear design patterns, and comprehensive visual enhancement system provide a solid foundation for future enhancements and extensions.
+**Translation Management**: Implement automated translation validation and missing key detection for improved translation quality assurance.
+
+The Analysis Overview Component serves as an exemplary model for building complex, data-driven applications that prioritize both technical excellence and user experience. Its modular architecture, clear design patterns, comprehensive visual enhancement system, and robust internationalization support provide a solid foundation for future enhancements and extensions.

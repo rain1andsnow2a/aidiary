@@ -19,23 +19,37 @@
 - [deps.py](file://backend/app/core/deps.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Enhanced with comprehensive API documentation system overhaul
+- Added standardized OpenAPI schema generation with integrated security schemes
+- Implemented dual authentication methods: Bearer Token and Cookie authentication
+- Added new meta endpoints for authentication flow documentation, error code references, and practical examples
+- Updated error handling section with comprehensive error response format
+- Enhanced troubleshooting guide with new error response structure
+- Added request_id field documentation for debugging and audit trails
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+5. [API Documentation System](#api-documentation-system)
+6. [Enhanced Error Handling](#enhanced-error-handling)
+7. [Detailed Component Analysis](#detailed-component-analysis)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
+12. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API endpoints reference for the 映记 application’s REST API. It covers authentication, diary management, AI analysis, community, and user management endpoints. For each endpoint, you will find HTTP methods, URL patterns, request/response schemas, authentication requirements, validation rules, error handling patterns, and practical usage guidance. Where applicable, curl examples and SDK usage patterns are included.
+This document provides comprehensive API endpoints reference for the 映记 application's REST API. It covers authentication, diary management, AI analysis, community, and user management endpoints. For each endpoint, you will find HTTP methods, URL patterns, request/response schemas, authentication requirements, validation rules, error handling patterns, and practical usage guidance. Where applicable, curl examples and SDK usage patterns are included.
+
+**Updated** Enhanced with comprehensive API documentation system overhaul including standardized OpenAPI schema generation with integrated security schemes supporting both Bearer Token and Cookie authentication methods. Added new meta endpoints for authentication flow documentation, error code references, and practical examples.
 
 ## Project Structure
-The backend is a FastAPI application that mounts multiple routers under /api/v1. Authentication is enforced via bearer tokens. Static file serving is configured for uploads.
+The backend is a FastAPI application that mounts multiple routers under /api/v1. Authentication is enforced via bearer tokens or cookies. Static file serving is configured for uploads. The application now includes standardized API documentation endpoints and enhanced error handling with comprehensive meta endpoints.
 
 ```mermaid
 graph TB
@@ -45,31 +59,49 @@ Main --> DiariesRouter["/api/v1/diaries (diaries.py)"]
 Main --> AIRouter["/api/v1/ai (ai.py)"]
 Main --> UsersRouter["/api/v1/users (users.py)"]
 Main --> CommunityRouter["/api/v1/community (community.py)"]
+Main --> AssistantRouter["/api/v1/assistant (assistant.py)"]
+Main --> IntegrationsRouter["/api/v1/integrations (integrations.py)"]
+Main --> EmotionRouter["/api/v1/emotion (emotion.py)"]
 Main --> StaticUploads["/uploads (StaticFiles)"]
+Main --> APIDocs["/api/doc, /api/docs, /api/redoc (Documentation)"]
+Main --> OpenAPI["/api/openapi.json (Schema)"]
+Main --> MetaAuth["/api/meta/auth-guide (Meta)"]
+Main --> MetaErrors["/api/meta/error-codes (Meta)"]
+Main --> MetaExamples["/api/meta/examples (Meta)"]
 ```
 
 **Diagram sources**
 - [main.py:60-87](file://backend/main.py#L60-L87)
+- [main.py:222-264](file://backend/main.py#L222-L264)
+- [main.py:373-421](file://backend/main.py#L373-L421)
 
 **Section sources**
 - [main.py:42-87](file://backend/main.py#L42-L87)
+- [main.py:216-264](file://backend/main.py#L216-L264)
+- [main.py:373-421](file://backend/main.py#L373-L421)
 
 ## Core Components
-- Authentication: JWT bearer tokens, verification codes, registration/login/reset flows.
+- Authentication: JWT bearer tokens with cookie support, verification codes, registration/login/reset flows.
 - Diary Management: CRUD, timeline queries, image upload, growth insights.
 - AI Analysis: Title suggestions, daily guidance, comprehensive RAG-based analysis, social samples, and analysis persistence.
 - Community: Posts, comments, likes/collections, image upload, browsing history.
 - User Management: Profile retrieval/update, avatar upload.
+- **API Documentation**: Standardized Swagger UI and Redoc documentation endpoints with integrated security schemes.
+- **Enhanced Error Handling**: Unified error response format with request_id for debugging.
+- **Meta Endpoints**: Authentication guides, error code references, and practical examples for improved developer experience.
 
 **Section sources**
-- [auth.py:22-316](file://backend/app/api/v1/auth.py#L22-L316)
+- [auth.py:22-579](file://backend/app/api/v1/auth.py#L22-L579)
 - [diaries.py:29-501](file://backend/app/api/v1/diaries.py#L29-L501)
 - [ai.py:31-902](file://backend/app/api/v1/ai.py#L31-L902)
 - [community.py:20-324](file://backend/app/api/v1/community.py#L20-L324)
 - [users.py:14-103](file://backend/app/api/v1/users.py#L14-L103)
+- [main.py:222-264](file://backend/main.py#L222-L264)
+- [main.py:90-152](file://backend/main.py#L90-L152)
+- [main.py:373-421](file://backend/main.py#L373-L421)
 
 ## Architecture Overview
-High-level API architecture and authentication flow.
+High-level API architecture and authentication flow with enhanced error handling, documentation endpoints, and dual authentication methods.
 
 ```mermaid
 sequenceDiagram
@@ -90,39 +122,209 @@ A->>S : register(email, password, code)
 S->>DB : verify code, create User
 S-->>A : user
 A->>T : create_access_token(user)
+A->>A : set httpOnly cookies (access_token, refresh_token)
 A-->>C : {access_token, token_type, user}
+Note over C,A : Error responses now include request_id for debugging
 ```
 
 **Diagram sources**
 - [auth.py:25-125](file://backend/app/api/v1/auth.py#L25-L125)
 - [auth_service.py:19-98](file://backend/app/services/auth_service.py#L19-L98)
+- [main.py:108-152](file://backend/main.py#L108-L152)
 
 **Section sources**
-- [auth.py:22-316](file://backend/app/api/v1/auth.py#L22-L316)
+- [auth.py:22-579](file://backend/app/api/v1/auth.py#L22-L579)
 - [auth_service.py:16-358](file://backend/app/services/auth_service.py#L16-L358)
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
 - [security.py:43-71](file://backend/app/core/security.py#L43-L71)
+- [main.py:90-152](file://backend/main.py#L90-L152)
+
+## API Documentation System
+**New** The application now provides a comprehensive API documentation system with standardized OpenAPI schema generation and integrated security schemes.
+
+### Standardized Documentation Endpoints
+The application offers multiple standardized endpoints for API documentation:
+
+- **Swagger UI Documentation**
+  - `/api/doc` - Primary documentation endpoint
+  - `/api/doc/` - Tail-slash compatible version
+  - `/api/docs` - Alternative alias for team familiarity
+  - `/api/docs/` - Tail-slash compatible version
+
+- **ReDoc Documentation**
+  - `/api/redoc` - Alternative documentation format
+
+- **OpenAPI Schema**
+  - `/api/openapi.json` - Direct access to OpenAPI specification
+
+### Integrated Security Schemes
+The OpenAPI schema now includes integrated security schemes supporting both authentication methods:
+
+- **Bearer Token Authentication**
+  - Type: HTTP Bearer
+  - Scheme: bearer
+  - Format: JWT
+  - Header: Authorization: Bearer <access_token>
+
+- **Cookie Authentication**
+  - Type: API Key
+  - In: cookie
+  - Name: access_token
+  - HttpOnly: true
+  - Secure: false (should be true in production)
+
+### Documentation Features
+- **Consistent Interface**: All endpoints serve the same OpenAPI schema
+- **Team Compatibility**: Multiple naming conventions to match different development teams
+- **Tail-Slash Support**: Both versions work regardless of trailing slash
+- **Standardized Titles**: Uses application configuration for consistent naming
+- **Integrated Security**: Dual authentication methods documented in schema
+
+### Usage Examples
+```bash
+# Primary documentation
+curl -X GET "{{baseUrl}}/api/doc"
+
+# Alternative alias
+curl -X GET "{{baseUrl}}/api/docs"
+
+# Redoc alternative
+curl -X GET "{{baseUrl}}/api/redoc"
+
+# Direct schema access
+curl -X GET "{{baseUrl}}/api/openapi.json"
+```
+
+**Section sources**
+- [main.py:216-264](file://backend/main.py#L216-L264)
+- [main.py:299-325](file://backend/main.py#L299-L325)
+- [main.py:308-320](file://backend/main.py#L308-L320)
+
+## Enhanced Error Handling
+**New** The application now provides unified error response format with request_id for improved debugging and audit trails.
+
+### Unified Error Response Structure
+All error responses follow a standardized format:
+
+```json
+{
+  "code": 422,
+  "message": "Validation failed",
+  "data": { "errors": [] },
+  "request_id": "uuid",
+  "detail": "Validation failed"
+}
+```
+
+### Error Response Fields
+- **code**: HTTP status code as integer
+- **message**: Human-readable error message
+- **data**: Additional error details (validation errors, etc.)
+- **request_id**: Unique identifier for request tracing
+- **detail**: Backward compatibility field for older clients
+
+### Request ID Middleware
+The application automatically handles request_id through middleware:
+
+- **Generation**: Automatically generates UUID if not provided
+- **Propagation**: Reads X-Request-ID header if present
+- - **Response**: Returns X-Request-ID in response headers
+- **Logging**: Used for consistent error identification
+
+### Exception Handlers
+The application includes three global exception handlers:
+
+1. **HTTP Exceptions** (`StarletteHTTPException`)
+   - Handles HTTP 4xx errors
+   - Returns standardized error format
+
+2. **Validation Exceptions** (`RequestValidationError`)
+   - Parses validation errors into structured format
+   - Extracts field names and error messages
+
+3. **Unhandled Exceptions** (`Exception`)
+   - Catches unexpected server errors
+   - Logs exceptions for debugging
+
+### Error Response Examples
+
+#### Validation Error Response
+```json
+{
+  "code": 422,
+  "message": "Validation failed",
+  "data": {
+    "errors": [
+      {
+        "field": "email",
+        "message": "Invalid email address",
+        "type": "value_error"
+      }
+    ]
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "detail": "Validation failed"
+}
+```
+
+#### HTTP Error Response
+```json
+{
+  "code": 404,
+  "message": "Not found",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "detail": "Not found"
+}
+```
+
+#### Internal Server Error Response
+```json
+{
+  "code": 500,
+  "message": "Internal server error",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "detail": "Internal server error"
+}
+```
+
+### Request ID Usage
+Include request_id in client-side error reporting:
+
+```bash
+# Include custom request ID header
+curl -H "X-Request-ID: custom-request-id-123" "{{baseUrl}}/api/v1/auth/register"
+
+# Response will include X-Request-ID header
+curl "{{baseUrl}}/api/v1/auth/register" | jq .request_id
+```
+
+**Section sources**
+- [main.py:90-152](file://backend/main.py#L90-L152)
 
 ## Detailed Component Analysis
 
 ### Authentication Endpoints
-All endpoints under /api/v1/auth require no authentication for registration/login code sending and verification; subsequent actions (register, login, reset, logout, profile) require a valid bearer token.
+All endpoints under /api/v1/auth require no authentication for registration/login code sending and verification; subsequent actions (register, login, reset, logout, profile) require a valid bearer token or cookie. The system now supports dual authentication methods.
 
 - Base URL: /api/v1/auth
-- Authentication: Bearer token for protected endpoints; none for code send/verify
+- Authentication: Bearer token or Cookie for protected endpoints; none for code send/verify
 - Rate limiting: Verification code send is limited to a fixed number per 5 minutes per email/type.
+- **Error Handling**: All endpoints now return standardized error responses with request_id.
+- **Dual Authentication**: Supports both Authorization header and httpOnly cookie methods.
 
 Endpoints:
 - POST /register/send-code
-  - Request: SendCodeRequest (email, optional type="register")
+  - Request: SendCodeRequest (email, optional type="register", captcha_token, captcha_x, captcha_duration)
   - Response: {success, message}
-  - Validation: type must be "register" if provided
+  - Validation: type must be "register" if provided; captcha verification required
   - Errors: 400 Bad Request (invalid type), 429 Too Many Requests (rate limit), 400 Bad Request (other failures)
   - Example curl:
     ```bash
     curl -X POST "{{baseUrl}}/api/v1/auth/register/send-code" \
       -H "Content-Type: application/json" \
-      -d '{"email":"user@example.com","type":"register"}'
+      -d '{"email":"user@example.com","type":"register","captcha_token":"token","captcha_x":100,"captcha_duration":1000}'
     ```
 
 - POST /register/verify
@@ -141,6 +343,7 @@ Endpoints:
   - Request: RegisterRequest (email, code, password, optional username)
   - Response: TokenResponse (access_token, token_type, user)
   - Validation: code verified, email not taken
+  - Side Effects: Sets httpOnly cookies (access_token, refresh_token)
   - Errors: 400 Bad Request (validation/code errors), 429 Too Many Requests (rate limit)
   - Example curl:
     ```bash
@@ -165,6 +368,7 @@ Endpoints:
   - Request: LoginRequest (email, code)
   - Response: TokenResponse
   - Validation: code verified, user exists and active
+  - Side Effects: Sets httpOnly cookies (access_token, refresh_token)
   - Errors: 400 Bad Request (invalid code or user issues)
   - Example curl:
     ```bash
@@ -177,6 +381,7 @@ Endpoints:
   - Request: PasswordLoginRequest (email, password)
   - Response: TokenResponse
   - Validation: user exists, password matches
+  - Side Effects: Sets httpOnly cookies (access_token, refresh_token)
   - Errors: 400 Bad Request (invalid credentials)
   - Example curl:
     ```bash
@@ -210,16 +415,29 @@ Endpoints:
     ```
 
 - POST /logout
-  - Request: none (requires bearer token)
+  - Request: none (requires bearer token or cookie)
   - Response: {success, message}
+  - Side Effects: Clears httpOnly cookies
   - Example curl:
     ```bash
     curl -X POST "{{baseUrl}}/api/v1/auth/logout" \
       -H "Authorization: Bearer {{access_token}}"
     ```
 
+- POST /refresh
+  - Request: none (requires refresh_token cookie)
+  - Response: TokenResponse (access_token, token_type, user)
+  - Validation: refresh_token cookie valid and not expired
+  - Side Effects: Updates access_token cookie, keeps refresh_token cookie
+  - Errors: 401 Unauthorized (missing/invalid refresh token)
+  - Example curl:
+    ```bash
+    curl -X POST "{{baseUrl}}/api/v1/auth/refresh" \
+      -H "Cookie: refresh_token={{refresh_token}}"
+    ```
+
 - GET /me
-  - Request: none (requires bearer token)
+  - Request: none (requires bearer token or cookie)
   - Response: UserResponse
   - Example curl:
     ```bash
@@ -240,16 +458,17 @@ Schemas:
 - SendCodeRequest, VerifyCodeRequest, RegisterRequest, LoginRequest, PasswordLoginRequest, ResetPasswordRequest, TokenResponse, UserResponse
 
 Validation rules:
-- Email format validated; passwords minimum length; 6-character codes; optional type constrained to specific values; rate limiting on code sends.
+- Email format validated; passwords minimum length; 6-character codes; optional type constrained to specific values; rate limiting on code sends; captcha verification required for code sending.
 
 Rate limiting:
 - Verification code send limited to a fixed number per 5 minutes per email/type.
 
 Security:
 - Access tokens created with HS256; expiration configurable; bearer token required for protected endpoints.
+- HttpOnly cookies for browser-based authentication; refresh token for long-term sessions.
 
 **Section sources**
-- [auth.py:25-316](file://backend/app/api/v1/auth.py#L25-L316)
+- [auth.py:25-579](file://backend/app/api/v1/auth.py#L25-L579)
 - [auth_schemas.py:10-96](file://backend/app/schemas/auth.py#L10-L96)
 - [auth_service.py:19-340](file://backend/app/services/auth_service.py#L19-L340)
 - [config.py:52-60](file://backend/app/core/config.py#L52-L60)
@@ -258,8 +477,9 @@ Security:
 
 ### Diary Management Endpoints
 - Base URL: /api/v1/diaries
-- Authentication: Bearer token required
+- Authentication: Bearer token or Cookie required
 - Image uploads served from /uploads
+- **Error Handling**: All endpoints now return standardized error responses with request_id.
 
 Endpoints:
 - POST /
@@ -417,8 +637,9 @@ Validation rules:
 
 ### AI Analysis Endpoints
 - Base URL: /api/v1/ai
-- Authentication: Bearer token required
+- Authentication: Bearer token or Cookie required
 - Background tasks supported for async execution
+- **Error Handling**: All endpoints now return standardized error responses with request_id.
 
 Endpoints:
 - POST /generate-title
@@ -562,8 +783,9 @@ Validation rules:
 
 ### Community Endpoints
 - Base URL: /api/v1/community
-- Authentication: Bearer token required
+- Authentication: Bearer token or Cookie required
 - Image uploads served from /uploads
+- **Error Handling**: All endpoints now return standardized error responses with request_id.
 
 Endpoints:
 - GET /circles
@@ -599,7 +821,7 @@ Endpoints:
     ```
 
 - GET /posts/mine
-  - Description: List current user’s posts
+  - Description: List current user's posts
   - Query: page, page_size
   - Response: PostListResponse
   - Example curl:
@@ -742,7 +964,8 @@ Validation rules:
 
 ### User Management Endpoints
 - Base URL: /api/v1/users
-- Authentication: Bearer token required
+- Authentication: Bearer token or Cookie required
+- **Error Handling**: All endpoints now return standardized error responses with request_id.
 
 Endpoints:
 - GET /profile
@@ -786,20 +1009,26 @@ Schemas:
 - [auth_schemas.py:58-84](file://backend/app/schemas/auth.py#L58-L84)
 
 ## Dependency Analysis
-Key runtime dependencies and relationships among components.
+Key runtime dependencies and relationships among components with enhanced error handling and dual authentication support.
 
 ```mermaid
 graph TB
 AuthAPI["auth.py"] --> AuthService["auth_service.py"]
 AuthAPI --> Security["security.py"]
+AuthAPI --> Deps["deps.py (HTTPBearer, get_current_active_user)"]
 DiariesAPI["diaries.py"] --> DiaryService["diary_service.py"]
 DiariesAPI --> TimelineService["diary_service.py (TimelineService)"]
 AIAPI["ai.py"] --> AgentOrchestrator["agents/orchestrator.py"]
 AIAPI --> RagService["services/rag_service.py"]
 CommunityAPI["community.py"] --> CommunityService["services/community_service.py"]
 UsersAPI["users.py"] --> User["models/database.py (User)"]
-AllAPIs["All APIs"] --> Deps["deps.py (HTTPBearer, get_current_active_user)"]
-AllAPIs --> Config["config.py (Settings)"]
+AllAPIs["All APIs"] --> Config["config.py (Settings)"]
+MainApp["main.py"] --> ErrorHandlers["Global Error Handlers"]
+MainApp --> RequestIdMW["RequestIdMiddleware"]
+MainApp --> SecurityHeaders["SecurityHeadersMiddleware"]
+MainApp --> SuccessEnvelope["SuccessEnvelopeMiddleware"]
+MainApp --> OpenAPISchema["Custom OpenAPI Schema"]
+MainApp --> MetaEndpoints["Meta Endpoints (Auth Guide, Error Codes, Examples)"]
 ```
 
 **Diagram sources**
@@ -810,6 +1039,9 @@ AllAPIs --> Config["config.py (Settings)"]
 - [users.py:11](file://backend/app/api/v1/users.py#L11)
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
 - [config.py:10-105](file://backend/app/core/config.py#L10-L105)
+- [main.py:90-156](file://backend/main.py#L90-L156)
+- [main.py:299-325](file://backend/main.py#L299-L325)
+- [main.py:373-421](file://backend/main.py#L373-L421)
 
 **Section sources**
 - [auth.py:18-20](file://backend/app/api/v1/auth.py#L18-L20)
@@ -819,6 +1051,9 @@ AllAPIs --> Config["config.py (Settings)"]
 - [users.py:11](file://backend/app/api/v1/users.py#L11)
 - [deps.py:18-66](file://backend/app/core/deps.py#L18-L66)
 - [config.py:10-105](file://backend/app/core/config.py#L10-L105)
+- [main.py:90-156](file://backend/main.py#L90-L156)
+- [main.py:299-325](file://backend/main.py#L299-L325)
+- [main.py:373-421](file://backend/main.py#L373-L421)
 
 ## Performance Considerations
 - Pagination: Use page/page_size consistently across list endpoints to avoid large payloads.
@@ -826,25 +1061,110 @@ AllAPIs --> Config["config.py (Settings)"]
 - Asynchronous AI refinement: Time-axis AI refinement runs in background; do not block on it.
 - Caching: Growth daily insight is cached after first generation; reuse cached results.
 - RAG retrieval: Comprehensive analysis deduplicates evidence and caps chunk counts; tune window_days and max_diaries accordingly.
-
-[No sources needed since this section provides general guidance]
+- **Error Handling**: Standardized error responses reduce client-side error processing overhead.
+- **Request ID**: Enables efficient correlation of logs across distributed systems.
+- **Cookie Authentication**: HttpOnly cookies improve security and reduce client-side complexity.
 
 ## Troubleshooting Guide
-Common errors and resolutions:
-- 400 Bad Request
+**Updated** Enhanced troubleshooting guide with new error response format, dual authentication methods, and meta endpoints.
+
+### Common Errors and Resolutions
+- **400 Bad Request**
   - Invalid parameters or validation failures (e.g., short content, wrong type, missing fields).
   - Example: Registration code type mismatch, invalid social samples, insufficient content length.
-- 401 Unauthorized
-  - Missing or invalid bearer token; token decoding fails.
-  - Resolution: Re-authenticate and obtain a new token.
-- 403 Forbidden
+  - **New**: Check `data.errors` array for field-specific validation details.
+
+- **401 Unauthorized**
+  - Missing or invalid bearer token; token decoding fails; missing refresh token for refresh endpoint.
+  - Resolution: Re-authenticate and obtain a new token; ensure cookie is accessible to browser.
+
+- **403 Forbidden**
   - User disabled or inactive.
-- 404 Not Found
+
+- **404 Not Found**
   - Resource does not exist (e.g., diary, post, analysis result).
-- 429 Too Many Requests
+  - **New**: Use `request_id` to trace the specific request in server logs.
+
+- **429 Too Many Requests**
   - Exceeded verification code send rate limit.
-- 500 Internal Server Error
+
+- **500 Internal Server Error**
   - LLM generation failures, email sending failures, or internal processing errors.
+  - **New**: Include `request_id` when reporting issues to support team.
+
+### Error Response Analysis
+When encountering errors, analyze the standardized response format:
+
+```json
+{
+  "code": 422,
+  "message": "Validation failed",
+  "data": {
+    "errors": [
+      {
+        "field": "email",
+        "message": "Invalid email address",
+        "type": "value_error"
+      }
+    ]
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "detail": "Validation failed"
+}
+```
+
+### Request ID Debugging
+Use request_id for efficient debugging:
+
+```bash
+# Capture request_id from response
+curl -i "{{baseUrl}}/api/v1/auth/register" -d '{}' | grep "X-Request-ID"
+
+# Include custom request ID header for correlation
+curl -H "X-Request-ID: user-session-123" "{{baseUrl}}/api/v1/auth/register"
+
+# Report issues with request_id
+echo "Error occurred during request: 550e8400-e29b-41d4-a716-446655440000"
+```
+
+### Authentication Troubleshooting
+**New** Dual authentication method support:
+
+- **Bearer Token Method**
+  ```bash
+  curl -H "Authorization: Bearer {{access_token}}" "{{baseUrl}}/api/v1/auth/me"
+  ```
+
+- **Cookie Method**
+  ```bash
+  curl -H "Cookie: access_token={{access_token}}" "{{baseUrl}}/api/v1/auth/me"
+  ```
+
+- **Refresh Token Flow**
+  ```bash
+  # When receiving 401 Unauthorized
+  curl -H "Cookie: refresh_token={{refresh_token}}" "{{baseUrl}}/api/v1/auth/refresh"
+  # Then retry original request
+  ```
+
+### Documentation Access
+Access API documentation for debugging:
+
+```bash
+# Swagger UI
+curl "{{baseUrl}}/api/doc"
+
+# Redoc alternative
+curl "{{baseUrl}}/api/redoc"
+
+# Direct schema
+curl "{{baseUrl}}/api/openapi.json"
+
+# Meta endpoints
+curl "{{baseUrl}}/api/meta/auth-guide"
+curl "{{baseUrl}}/api/meta/error-codes"
+curl "{{baseUrl}}/api/meta/examples"
+```
 
 Rate limiting:
 - Verification code send: capped per 5 minutes per email/type.
@@ -853,11 +1173,12 @@ Rate limiting:
 - [auth.py:36-51](file://backend/app/api/v1/auth.py#L36-L51)
 - [auth_service.py:36-51](file://backend/app/services/auth_service.py#L36-L51)
 - [deps.py:35-64](file://backend/app/core/deps.py#L35-L64)
+- [main.py:90-152](file://backend/main.py#L90-L152)
 
 ## Conclusion
-The 映记 API provides a cohesive set of endpoints for authentication, diary management, AI-powered insights, community interaction, and user profile management. All protected endpoints require a valid bearer token. Use the provided schemas and validation rules to construct robust requests, and leverage pagination and limits for efficient client-server interactions.
+The 映记 API provides a cohesive set of endpoints for authentication, diary management, AI-powered insights, community interaction, and user profile management. All protected endpoints require a valid bearer token or cookie. The application now includes standardized API documentation endpoints, comprehensive error handling with request_id support, dual authentication methods, and meta endpoints for enhanced developer experience.
 
-[No sources needed since this section summarizes without analyzing specific files]
+Use the provided schemas and validation rules to construct robust requests, and leverage pagination and limits for efficient client-server interactions. The new standardized error response format ensures consistent error handling across all endpoints. The dual authentication methods (Bearer Token and Cookie) provide flexibility for different client types and deployment scenarios.
 
 ## Appendices
 
@@ -869,28 +1190,65 @@ participant Auth as "/api/v1/auth"
 participant Svc as "AuthService"
 participant DB as "Database"
 participant JWT as "JWT"
-C->>Auth : POST /register/send-code
+C->>Auth : POST /api/v1/auth/register/send-code
 Auth->>Svc : send_verification_code
 Svc->>DB : insert pending code
 Svc->>Svc : send email
 Svc->>DB : commit or rollback
 Auth-->>C : {success,message}
-C->>Auth : POST /register
+C->>Auth : POST /api/v1/auth/register
 Auth->>Svc : register
 Svc->>DB : verify code, create user
 Svc-->>Auth : user
-Auth->>JWT : create_access_token
+Auth->>JWT : create_access_token + refresh_token
+Auth->>Auth : set httpOnly cookies
 Auth-->>C : {access_token,user,...}
+Note over C,Auth : Error responses now include request_id
 ```
 
 **Diagram sources**
 - [auth.py:25-125](file://backend/app/api/v1/auth.py#L25-L125)
 - [auth_service.py:19-98](file://backend/app/services/auth_service.py#L19-L98)
+- [main.py:108-152](file://backend/main.py#L108-L152)
 
 ### SDK Usage Patterns
-- Set Authorization header to "Bearer {{access_token}}" for protected endpoints.
+- Set Authorization header to "Bearer {{access_token}}" for Bearer Token method.
+- For Cookie method, ensure cookies are accessible to browser and include Cookie header.
 - For multipart uploads (images), use form-data with key "file".
 - For JSON bodies, set Content-Type to application/json.
 - Handle pagination by reading total, total_pages, and page_size from list responses.
+- **New**: Include X-Request-ID header for request correlation.
+- **New**: Parse standardized error responses with request_id for debugging.
+- **New**: Use refresh_token cookie for automatic token refresh flow.
 
-[No sources needed since this section provides general guidance]
+### API Documentation Access
+- **Primary**: `{{baseUrl}}/api/doc` - Swagger UI documentation with integrated security schemes
+- **Alternative**: `{{baseUrl}}/api/docs` - Alternative documentation interface
+- **Redoc**: `{{baseUrl}}/api/redoc` - Alternative documentation format
+- **Schema**: `{{baseUrl}}/api/openapi.json` - Direct OpenAPI specification with dual authentication support
+- **Meta Endpoints**: 
+  - `{{baseUrl}}/api/meta/auth-guide` - Authentication guide with dual methods
+  - `{{baseUrl}}/api/meta/error-codes` - Error code reference
+  - `{{baseUrl}}/api/meta/examples` - Practical examples
+
+### Error Response Format Reference
+```json
+{
+  "code": 422,
+  "message": "Validation failed",
+  "data": { "errors": [] },
+  "request_id": "uuid",
+  "detail": "Validation failed"
+}
+```
+
+### Dual Authentication Methods
+**New** Both authentication methods are supported:
+
+- **Bearer Token**: `Authorization: Bearer <access_token>`
+- **Cookie**: `access_token` httpOnly cookie (recommended for browsers)
+
+**Section sources**
+- [main.py:373-421](file://backend/main.py#L373-L421)
+- [main.py:299-325](file://backend/main.py#L299-L325)
+- [auth.py:36-579](file://backend/app/api/v1/auth.py#L36-L579)
