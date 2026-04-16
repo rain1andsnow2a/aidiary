@@ -50,7 +50,13 @@ async def init_db():
     """
     async with engine.begin() as conn:
         # 导入所有模型以确保它们被注册到 Base.metadata
-        from app.models.database import User, VerificationCode
+        from app.models.database import (
+            User,
+            VerificationCode,
+            CounselorApplication,
+            CounselorBinding,
+            CounselorWeeklyDigestLog,
+        )
         from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight
         from app.models.community import CommunityPost, PostComment, PostLike, PostCollect, PostView
         from app.models.assistant import AssistantProfile, AssistantSession, AssistantMessage
@@ -58,6 +64,7 @@ async def init_db():
 
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)
+        await _ensure_user_scope_columns(conn)
 
         # SQLite -> PostgreSQL 迁移后，部分表可能只有主键约束却没有默认序列。
         # 启动时做一次轻量自检，确保整数主键具备 nextval 默认值。
@@ -124,3 +131,39 @@ async def init_db():
                         """
                     )
                 )
+
+
+async def _ensure_user_scope_columns(conn):
+    """为既有数据库补齐用户归属字段，兼容旧库直接升级。"""
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        existing_columns = {
+            row[1] for row in (await conn.execute(text("PRAGMA table_info('users')"))).all()
+        }
+    else:
+        existing_columns = {
+            row[0]
+            for row in (
+                await conn.execute(
+                    text(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = 'users'
+                        """
+                    )
+                )
+            ).all()
+        }
+
+    missing_columns = []
+    if "department" not in existing_columns:
+        missing_columns.append("department")
+    if "class_name" not in existing_columns:
+        missing_columns.append("class_name")
+
+    if not missing_columns:
+        return
+
+    for column_name in missing_columns:
+        await conn.execute(text(f'ALTER TABLE users ADD COLUMN {column_name} VARCHAR(100)'))

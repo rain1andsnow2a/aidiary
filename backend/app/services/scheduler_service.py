@@ -3,6 +3,7 @@
 - 每天 0:00 自动检查当天有更新的日记
 - 对未分析的日记调用大模型进行时间轴事件精炼
 - 更新成长中心数据
+- 每周一次向辅导员/心理老师推送绑定范围内的分析摘要
 """
 import asyncio
 from datetime import datetime, date, timedelta, time as dtime
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import async_session_maker
 from app.models.database import User
 from app.models.diary import Diary, TimelineEvent
+from app.core.config import settings
 
 
 async def _analyze_user_diaries_for_date(
@@ -105,6 +107,20 @@ async def run_daily_analysis():
         print(f"[Scheduler] === 每日分析完成 === 用户数: {len(user_ids)}, 处理日记: {total}")
 
 
+async def run_weekly_counselor_digest():
+    """每周向辅导员/心理老师发送摘要邮件。"""
+    today = date.today()
+    if today.weekday() != settings.counselor_digest_weekday:
+        return
+
+    print(f"\n[Scheduler] === 辅导员/心理老师周报任务开始 === 日期: {today}")
+    async with async_session_maker() as db:
+        from app.services.counselor_digest_service import send_weekly_counselor_digests
+
+        sent_count = await send_weekly_counselor_digests(db=db, today=today)
+        print(f"[Scheduler] === 周报任务完成 === 成功发送: {sent_count}")
+
+
 def _seconds_until_midnight() -> float:
     """计算距离下一个午夜 (00:00) 的秒数"""
     now = datetime.now()
@@ -124,6 +140,7 @@ async def scheduler_loop():
 
         try:
             await run_daily_analysis()
+            await run_weekly_counselor_digest()
         except Exception as e:
             print(f"[Scheduler] 任务异常: {e}")
             import traceback

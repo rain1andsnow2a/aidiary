@@ -28,6 +28,10 @@ const PostDetailPage = lazy(() => import('@/pages/community/PostDetailPage'))
 const CollectionsPage = lazy(() => import('@/pages/community/CollectionsPage'))
 const HistoryPage = lazy(() => import('@/pages/community/HistoryPage'))
 const EmotionMap = lazy(() => import('@/pages/emotion/EmotionMap'))
+// 2.0 新增
+const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
+const CounselorApplyPage = lazy(() => import('@/pages/admin/CounselorApplyPage'))
+const CounselorDashboardPage = lazy(() => import('@/pages/admin/CounselorDashboardPage'))
 
 // 私有路由组件
 function PrivateRoute({ children }: { children: React.ReactElement }) {
@@ -43,6 +47,51 @@ function PrivateRoute({ children }: { children: React.ReactElement }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/welcome" replace />
+  }
+
+  return children
+}
+
+// 管理员路由守卫
+function AdminRoute({ children }: { children: React.ReactElement }) {
+  const { user, isAuthenticated, isLoading } = useAuthStore()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/welcome" replace />
+  }
+
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />
+  }
+
+  return children
+}
+
+function CounselorRoute({ children }: { children: React.ReactElement }) {
+  const { user, isAuthenticated, isLoading } = useAuthStore()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/welcome" replace />
+  }
+
+  if (user?.role !== 'counselor' && user?.role !== 'psychologist' && user?.role !== 'admin') {
+    return <Navigate to="/" replace />
   }
 
   return children
@@ -71,6 +120,9 @@ function AppRoutes() {
     '/privacy',
     '/terms',
     '/refund',
+    '/admin',
+    '/counselor/apply',
+    '/counselor/dashboard',
   ])
   const showSprite = !hideSpritePaths.has(location.pathname)
 
@@ -197,6 +249,15 @@ function AppRoutes() {
             }
           />
 
+          <Route
+            path="/counselor/dashboard"
+            element={
+              <CounselorRoute>
+                <CounselorDashboardPage />
+              </CounselorRoute>
+            }
+          />
+
           {/* 情绪星图 */}
           <Route
             path="/emotion"
@@ -246,6 +307,26 @@ function AppRoutes() {
               <PrivateRoute>
                 <HistoryPage />
               </PrivateRoute>
+            }
+          />
+
+          {/* 2.0 辅导员/心理老师认证申请 */}
+          <Route
+            path="/counselor/apply"
+            element={
+              <PrivateRoute>
+                <CounselorApplyPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* 2.0 管理后台（仅 admin） */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
             }
           />
 

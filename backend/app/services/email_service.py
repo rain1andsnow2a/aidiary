@@ -155,6 +155,46 @@ class EmailService:
             print(f"发送邮件失败: {e}")
             return False
 
+    async def send_plain_email(
+        self,
+        to_email: str,
+        subject: str,
+        body: str,
+    ) -> bool:
+        """发送普通文本邮件。"""
+        message = EmailMessage()
+        message["From"] = self.sender
+        message["To"] = to_email
+        message["Subject"] = subject
+        message.set_content(body, charset="utf-8")
+
+        try:
+            if USE_ASYNC_SMTP:
+                if self.smtp_secure:
+                    await aiosmtplib.send(
+                        message,
+                        hostname=self.smtp_host,
+                        port=self.smtp_port,
+                        username=self.email,
+                        password=self.password,
+                        use_tls=True,
+                    )
+                else:
+                    await aiosmtplib.send(
+                        message,
+                        hostname=self.smtp_host,
+                        port=self.smtp_port,
+                        username=self.email,
+                        password=self.password,
+                        start_tls=True,
+                    )
+            else:
+                await asyncio.to_thread(self._send_email_sync, message)
+            return True
+        except Exception as e:
+            print(f"发送普通邮件失败: {e}")
+            return False
+
     def _send_email_sync(self, message: EmailMessage):
         """
         使用同步方式发送邮件

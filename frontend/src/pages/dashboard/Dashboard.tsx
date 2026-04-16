@@ -178,6 +178,15 @@ export default function Dashboard() {
                       <Settings className="w-4 h-4 text-stone-400" />
                       {t('navigation.settings')}
                     </button>
+                    {(user?.role === 'counselor' || user?.role === 'psychologist' || user?.role === 'admin') && (
+                      <button
+                        onClick={() => { setShowUserMenu(false); navigate('/counselor/dashboard') }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-[#f5efea]/80 transition-colors flex items-center gap-3"
+                      >
+                        <Sparkles className="w-4 h-4 text-violet-400" />
+                        辅导员工作台
+                      </button>
+                    )}
                   </div>
 
                   {/* 登出 */}
@@ -234,13 +243,22 @@ export default function Dashboard() {
         </div>
 
         {/* 快速操作 */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {[
             { icon: <PenLine className="w-6 h-6 text-[#b56f61]" />, title: t('navigation.writeDiary'), desc: t('dashboard.recordToday'), bg: 'hover:bg-[#f5efea] hover:border-[#d8c7bc]', action: () => navigate('/diaries/new') },
             { icon: <BookOpen className="w-6 h-6 text-violet-400" />, title: t('navigation.diaries'), desc: t('dashboard.browseRecords'), bg: 'hover:bg-violet-50 hover:border-violet-200', action: () => navigate('/diaries') },
             { icon: <Clock className="w-6 h-6 text-emerald-400" />, title: t('navigation.growth'), desc: t('dashboard.growthInsights'), bg: 'hover:bg-emerald-50 hover:border-emerald-200', action: () => navigate('/growth') },
             { icon: <Orbit className="w-6 h-6 text-rose-400" />, title: t('navigation.emotion'), desc: t('dashboard.emotionVisualization'), bg: 'hover:bg-rose-50 hover:border-rose-200', action: () => navigate('/emotion') },
             { icon: <Sparkles className="w-6 h-6 text-amber-400" />, title: t('navigation.analysis'), desc: t('dashboard.longTermInsights'), bg: 'hover:bg-amber-50 hover:border-amber-200', action: () => navigate('/analysis') },
+            ...(user?.role === 'counselor' || user?.role === 'psychologist' || user?.role === 'admin'
+              ? [{
+                  icon: <Sparkles className="w-6 h-6 text-[#8d79bb]" />,
+                  title: '辅导员工作台',
+                  desc: '查看脱敏趋势与重点关注学生',
+                  bg: 'hover:bg-[#f4eefc] hover:border-[#d6c8ec]',
+                  action: () => navigate('/counselor/dashboard'),
+                }]
+              : []),
           ].map((item, index) => (
             <button
               key={index}

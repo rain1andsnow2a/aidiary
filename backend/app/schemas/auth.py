@@ -68,6 +68,10 @@ class UserResponse(BaseModel):
     social_style: Optional[str] = None
     current_state: Optional[str] = None
     catchphrases: Optional[list] = None
+    department: Optional[str] = None
+    class_name: Optional[str] = None
+    role: str = "student"
+    counselor_info: Optional[dict] = None
     is_active: bool
     is_verified: bool
     created_at: datetime
@@ -84,6 +88,8 @@ class ProfileUpdateRequest(BaseModel):
     social_style: Optional[str] = Field(None, max_length=20, description="社交风格")
     current_state: Optional[str] = Field(None, max_length=20, description="当前状态")
     catchphrases: Optional[list] = Field(None, description="口头禅列表")
+    department: Optional[str] = Field(None, max_length=100, description="所属院系")
+    class_name: Optional[str] = Field(None, max_length=100, description="所属班级")
 
 
 class UserUpdateRequest(BaseModel):

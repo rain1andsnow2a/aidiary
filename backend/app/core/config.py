@@ -62,6 +62,20 @@ class Settings(BaseSettings):
         description="发件人显示名称"
     )
 
+    # ==================== 管理员初始化 ====================
+    bootstrap_admin_email: str = Field(
+        default="",
+        description="启动时自动创建/提升管理员账号邮箱"
+    )
+    bootstrap_admin_password: str = Field(
+        default="",
+        description="启动时自动创建管理员账号密码"
+    )
+    bootstrap_admin_username: str = Field(
+        default="管理员",
+        description="启动时自动创建管理员账号用户名"
+    )
+
     @property
     def email_sender(self) -> str:
         """获取完整的发件人字符串（包含显示名称）"""
@@ -105,6 +119,12 @@ class Settings(BaseSettings):
     qdrant_vector_dim: int = Field(
         default=256,
         description="Qdrant 向量维度（需与编码函数一致）"
+    )
+
+    # ==================== 周报调度配置 ====================
+    counselor_digest_weekday: int = Field(
+        default=0,
+        description="辅导员/心理老师周报推送日，0=周一"
     )
 
     model_config = SettingsConfigDict(

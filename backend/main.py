@@ -19,10 +19,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.db import init_db
+from app.db import init_db, async_session_maker
 from app.api.v1 import auth
 from app.api.v1.auth import router as auth_router
 from app.services.scheduler_service import scheduler_loop
+from app.services.admin_bootstrap_service import ensure_bootstrap_admin
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,9 @@ async def lifespan(app: FastAPI):
     print("[INFO] Initializing database...")
     await init_db()
     print("[INFO] Database initialized successfully")
+
+    async with async_session_maker() as db:
+        await ensure_bootstrap_admin(db)
 
     # 启动每日定时分析任务
     scheduler_task = asyncio.create_task(scheduler_loop())
@@ -262,6 +266,14 @@ app.include_router(integrations.router, prefix="/api/v1", tags=["外部接入"])
 # 导入并注册情绪特征分析路由
 from app.api.v1 import emotion
 app.include_router(emotion.router, prefix="/api/v1", tags=["情绪特征分析"])
+
+# 导入并注册辅导员/心理老师认证路由
+from app.api.v1 import counselor
+app.include_router(counselor.router, prefix="/api/v1", tags=["辅导员/心理老师"])
+
+# 导入并注册管理后台路由
+from app.api.v1 import admin
+app.include_router(admin.router, prefix="/api/v1", tags=["管理后台"])
 
 # 挂载静态文件目录
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
