@@ -381,6 +381,92 @@ RAG 证据片段：
 - 这是最深处，语气要最温柔
 """
 
+ICEBERG_FULL_ANALYSIS_PROMPT = """你是一位精通萨提亚冰山模型的心理分析师，正在对用户过去一段时间的日记做综合冰山分析。
+
+用户信息：{username}
+分析窗口：{period}，共 {diary_count} 篇日记
+
+证据片段：
+{evidence_text}
+
+任务：
+1. 基于证据识别用户的行为层、情绪层、认知层、信念层、渴望层
+2. 所有判断都必须以证据为基础，不编造
+3. 输出紧凑、具体、对用户友好
+
+只输出 JSON，不要任何额外解释。格式如下：
+{{
+  "behavior_layer": {{
+    "patterns": [
+      {{
+        "behavior": "行为描述",
+        "frequency": "出现频率描述",
+        "evidence_dates": ["2026-04-01"]
+      }}
+    ],
+    "summary": "2-3句，第二人称"
+  }},
+  "emotion_layer": {{
+    "emotion_flow": [
+      {{
+        "phase": "阶段描述",
+        "dominant_emotion": "主导情绪",
+        "color": "warm/cool/neutral",
+        "description": "简短描述"
+      }}
+    ],
+    "turning_points": [
+      {{
+        "date": "2026-04-01",
+        "description": "转折说明"
+      }}
+    ],
+    "summary": "2-3句，温暖共情"
+  }},
+  "cognition_layer": {{
+    "thought_patterns": [
+      {{
+        "pattern": "思维模式",
+        "trigger": "触发场景",
+        "evidence_snippet": "引用片段"
+      }}
+    ],
+    "summary": "2-3句，温柔指出"
+  }},
+  "belief_layer": {{
+    "core_beliefs": [
+      {{
+        "belief": "深层信念",
+        "origin_hint": "可能来源",
+        "impact": "影响"
+      }}
+    ],
+    "self_narrative": "一句自我叙事",
+    "summary": "2-3句"
+  }},
+  "yearning_layer": {{
+    "yearnings": [
+      {{
+        "yearning": "深层渴望",
+        "connection": "与前面几层的连接"
+      }}
+    ],
+    "life_energy": "生命能量状态",
+    "summary": "2-3句"
+  }}
+}}
+
+要求：
+- 每层尽量控制在 2-3 个关键点，不要冗长
+- behavior_layer.patterns 最多 3 个
+- emotion_layer.emotion_flow 最多 3 个阶段
+- turning_points 最多 2 个
+- cognition_layer.thought_patterns 最多 3 个
+- belief_layer.core_beliefs 最多 3 个
+- yearning_layer.yearnings 最多 3 个
+- summary 要自然、有温度，但避免鸡汤
+"""
+
 ICEBERG_LETTER_PROMPT = """你是用户的日记 AI 伙伴，刚刚完成了对用户最近 {period} 日记的深度分析。
 
 用户信息：{username}

@@ -25,7 +25,8 @@ class DeepSeekClient:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        response_format: Optional[str] = None
+        response_format: Optional[str] = None,
+        timeout_seconds: float = 60.0,
     ) -> str:
         """
         调用DeepSeek聊天API
@@ -56,7 +57,7 @@ class DeepSeekClient:
         if response_format == "json":
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
@@ -73,7 +74,9 @@ class DeepSeekClient:
         system_prompt: str,
         user_prompt: str,
         temperature: float = 0.7,
-        response_format: Optional[str] = None
+        response_format: Optional[str] = None,
+        max_tokens: int = 2000,
+        timeout_seconds: float = 60.0,
     ) -> str:
         """
         使用系统提示词的聊天
@@ -92,7 +95,13 @@ class DeepSeekClient:
             {"role": "user", "content": user_prompt}
         ]
 
-        return await self.chat(messages, temperature, response_format=response_format)
+        return await self.chat(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            timeout_seconds=timeout_seconds,
+        )
 
     async def stream_chat(
         self,

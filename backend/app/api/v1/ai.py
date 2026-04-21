@@ -33,6 +33,19 @@ from app.services.qdrant_memory_service import qdrant_diary_memory_service
 router = APIRouter(prefix="/ai", tags=["AI分析"])
 
 
+def _build_compact_evidence_text(evidence: list[dict], limit: int = 10) -> str:
+    compact_lines = []
+    for i, item in enumerate((evidence or [])[:limit], start=1):
+        snippet = " ".join(str(item.get("snippet") or "").split())
+        if len(snippet) > 120:
+            snippet = snippet[:120].rstrip() + "..."
+        compact_lines.append(
+            f"[{i}] 日期:{item.get('diary_date')} 标题:{item.get('title') or '无标题'} "
+            f"用途:{item.get('reason') or '综合'} 片段:{snippet}"
+        )
+    return "\n".join(compact_lines)
+
+
 def _safe_parse_json(raw: str) -> dict:
     import json
     import re
@@ -213,18 +226,29 @@ async def get_social_style_samples(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(
-        select(SocialPostSample).where(
-            SocialPostSample.user_id == current_user.id
-        ).order_by(desc(SocialPostSample.created_at)).limit(200)
-    )
-    rows = list(result.scalars().all())
-    samples = [r.content for r in rows]
-    return SocialStyleSamplesResponse(
-        total=len(samples),
-        samples=samples,
-        metadata={"max_recommended": 50},
-    )
+    try:
+        result = await db.execute(
+            select(SocialPostSample).where(
+                SocialPostSample.user_id == current_user.id
+            ).order_by(desc(SocialPostSample.created_at)).limit(200)
+        )
+        rows = list(result.scalars().all())
+        samples = [r.content for r in rows]
+        return SocialStyleSamplesResponse(
+            total=len(samples),
+            samples=samples,
+            metadata={"max_recommended": 50},
+        )
+    except Exception as e:
+        return SocialStyleSamplesResponse(
+            total=0,
+            samples=[],
+            metadata={
+                "max_recommended": 50,
+                "degraded": True,
+                "reason": f"load_failed:{type(e).__name__}",
+            },
+        )
 
 
 @router.put("/social-style-samples", response_model=SocialStyleSamplesResponse, summary="上传朋友圈风格样本")
@@ -240,30 +264,37 @@ async def upsert_social_style_samples(
             detail="有效样本为空，请至少提供1条（每条不少于6字）"
         )
 
-    existing_result = await db.execute(
-        select(SocialPostSample).where(SocialPostSample.user_id == current_user.id).order_by(desc(SocialPostSample.created_at))
-    )
-    existing_rows = list(existing_result.scalars().all())
-    existing = [r.content for r in existing_rows]
+    try:
+        existing_result = await db.execute(
+            select(SocialPostSample).where(SocialPostSample.user_id == current_user.id).order_by(desc(SocialPostSample.created_at))
+        )
+        existing_rows = list(existing_result.scalars().all())
+        existing = [r.content for r in existing_rows]
 
-    if payload.replace:
-        for row in existing_rows:
-            await db.delete(row)
-        merged = incoming[:50]
-    else:
-        merged = _normalize_samples(existing + incoming, limit=50)
-        for row in existing_rows:
-            await db.delete(row)
+        if payload.replace:
+            for row in existing_rows:
+                await db.delete(row)
+            merged = incoming[:50]
+        else:
+            merged = _normalize_samples(existing + incoming, limit=50)
+            for row in existing_rows:
+                await db.delete(row)
 
-    for content in merged:
-        db.add(SocialPostSample(user_id=current_user.id, content=content))
+        for content in merged:
+            db.add(SocialPostSample(user_id=current_user.id, content=content))
 
-    await db.commit()
-    return SocialStyleSamplesResponse(
-        total=len(merged),
-        samples=merged,
-        metadata={"replace_mode": payload.replace},
-    )
+        await db.commit()
+        return SocialStyleSamplesResponse(
+            total=len(merged),
+            samples=merged,
+            metadata={"replace_mode": payload.replace},
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"风格样本保存失败: {type(e).__name__}"
+        ) from e
 
 
 @router.post("/comprehensive-analysis", response_model=IcebergAnalysisResponse, summary="冰山综合分析（多智能体）")
@@ -341,16 +372,7 @@ async def comprehensive_analysis(
         fallback_hits = diary_rag_service.retrieve(chunks, "最近的重要事件和情绪变化", top_k=10)
         evidence = [{**item, "reason": "综合回退"} for item in fallback_hits]
 
-    evidence_text = "\n".join(
-        [
-            (
-                f"[{i+1}] 日期:{e['diary_date']} diary_id:{e['diary_id']} 标题:{e['title']} "
-                f"相关性:{e['score']} 用途:{e['reason']} 来源:{'日摘要' if e.get('source_type') == 'summary' else '原文片段'}\n"
-                f"片段:{e['snippet']}"
-            )
-            for i, e in enumerate(evidence)
-        ]
-    )
+    evidence_text = _build_compact_evidence_text(evidence, limit=10)
 
     # ── Phase 2 + 3: 多智能体冰山分析 ──
     period = f"{start_date} 至 {end_date}"
