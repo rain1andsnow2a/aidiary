@@ -47,6 +47,8 @@ export default function ProfileSettings() {
   const [socialStyle, setSocialStyle] = useState(user?.social_style || '')
   const [currentState, setCurrentState] = useState(user?.current_state || '')
   const [catchphrases, setCatchphrases] = useState<string[]>(user?.catchphrases || [])
+  const [department, setDepartment] = useState(user?.department || '')
+  const [className, setClassName] = useState(user?.class_name || '')
   const [newCatchphrase, setNewCatchphrase] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url || null)
@@ -71,6 +73,8 @@ export default function ProfileSettings() {
         setSocialStyle(profile.social_style || '')
         setCurrentState(profile.current_state || '')
         setCatchphrases(profile.catchphrases || [])
+        setDepartment(profile.department || '')
+        setClassName(profile.class_name || '')
         if (profile.avatar_url) setAvatarPreview(profile.avatar_url)
         if (openClaw) setOpenClawStatus(openClaw)
       } catch (err) {
@@ -127,6 +131,8 @@ export default function ProfileSettings() {
         social_style: socialStyle || undefined,
         current_state: currentState || undefined,
         catchphrases,
+        department: department.trim() || undefined,
+        class_name: className.trim() || undefined,
       })
       // 同步更新authStore中的user
       useAuthStore.setState({ user: updatedUser })
@@ -330,6 +336,28 @@ export default function ProfileSettings() {
                   disabled
                   className="w-full h-11 px-4 rounded-xl bg-stone-50/50 border border-stone-100 text-sm text-stone-400 cursor-not-allowed"
                 />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-stone-500 mb-1.5 block">院系 / 部门</label>
+                  <input
+                    type="text"
+                    placeholder="例如：计算机学院"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full h-11 px-4 rounded-xl bg-stone-50/80 border border-stone-100 text-sm text-stone-700 placeholder:text-stone-300 outline-none focus:border-rose-200 focus:ring-2 focus:ring-rose-100 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-stone-500 mb-1.5 block">班级</label>
+                  <input
+                    type="text"
+                    placeholder="例如：计科2201"
+                    value={className}
+                    onChange={(e) => setClassName(e.target.value)}
+                    className="w-full h-11 px-4 rounded-xl bg-stone-50/80 border border-stone-100 text-sm text-stone-700 placeholder:text-stone-300 outline-none focus:border-rose-200 focus:ring-2 focus:ring-rose-100 transition-all"
+                  />
+                </div>
               </div>
             </div>
           </SectionCard>

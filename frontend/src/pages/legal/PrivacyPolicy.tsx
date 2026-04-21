@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">1. 引言</h2>
               <p>
-                印记（"我们"、"我们的"）深知个人隐私的重要性。本隐私政策说明了我们在您使用印记智能日记应用（"服务"）时，如何收集、使用、存储和保护您的个人信息。
+                映记（"我们"、"我们的"）深知个人隐私的重要性。本隐私政策说明了我们在您使用映记智能日记应用（"服务"）时，如何收集、使用、存储和保护您的个人信息。
               </p>
               <p className="mt-2">
                 使用我们的服务即表示您同意本隐私政策中描述的做法。如果您不同意本政策，请勿使用我们的服务。
@@ -61,7 +61,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">4. AI 分析与数据处理</h2>
               <p>
-                印记使用人工智能技术对您的日记进行情绪分析和心理洞察。请注意：
+                映记使用人工智能技术对您的日记进行情绪分析和心理洞察。请注意：
               </p>
               <ul className="list-disc list-inside space-y-1.5 ml-2 mt-2">
                 <li>AI 分析仅用于为您提供个性化的心理洞察和建议。</li>
@@ -147,3 +147,4 @@ export default function PrivacyPolicy() {
     </div>
   )
 }
+

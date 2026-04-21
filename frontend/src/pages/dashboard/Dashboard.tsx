@@ -101,11 +101,11 @@ export default function Dashboard() {
           <div className="flex justify-between items-center h-15 py-3">
             <div className="flex items-center gap-3">
               <img
-                src="/branding/yinji-logo-nanobanana-v1_1.png"
-                alt="印记 Logo"
-                className="w-8 h-8 rounded-xl object-cover shadow-sm"
+                src="/yingji_logo_2_healing_1_no_bg.png"
+                alt="映记 Logo"
+                className="w-9 h-9 object-contain drop-shadow-sm"
               />
-              <span className="text-stone-700 font-semibold">印记</span>
+              <span className="text-stone-700 font-semibold">映记</span>
               <div className="hidden sm:flex items-center gap-0.5 ml-3">
                 {[['/', t('navigation.dashboard')], ['/diaries', t('navigation.diaries')], ['/growth', t('navigation.growth')], ['/emotion', t('navigation.emotion')], ['/community', t('navigation.community')]].map(([path, label]) => (
                   <button key={path} onClick={() => navigate(path)}
@@ -178,6 +178,15 @@ export default function Dashboard() {
                       <Settings className="w-4 h-4 text-stone-400" />
                       {t('navigation.settings')}
                     </button>
+                    {user?.role === 'student' && (
+                      <button
+                        onClick={() => { setShowUserMenu(false); navigate('/counselor/apply') }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-[#f5efea]/80 transition-colors flex items-center gap-3"
+                      >
+                        <Sparkles className="w-4 h-4 text-rose-400" />
+                        申请辅导员/心理老师认证
+                      </button>
+                    )}
                     {(user?.role === 'counselor' || user?.role === 'psychologist' || user?.role === 'admin') && (
                       <button
                         onClick={() => { setShowUserMenu(false); navigate('/counselor/dashboard') }}
@@ -243,13 +252,22 @@ export default function Dashboard() {
         </div>
 
         {/* 快速操作 */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             { icon: <PenLine className="w-6 h-6 text-[#b56f61]" />, title: t('navigation.writeDiary'), desc: t('dashboard.recordToday'), bg: 'hover:bg-[#f5efea] hover:border-[#d8c7bc]', action: () => navigate('/diaries/new') },
             { icon: <BookOpen className="w-6 h-6 text-violet-400" />, title: t('navigation.diaries'), desc: t('dashboard.browseRecords'), bg: 'hover:bg-violet-50 hover:border-violet-200', action: () => navigate('/diaries') },
             { icon: <Clock className="w-6 h-6 text-emerald-400" />, title: t('navigation.growth'), desc: t('dashboard.growthInsights'), bg: 'hover:bg-emerald-50 hover:border-emerald-200', action: () => navigate('/growth') },
             { icon: <Orbit className="w-6 h-6 text-rose-400" />, title: t('navigation.emotion'), desc: t('dashboard.emotionVisualization'), bg: 'hover:bg-rose-50 hover:border-rose-200', action: () => navigate('/emotion') },
             { icon: <Sparkles className="w-6 h-6 text-amber-400" />, title: t('navigation.analysis'), desc: t('dashboard.longTermInsights'), bg: 'hover:bg-amber-50 hover:border-amber-200', action: () => navigate('/analysis') },
+            ...(user?.role === 'student'
+              ? [{
+                  icon: <Sparkles className="w-6 h-6 text-[#e88f7b]" />,
+                  title: '角色认证申请',
+                  desc: '申请辅导员或心理老师身份',
+                  bg: 'hover:bg-[#fff1ec] hover:border-[#f2c9bd]',
+                  action: () => navigate('/counselor/apply'),
+                }]
+              : []),
             ...(user?.role === 'counselor' || user?.role === 'psychologist' || user?.role === 'admin'
               ? [{
                   icon: <Sparkles className="w-6 h-6 text-[#8d79bb]" />,

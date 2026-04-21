@@ -64,7 +64,7 @@
       "haveAccount": "已有账号？",
       "agreeTerms": "请先同意服务条款和隐私政策",
       "startJourney": "开始记录，遇见更好的自己",
-      "description": "创建你的印记账号，AI 将随着每一篇日记更了解你。从今天起，让文字成为通往内心的桥梁。",
+      "description": "创建你的映记账号，AI 将随着每一篇日记更了解你。从今天起，让文字成为通往内心的桥梁。",
       "verifyEmail": "验证邮箱",
       "step1Desc": "获取注册验证码",
       "setPassword": "设置密码",
@@ -426,8 +426,8 @@
     "title": "映记 - 智能日记应用",
     "subtitle": "基于 RAG 知识库的 AI 日记分析",
     "description": "记录生活，理解自己。映记使用先进的 AI 技术，帮助你深入理解情绪和思维模式。",
-    "brandName": "印记",
-    "logoAlt": "印记 Logo",
+    "brandName": "映记",
+    "logoAlt": "映记 Logo",
     "freeStart": "免费开始",
     "nav": {
       "features": "功能",
@@ -437,7 +437,7 @@
       "badge": "基于 AI 的智能心理日记",
       "titleLine1": "你的每一天，",
       "titleLine2": "都值得被记住",
-      "desc1": "印记是一款基于 AI 深度心理分析的智能日记应用。",
+      "desc1": "映记是一款基于 AI 深度心理分析的智能日记应用。",
       "desc2": "记录生活，探索内心，让每一段文字都有温度。",
       "startFree": "免费开始使用",
       "hasAccount": "已有账号？登录",
@@ -814,3 +814,4 @@
     }
   }
 }
+

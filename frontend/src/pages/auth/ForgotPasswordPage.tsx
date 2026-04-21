@@ -77,11 +77,11 @@ export default function ForgotPasswordPage() {
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
           <img
-            src="/branding/yinji-logo-nanobanana-v1_1.png"
-            alt="印记 Logo"
+            src="/yingji_logo_2_healing_1_no_bg.png"
+            alt="映记 Logo"
             className="w-8 h-8 rounded-xl object-cover shadow-sm"
           />
-          <span className="text-stone-700 font-semibold">印记</span>
+          <span className="text-stone-700 font-semibold">映记</span>
         </div>
 
         {/* 返回登录 */}
@@ -266,3 +266,4 @@ export default function ForgotPasswordPage() {
     </div>
   )
 }
+

@@ -114,4 +114,14 @@ export const diaryService = {
     })
     return response.data.url
   },
+
+  // 语音转文字（上传 WAV）
+  speechToText: async (file: Blob): Promise<string> => {
+    const formData = new FormData()
+    formData.append('file', file, 'voice-input.wav')
+    const response = await api.post<{ text: string }>('/api/v1/diaries/speech-to-text', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data.text || ''
+  },
 }

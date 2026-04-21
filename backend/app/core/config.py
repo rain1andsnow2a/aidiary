@@ -103,6 +103,20 @@ class Settings(BaseSettings):
         description="DeepSeek API地址"
     )
 
+    # ==================== 讯飞语音听写配置 ====================
+    xfyun_iat_appid: str = Field(
+        default="",
+        description="讯飞语音听写 APPID"
+    )
+    xfyun_iat_api_key: str = Field(
+        default="",
+        description="讯飞语音听写 API Key"
+    )
+    xfyun_iat_api_secret: str = Field(
+        default="",
+        description="讯飞语音听写 API Secret"
+    )
+
     # ==================== Qdrant 向量检索配置 ====================
     qdrant_url: str = Field(
         default="",

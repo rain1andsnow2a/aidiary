@@ -21,6 +21,7 @@ from app.schemas.diary import (
     TimelineEventResponse
 )
 from app.services.diary_service import diary_service, timeline_service
+from app.services.speech_service import speech_service
 from app.agents.llm import deepseek_client
 from app.core.deps import get_current_active_user
 from app.models.database import User
@@ -238,6 +239,51 @@ async def upload_diary_image(
         f.write(contents)
 
     return {"url": f"/uploads/diary_images/{filename}"}
+
+
+@router.post("/speech-to-text", summary="语音转文字")
+async def speech_to_text(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    上传 16kHz 单声道 WAV 音频并返回识别文本
+    """
+    _ = current_user.id  # 保留鉴权依赖，避免未使用变量告警
+
+    if not speech_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="语音识别服务未配置，请联系管理员",
+        )
+
+    allowed_types = {
+        "audio/wav",
+        "audio/x-wav",
+        "audio/wave",
+        "audio/vnd.wave",
+    }
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="仅支持 WAV 音频文件",
+        )
+
+    contents = await file.read()
+    if len(contents) > 8 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="音频大小不能超过 8MB",
+        )
+
+    try:
+        text = await speech_service.transcribe_wav(contents)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="语音识别服务调用失败")
+
+    return {"text": text}
 
 
 # ==================== 时间轴 ====================

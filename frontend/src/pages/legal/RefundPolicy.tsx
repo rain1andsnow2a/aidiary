@@ -21,14 +21,14 @@ export default function RefundPolicy() {
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">1. 退款原则</h2>
               <p>
-                印记致力于为用户提供高质量的服务体验。我们理解在某些情况下您可能需要申请退款，本政策旨在提供清晰透明的退款规则。
+                映记致力于为用户提供高质量的服务体验。我们理解在某些情况下您可能需要申请退款，本政策旨在提供清晰透明的退款规则。
               </p>
             </section>
 
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">2. 免费试用</h2>
               <p>
-                印记提供免费版本，您可以在付费订阅前充分体验核心功能。我们建议您在免费版本中充分了解服务后再决定是否订阅。
+                映记提供免费版本，您可以在付费订阅前充分体验核心功能。我们建议您在免费版本中充分了解服务后再决定是否订阅。
               </p>
             </section>
 
@@ -119,3 +119,4 @@ export default function RefundPolicy() {
     </div>
   )
 }
+

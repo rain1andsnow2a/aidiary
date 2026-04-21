@@ -109,8 +109,8 @@ export default function RegisterPage() {
         <div className="relative z-10 max-w-md">
           <div className="mb-10 flex items-center gap-3">
             <img
-              src="/branding/yinji-logo-nanobanana-v1_1.png"
-              alt="印记 Logo"
+              src="/yingji_logo_2_healing_1_no_bg.png"
+              alt="映记 Logo"
               className="w-10 h-10 rounded-2xl object-cover shadow-md"
             />
             <span className="text-stone-700 text-xl font-semibold">YinJi</span>
@@ -154,7 +154,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-[420px] animate-fade-in">
           <div className="lg:hidden flex items-center gap-2 mb-8">
             <img
-              src="/branding/yinji-logo-nanobanana-v1_1.png"
+              src="/yingji_logo_2_healing_1_no_bg.png"
               alt="YinJi Logo"
               className="w-8 h-8 rounded-xl object-cover shadow-sm"
             />
@@ -391,3 +391,4 @@ export default function RegisterPage() {
     </div>
   )
 }
+

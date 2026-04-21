@@ -12,7 +12,7 @@ import {
   $getRoot, $createParagraphNode, $getSelection, $isRangeSelection,
   FORMAT_TEXT_COMMAND, SELECTION_CHANGE_COMMAND, PASTE_COMMAND,
   COMMAND_PRIORITY_LOW, COMMAND_PRIORITY_HIGH,
-  EditorState, LexicalEditor
+  EditorState, LexicalEditor, $createTextNode
 } from 'lexical'
 import { HeadingNode, QuoteNode } from '@lexical/rich-text'
 import { CodeNode } from '@lexical/code'
@@ -23,7 +23,7 @@ import {
   $convertFromMarkdownString, $convertToMarkdownString,
   TRANSFORMERS, type ElementTransformer,
 } from '@lexical/markdown'
-import { Bold, Italic, Underline, Strikethrough, Code, Type, Image as ImageIcon, Loader2, ChevronDown } from 'lucide-react'
+import { Bold, Italic, Underline, Strikethrough, Code, Type, Image as ImageIcon, Loader2, ChevronDown, Mic, Square } from 'lucide-react'
 import { diaryService } from '@/services/diary.service'
 import { toast } from '@/components/ui/toast'
 import { ImageNode, $createImageNode, $isImageNode } from './ImageNode'
@@ -80,6 +80,61 @@ const FONT_SIZES = [
   { label: '特大', value: 'fs-xl', css: '22px' },
 ]
 
+function downsampleBuffer(buffer: Float32Array, inputSampleRate: number, outputSampleRate: number) {
+  if (outputSampleRate >= inputSampleRate) return buffer
+  const sampleRateRatio = inputSampleRate / outputSampleRate
+  const newLength = Math.round(buffer.length / sampleRateRatio)
+  const result = new Float32Array(newLength)
+  let offsetResult = 0
+  let offsetBuffer = 0
+  while (offsetResult < result.length) {
+    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio)
+    let accum = 0
+    let count = 0
+    for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+      accum += buffer[i]
+      count++
+    }
+    result[offsetResult] = count > 0 ? accum / count : 0
+    offsetResult++
+    offsetBuffer = nextOffsetBuffer
+  }
+  return result
+}
+
+function encodeWav(samples: Float32Array, sampleRate: number) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2)
+  const view = new DataView(buffer)
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i))
+    }
+  }
+
+  writeString(0, 'RIFF')
+  view.setUint32(4, 36 + samples.length * 2, true)
+  writeString(8, 'WAVE')
+  writeString(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  writeString(36, 'data')
+  view.setUint32(40, samples.length * 2, true)
+
+  let offset = 44
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]))
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true)
+  }
+
+  return new Blob([view], { type: 'audio/wav' })
+}
+
 // ---- Toolbar button (顶部栏用) ----
 function ToolbarBtn({
   children, onClick, title, disabled, active,
@@ -111,9 +166,15 @@ function ToolbarBtn({
 function TopToolbarPlugin({
   onRequestImage,
   uploading,
+  onToggleRecording,
+  isRecording,
+  isTranscribing,
 }: {
   onRequestImage: () => void
   uploading: boolean
+  onToggleRecording: () => void
+  isRecording: boolean
+  isTranscribing: boolean
 }) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b border-rose-50 bg-rose-50/30">
@@ -121,6 +182,18 @@ function TopToolbarPlugin({
         {uploading
           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
           : <ImageIcon className="w-3.5 h-3.5" />}
+      </ToolbarBtn>
+      <ToolbarBtn
+        title={isRecording ? '结束录音' : '语音输入'}
+        onClick={onToggleRecording}
+        disabled={isTranscribing}
+        active={isRecording}
+      >
+        {isTranscribing
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          : isRecording
+            ? <Square className="w-3.5 h-3.5" />
+            : <Mic className="w-3.5 h-3.5" />}
       </ToolbarBtn>
       <span className="ml-2 text-[11px] text-stone-300 select-none">选中文字可弹出格式工具栏 · 输入 / 可插入图片 · Ctrl+V 可粘贴图片</span>
     </div>
@@ -523,6 +596,34 @@ function ImageInsertPlugin({
   return null
 }
 
+function TextInsertPlugin({
+  pendingText,
+  onInserted,
+}: {
+  pendingText: string | null
+  onInserted: () => void
+}) {
+  const [editor] = useLexicalComposerContext()
+
+  useEffect(() => {
+    if (!pendingText) return
+    editor.update(() => {
+      const selection = $getSelection()
+      if ($isRangeSelection(selection)) {
+        selection.insertText(pendingText)
+        return
+      }
+      const root = $getRoot()
+      const paragraph = $createParagraphNode()
+      paragraph.append($createTextNode(pendingText))
+      root.append(paragraph)
+    })
+    onInserted()
+  }, [pendingText, editor, onInserted])
+
+  return null
+}
+
 // ---- Initial value plugin ----
 function InitialValuePlugin({ value }: { value: string }) {
   const [editor] = useLexicalComposerContext()
@@ -577,9 +678,14 @@ export default function RichTextEditor({
   minHeight = 320,
 }: RichTextEditorProps) {
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null)
+  const [pendingInsertText, setPendingInsertText] = useState<string | null>(null)
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   const initialConfig = {
     namespace: 'DiaryEditor',
@@ -616,10 +722,91 @@ export default function RichTextEditor({
     [onChange]
   )
 
+  const transcribeAudioBlob = useCallback(async (audioBlob: Blob) => {
+    setIsTranscribing(true)
+    try {
+      const audioBuffer = await audioBlob.arrayBuffer()
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const decoded = await audioContext.decodeAudioData(audioBuffer.slice(0))
+      const channelData = decoded.getChannelData(0)
+      const downsampled = downsampleBuffer(channelData, decoded.sampleRate, 16000)
+      const wavBlob = encodeWav(downsampled, 16000)
+      const text = await diaryService.speechToText(wavBlob)
+      if (!text) {
+        toast('未识别到有效语音，请重试', 'error')
+        return
+      }
+      setPendingInsertText(`${text}\n`)
+      toast('语音识别成功', 'success')
+      void audioContext.close()
+    } catch (e: any) {
+      toast(e?.response?.data?.detail || '语音识别失败，请稍后重试', 'error')
+    } finally {
+      setIsTranscribing(false)
+    }
+  }, [])
+
+  const stopRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder) return
+    if (recorder.state !== 'inactive') {
+      recorder.stop()
+    }
+  }, [])
+
+  const handleToggleRecording = useCallback(async () => {
+    if (isTranscribing) return
+    if (isRecording) {
+      stopRecording()
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast('当前浏览器不支持录音', 'error')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
+      }
+      recorder.onstop = () => {
+        setIsRecording(false)
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        audioChunksRef.current = []
+        stream.getTracks().forEach((track) => track.stop())
+        void transcribeAudioBlob(blob)
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setIsRecording(true)
+      toast('开始录音，再次点击可结束', 'info')
+    } catch {
+      toast('无法访问麦克风，请检查浏览器权限', 'error')
+    }
+  }, [isRecording, isTranscribing, stopRecording, transcribeAudioBlob])
+
+  useEffect(() => {
+    return () => {
+      try {
+        stopRecording()
+      } catch {
+        // ignore
+      }
+    }
+  }, [stopRecording])
+
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <div className="flex flex-col">
-        <TopToolbarPlugin onRequestImage={() => fileInputRef.current?.click()} uploading={uploading} />
+        <TopToolbarPlugin
+          onRequestImage={() => fileInputRef.current?.click()}
+          uploading={uploading}
+          onToggleRecording={handleToggleRecording}
+          isRecording={isRecording}
+          isTranscribing={isTranscribing}
+        />
         <input
           ref={fileInputRef}
           type="file"
@@ -667,6 +854,10 @@ export default function RichTextEditor({
           <ImageInsertPlugin
             pendingUrl={pendingImageUrl}
             onInserted={() => setPendingImageUrl(null)}
+          />
+          <TextInsertPlugin
+            pendingText={pendingInsertText}
+            onInserted={() => setPendingInsertText(null)}
           />
         </div>
       </div>

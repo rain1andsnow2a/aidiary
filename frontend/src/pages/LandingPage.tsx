@@ -14,7 +14,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img
-              src="/branding/yinji-logo-nanobanana-v1_1.png"
+              src="/yingji_logo_2_healing_1_no_bg.png"
               alt={t('landing.logoAlt')}
               className="w-8 h-8 rounded-xl object-cover shadow-sm"
             />
@@ -290,7 +290,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <img
-                src="/branding/yinji-logo-nanobanana-v1_1.png"
+                src="/yingji_logo_2_healing_1_no_bg.png"
                 alt={t('landing.logoAlt')}
                 className="w-6 h-6 rounded-lg object-cover"
               />

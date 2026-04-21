@@ -20,7 +20,7 @@ export default function TermsOfService() {
           <div className="space-y-8 text-sm text-stone-600 leading-relaxed">
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">1. 服务说明</h2>
-              <p>印记是一款基于人工智能的智能日记应用，提供日记撰写、情绪分析、心理洞察等功能。本服务条款（"条款"）构成您与印记之间的法律协议。</p>
+              <p>映记是一款基于人工智能的智能日记应用，提供日记撰写、情绪分析、心理洞察等功能。本服务条款（"条款"）构成您与映记之间的法律协议。</p>
               <p className="mt-2">使用我们的服务即表示您同意受本条款的约束。如果您不同意本条款的任何部分，请勿使用我们的服务。</p>
             </section>
 
@@ -47,7 +47,7 @@ export default function TermsOfService() {
 
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">4. AI 服务免责声明</h2>
-              <p>印记提供的 AI 分析和心理洞察功能：</p>
+              <p>映记提供的 AI 分析和心理洞察功能：</p>
               <ul className="list-disc list-inside space-y-1.5 ml-2 mt-2">
                 <li><strong>不构成</strong>专业心理咨询、心理治疗或医疗建议。</li>
                 <li>仅供参考和自我探索使用。</li>
@@ -92,12 +92,12 @@ export default function TermsOfService() {
 
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">8. 知识产权</h2>
-              <p>服务中的所有内容（不包括用户内容），包括但不限于文字、图片、图标、代码、设计等，均为印记或其许可方的知识产权，受法律保护。</p>
+              <p>服务中的所有内容（不包括用户内容），包括但不限于文字、图片、图标、代码、设计等，均为映记或其许可方的知识产权，受法律保护。</p>
             </section>
 
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">9. 责任限制</h2>
-              <p>在法律允许的最大范围内，印记不对因使用或无法使用服务而导致的任何间接、偶然、特殊或惩罚性损害承担责任。我们的最大责任限额不超过您在过去 12 个月内支付的服务费用。</p>
+              <p>在法律允许的最大范围内，映记不对因使用或无法使用服务而导致的任何间接、偶然、特殊或惩罚性损害承担责任。我们的最大责任限额不超过您在过去 12 个月内支付的服务费用。</p>
             </section>
 
             <section>
@@ -107,7 +107,7 @@ export default function TermsOfService() {
 
             <section>
               <h2 className="text-lg font-semibold text-stone-700 mb-3">11. 适用法律</h2>
-              <p>本条款受中华人民共和国法律管辖。因本条款产生的任何争议，双方应友好协商解决；协商不成的，任何一方均可向印记所在地有管辖权的人民法院提起诉讼。</p>
+              <p>本条款受中华人民共和国法律管辖。因本条款产生的任何争议，双方应友好协商解决；协商不成的，任何一方均可向映记所在地有管辖权的人民法院提起诉讼。</p>
             </section>
 
             <section>
@@ -127,3 +127,4 @@ export default function TermsOfService() {
     </div>
   )
 }
+

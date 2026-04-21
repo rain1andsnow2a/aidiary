@@ -100,6 +100,8 @@ export const authService = {
     social_style?: string
     current_state?: string
     catchphrases?: string[]
+    department?: string
+    class_name?: string
   }): Promise<User> => {
     const response = await api.put<User>('/api/v1/users/profile', data)
     return response.data
