@@ -10,7 +10,14 @@ from passlib.context import CryptContext
 from app.core.config import settings
 
 # 密码哈希上下文
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 说明：
+# - 新密码默认使用 pbkdf2_sha256，避免依赖本地 bcrypt 后端版本兼容性。
+# - 保留 bcrypt_sha256 / bcrypt 以兼容历史用户。
+# - 这样即使本地 venv 意外装到了 bcrypt 5.x，也不会影响新注册/改密。
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256", "bcrypt_sha256", "bcrypt"],
+    deprecated="auto",
+)
 
 # Token 过期时间
 # access token 使用配置项，避免过短导致用户在长耗时分析中途掉线

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { useDiaryStore } from '@/store/diaryStore'
-import EmotionChart from '@/components/common/EmotionChart'
+import EmotionChart, { normalizeEmotionTag } from '@/components/common/EmotionChart'
 import { PenLine, BookOpen, Settings, LogOut, Sprout, BookMarked, Moon, Heart, Clock, MessageCircle, FileText, Orbit, Sparkles } from 'lucide-react'
 
 export default function Dashboard() {
@@ -47,7 +47,9 @@ export default function Dashboard() {
       const emotionCounts: Record<string, number> = {}
       diaries.forEach((d) => {
         ;(d.emotion_tags ?? []).forEach((tag) => {
-          emotionCounts[tag] = (emotionCounts[tag] || 0) + 1
+          const normalizedTag = normalizeEmotionTag(tag)
+          if (!normalizedTag) return
+          emotionCounts[normalizedTag] = (emotionCounts[normalizedTag] || 0) + 1
         })
       })
 

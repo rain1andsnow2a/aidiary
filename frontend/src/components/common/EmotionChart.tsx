@@ -69,11 +69,79 @@ const EMOTION_COLORS: Record<string, string> = {
 
 const FALLBACK_COLOR = '#B0A89E'
 
+const EMOTION_ALIASES: Record<string, string> = {
+  happy: '开心',
+  joyful: '开心',
+  cheerful: '开心',
+  calm: '平静',
+  peaceful: '平静',
+  anxious: '焦虑',
+  anxiety: '焦虑',
+  worried: '担忧',
+  concern: '担忧',
+  achievement: '成就感',
+  accomplished: '成就感',
+  proud: '自豪',
+  satisfied: '满足',
+  content: '满足',
+  expectant: '期待',
+  hopeful: '期待',
+  exhausted: '疲惫',
+  tired: '疲惫',
+  fatigue: '疲惫',
+  touched: '感动',
+  moved: '感动',
+  grateful: '感恩',
+  thankful: '感恩',
+  relaxed: '放松',
+  easy: '轻松',
+  confused: '困惑',
+  puzzled: '困惑',
+  tangled: '纠结',
+  sad: '难过',
+  sorrow: '难过',
+  upset: '失落',
+  lonely: '孤独',
+  angry: '愤怒',
+  furious: '愤怒',
+  excited: '兴奋',
+  thrilled: '兴奋',
+  normal: '平淡',
+  neutral: '平淡',
+}
+
+function sanitizeEmotionTag(tag: string): string {
+  return tag.trim().toLowerCase().replace(/[_\s-]+/g, ' ')
+}
+
+export function normalizeEmotionTag(tag: string): string {
+  const trimmed = tag.trim()
+  if (!trimmed) return ''
+  if (EMOTION_COLORS[trimmed]) return trimmed
+
+  const normalized = sanitizeEmotionTag(trimmed)
+  if (EMOTION_ALIASES[normalized]) return EMOTION_ALIASES[normalized]
+
+  const compact = normalized.replace(/\s+/g, '')
+  if (EMOTION_ALIASES[compact]) return EMOTION_ALIASES[compact]
+
+  for (const [alias, mapped] of Object.entries(EMOTION_ALIASES)) {
+    if (normalized.includes(alias) || alias.includes(normalized)) return mapped
+  }
+
+  for (const key of Object.keys(EMOTION_COLORS)) {
+    if (trimmed.includes(key) || key.includes(trimmed)) return key
+  }
+
+  return trimmed
+}
+
 function getEmotionColor(tag: string): string {
-  if (EMOTION_COLORS[tag]) return EMOTION_COLORS[tag]
+  const normalizedTag = normalizeEmotionTag(tag)
+  if (EMOTION_COLORS[normalizedTag]) return EMOTION_COLORS[normalizedTag]
   // 模糊匹配
   for (const [key, color] of Object.entries(EMOTION_COLORS)) {
-    if (tag.includes(key) || key.includes(tag)) return color
+    if (normalizedTag.includes(key) || key.includes(normalizedTag)) return color
   }
   return FALLBACK_COLOR
 }
@@ -96,7 +164,28 @@ interface BubbleItem {
 function layoutBubbles(data: EmotionStats[], width: number, height: number): BubbleItem[] {
   if (data.length === 0) return []
 
-  const sorted = [...data].sort((a, b) => b.count - a.count)
+  const mergedMap = new Map<string, EmotionStats>()
+  for (const item of data) {
+    const normalizedTag = normalizeEmotionTag(item.tag)
+    const existing = mergedMap.get(normalizedTag)
+    if (existing) {
+      existing.count += item.count
+      existing.percentage += item.percentage
+    } else {
+      mergedMap.set(normalizedTag, {
+        tag: normalizedTag,
+        count: item.count,
+        percentage: item.percentage,
+      })
+    }
+  }
+
+  const totalCount = [...mergedMap.values()].reduce((sum, item) => sum + item.count, 0)
+  for (const item of mergedMap.values()) {
+    item.percentage = totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
+  }
+
+  const sorted = [...mergedMap.values()].sort((a, b) => b.count - a.count)
   const maxCount = sorted[0].count
   const minR = 22
   const maxR = Math.min(58, Math.min(width, height) / 3.5)

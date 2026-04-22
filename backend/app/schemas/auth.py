@@ -35,7 +35,7 @@ class RegisterRequest(BaseModel):
     """注册请求"""
     email: EmailStr = Field(..., description="邮箱地址")
     code: str = Field(..., min_length=6, max_length=6, description="6位验证码")
-    password: str = Field(..., min_length=6, max_length=50, description="密码")
+    password: str = Field(..., min_length=6, max_length=50, description="密码（支持中文与 emoji）")
     username: Optional[str] = Field(None, max_length=50, description="用户名（可选）")
 
 
@@ -101,7 +101,7 @@ class ResetPasswordRequest(BaseModel):
     """重置密码请求"""
     email: EmailStr = Field(..., description="邮箱地址")
     code: str = Field(..., min_length=6, max_length=6, description="6位验证码")
-    new_password: str = Field(..., min_length=6, max_length=50, description="新密码")
+    new_password: str = Field(..., min_length=6, max_length=50, description="新密码（支持中文与 emoji）")
 
 
 class ErrorResponse(BaseModel):

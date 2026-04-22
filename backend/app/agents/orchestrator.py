@@ -147,7 +147,11 @@ class AgentOrchestrator:
         """
         from app.agents.llm import deepseek_client
         from app.agents.prompts import (
-            ICEBERG_FULL_ANALYSIS_PROMPT,
+            ICEBERG_BEHAVIOR_PROMPT,
+            ICEBERG_EMOTION_PROMPT,
+            ICEBERG_COGNITION_PROMPT,
+            ICEBERG_BELIEF_PROMPT,
+            ICEBERG_YEARNING_PROMPT,
             ICEBERG_LETTER_PROMPT,
         )
 
@@ -191,27 +195,81 @@ class AgentOrchestrator:
         print(f"用户: {username} | 窗口: {period} | 日记数: {diary_count}")
         print(f"{'='*60}\n")
 
-        compact_evidence = evidence_text[:5200]
-        full_result = await _call_json(
-            ICEBERG_FULL_ANALYSIS_PROMPT.format(
+        import json as _json
+        compact_evidence = evidence_text[:4200]
+
+        behavior_result = await _call_json(
+            ICEBERG_BEHAVIOR_PROMPT.format(
                 username=username,
                 period=period,
                 diary_count=diary_count,
                 evidence_text=compact_evidence,
             ),
-            "A-E",
-            "五层冰山综合分析",
-            max_tokens=2200,
+            "A",
+            "行为模式识别",
+            max_tokens=700,
         )
 
-        behavior_result = full_result.get("behavior_layer") or {}
-        emotion_result = full_result.get("emotion_layer") or {}
-        cognition_result = full_result.get("cognition_layer") or {}
-        belief_result = full_result.get("belief_layer") or {}
-        yearning_result = full_result.get("yearning_layer") or {}
+        emotion_result = await _call_json(
+            ICEBERG_EMOTION_PROMPT.format(
+                username=username,
+                period=period,
+                behavior_result=_json.dumps(behavior_result, ensure_ascii=False),
+                evidence_text=compact_evidence,
+            ),
+            "B",
+            "情绪层分析",
+            max_tokens=850,
+        )
+
+        cognition_result = await _call_json(
+            ICEBERG_COGNITION_PROMPT.format(
+                username=username,
+                behavior_result=_json.dumps(behavior_result, ensure_ascii=False),
+                emotion_result=_json.dumps(emotion_result, ensure_ascii=False),
+                evidence_text=compact_evidence,
+            ),
+            "C",
+            "认知层分析",
+            max_tokens=850,
+        )
+
+        belief_result = await _call_json(
+            ICEBERG_BELIEF_PROMPT.format(
+                username=username,
+                behavior_result=_json.dumps(behavior_result, ensure_ascii=False),
+                emotion_result=_json.dumps(emotion_result, ensure_ascii=False),
+                cognition_result=_json.dumps(cognition_result, ensure_ascii=False),
+                evidence_text=compact_evidence,
+            ),
+            "D",
+            "信念层分析",
+            max_tokens=900,
+        )
+
+        all_layers = _json.dumps(
+            {
+                "behavior": behavior_result,
+                "emotion": emotion_result,
+                "cognition": cognition_result,
+                "belief": belief_result,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        yearning_result = await _call_json(
+            ICEBERG_YEARNING_PROMPT.format(
+                username=username,
+                all_layers=all_layers,
+                evidence_text=compact_evidence,
+            ),
+            "E",
+            "渴望层分析",
+            max_tokens=850,
+        )
 
         # ── Step F: 致你的一封信 ──
-        import json as _json
         all_layers_with_yearning = _json.dumps({
             "behavior": behavior_result,
             "emotion": emotion_result,

@@ -304,6 +304,25 @@ def _needs_diary_search(message: str) -> bool:
     return any(kw in msg for kw in search_keywords)
 
 
+def _contains_diary_link_markup(text: str) -> bool:
+    raw = text or ""
+    return "[[diary:" in raw or "/diaries/" in raw
+
+
+def _append_diary_links(answer: str, diary_links_map: list[dict]) -> str:
+    if not diary_links_map:
+        return answer
+
+    if _contains_diary_link_markup(answer):
+        return answer
+
+    lines = [answer.rstrip(), "", "相关日记："]
+    for item in diary_links_map[:3]:
+        label = f"{item.get('date') or ''} {item.get('title') or '无标题'}".strip()
+        lines.append(f"- [[diary:{item['diary_id']}|{label}]]")
+    return "\n".join(lines).strip()
+
+
 @router.post("/chat/stream", summary="流式对话")
 async def chat_stream(
     payload: ChatStreamRequest,
@@ -413,6 +432,8 @@ async def chat_stream(
                 yield _safe_json_sse("chunk", {"text": token})
 
             answer = "".join(full_answer_parts).strip() or "我在呢。你愿意再多说一点点吗？"
+            if wants_diary_link and diary_links_map:
+                answer = _append_diary_links(answer, diary_links_map)
 
             ai_msg = AssistantMessage(
                 user_id=current_user.id,
@@ -445,4 +466,3 @@ async def chat_stream(
             yield _safe_json_sse("error", {"message": f"回复失败：{str(e)}"})
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
-

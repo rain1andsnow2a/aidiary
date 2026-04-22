@@ -10,15 +10,15 @@ import { toast } from '@/components/ui/toast'
 function renderMessageContent(text: string, onDiaryClick: (id: number) => void) {
   if (!text) return null
   const parts: (string | JSX.Element)[] = []
-  const regex = /\[\[diary:(\d+)\|([^\]]+)\]\]/g
+  const regex = /(\[\[diary:(\d+)\|([^\]]+)\]\])|(\[([^\]]+)\]\((?:https?:\/\/[^)]+)?\/diaries\/(\d+)\))/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index))
     }
-    const diaryId = parseInt(match[1], 10)
-    const label = match[2]
+    const diaryId = parseInt(match[2] || match[6], 10)
+    const label = match[3] || match[5] || '查看日记'
     parts.push(
       <button
         key={`diary-${diaryId}-${match.index}`}

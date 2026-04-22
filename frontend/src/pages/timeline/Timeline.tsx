@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loading } from '@/components/common/Loading'
 import { diaryService } from '@/services/diary.service'
-import { getEmotionColor } from '@/components/common/EmotionChart'
+import { getEmotionColor, normalizeEmotionTag } from '@/components/common/EmotionChart'
 import type { GrowthDailyInsight, TerrainEvent, TerrainPoint, TerrainResponse } from '@/types/diary'
 
 type DayWindow = 7 | 30 | 90
@@ -48,7 +48,7 @@ const LAYER_KEYWORDS: Record<SatirLayer, string[]> = {
 
 function getPrimaryEmotion(point: TerrainPoint): string {
   const raw = point.events[0]?.emotion_tag || ''
-  return raw || ''
+  return raw ? normalizeEmotionTag(raw) : ''
 }
 
 function getMoodColor(point: TerrainPoint): string {
@@ -400,9 +400,9 @@ export default function Timeline() {
                     <div className="w-[260px] rounded-2xl border border-[#eaded6] bg-[linear-gradient(150deg,rgba(255,251,247,0.98),rgba(249,245,252,0.98))] px-3.5 py-3 shadow-[0_16px_32px_rgba(114,92,107,0.2)] backdrop-blur-sm">
                       <div className="text-[12px] text-stone-500 mb-1">
                         {format(new Date(hoveredDay.key), 'MM-dd')} ·{' '}
-                        {dailyInsightMap[hoveredDay.key]?.primary_emotion || getPrimaryEmotion(pointMap.get(hoveredDay.key) || {
+                        {normalizeEmotionTag(dailyInsightMap[hoveredDay.key]?.primary_emotion || getPrimaryEmotion(pointMap.get(hoveredDay.key) || {
                           date: hoveredDay.key, energy: null, valence: null, density: 0, events: [],
-                        })}
+                        }))}
                       </div>
                       <div className="text-[13px] leading-6 text-stone-700 font-medium">
                         {dailyLoadingMap[hoveredDay.key]
@@ -627,7 +627,7 @@ export default function Timeline() {
                               <div>
                                 <p className="text-sm text-stone-700">{event.summary}</p>
                                 <p className="text-xs text-stone-500 mt-1">
-                                  {event.emotion_tag || t('growth.noEmotion')} · {t('growth.importance')} {event.importance_score}/10
+                                  {(event.emotion_tag ? normalizeEmotionTag(event.emotion_tag) : t('growth.noEmotion'))} · {t('growth.importance')} {event.importance_score}/10
                                 </p>
                               </div>
                               <Button
