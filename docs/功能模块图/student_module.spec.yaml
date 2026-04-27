@@ -1,0 +1,207 @@
+meta:
+  profile: default
+  theme: academic-color
+  source: generated
+  layout: horizontal
+  routing: rounded
+  title: 映记 - 学生用户功能模块图
+  description: 面向普通用户/学生的 TOC 日记、AI 洞察、成长记录与社区功能视图。
+modules:
+  - id: access
+    label: 账号与入口
+  - id: creation
+    label: 日记创作
+  - id: intelligence
+    label: AI 与成长洞察
+  - id: social
+    label: 社区与外部接入
+nodes:
+  - id: student
+    label: 学生用户
+    type: user
+    size: large
+    module: access
+    position:
+      x: 70
+      'y': 220
+    style:
+      fillColor: '#FFF7ED'
+      strokeColor: '#E88F7B'
+  - id: auth
+    label: 登录/注册\n邮箱验证码与滑块校验
+    type: service
+    module: access
+    position:
+      x: 260
+      'y': 80
+    style:
+      fillColor: '#FFF1EC'
+      strokeColor: '#E88F7B'
+  - id: profile
+    label: 个人资料设置\n头像/昵称/班级信息
+    type: service
+    module: access
+    position:
+      x: 260
+      'y': 210
+    style:
+      fillColor: '#F7F3EF'
+      strokeColor: '#C9B8AC'
+  - id: write
+    label: 写日记\n标题/日期/心情/重要性
+    type: service
+    module: creation
+    position:
+      x: 500
+      'y': 40
+    style:
+      fillColor: '#FFF7ED'
+      strokeColor: '#E88F7B'
+  - id: editor
+    label: 富文本编辑器\nMarkdown/图片/删除线
+    type: service
+    module: creation
+    position:
+      x: 500
+      'y': 170
+    style:
+      fillColor: '#F9F5FF'
+      strokeColor: '#A09AB8'
+  - id: voice
+    label: 语音听写\n讯飞 WebSocket 流式识别
+    type: service
+    module: creation
+    position:
+      x: 500
+      'y': 300
+    style:
+      fillColor: '#EEF8F5'
+      strokeColor: '#6ED8B8'
+  - id: diary_list
+    label: 日记本\n列表/搜索/详情/编辑
+    type: document
+    module: creation
+    position:
+      x: 500
+      'y': 430
+    style:
+      fillColor: '#FAFAF9'
+      strokeColor: '#D6CCC2'
+  - id: ai_title
+    label: AI 起题与每日问题\n根据内容生成标题/引导
+    type: service
+    module: intelligence
+    position:
+      x: 760
+      'y': 60
+    style:
+      fillColor: '#FFF8E7'
+      strokeColor: '#F3BE4D'
+  - id: analysis
+    label: 综合冰山分析\n跨多篇日记 + RAG 检索
+    type: service
+    module: intelligence
+    position:
+      x: 760
+      'y': 190
+    style:
+      fillColor: '#EEF2FF'
+      strokeColor: '#8D79BB'
+  - id: growth
+    label: 成长中心/情绪地图\n心情日历/轨迹/洞察
+    type: service
+    module: intelligence
+    position:
+      x: 760
+      'y': 320
+    style:
+      fillColor: '#ECFDF5'
+      strokeColor: '#34D399'
+  - id: assistant
+    label: 映记精灵\n可拖拽 AI 助手/日记检索
+    type: service
+    module: intelligence
+    position:
+      x: 760
+      'y': 450
+    style:
+      fillColor: '#FDF2F8'
+      strokeColor: '#F09AB6'
+  - id: community
+    label: 情绪共鸣圈\n匿名发帖/评论/点赞/收藏
+    type: service
+    module: social
+    position:
+      x: 1040
+      'y': 120
+    style:
+      fillColor: '#FFF1F2'
+      strokeColor: '#FB7185'
+  - id: openclaw
+    label: OpenClaw Skill\n手机一句话写入日记
+    type: cloud
+    module: social
+    position:
+      x: 1040
+      'y': 290
+    style:
+      fillColor: '#F0FDFA'
+      strokeColor: '#2DD4BF'
+  - id: privacy
+    label: 隐私与边界\n登录鉴权/个人数据隔离
+    type: service
+    module: social
+    position:
+      x: 1040
+      'y': 460
+    style:
+      fillColor: '#F8FAFC'
+      strokeColor: '#94A3B8'
+edges:
+  - from: student
+    to: auth
+    type: primary
+  - from: student
+    to: profile
+    type: primary
+  - from: profile
+    to: write
+    type: primary
+    label: 开始记录
+  - from: write
+    to: editor
+    type: primary
+  - from: editor
+    to: voice
+    type: optional
+    label: 语音输入
+  - from: editor
+    to: diary_list
+    type: data
+    label: 保存
+  - from: diary_list
+    to: analysis
+    type: data
+    label: 多篇整合
+  - from: diary_list
+    to: growth
+    type: data
+    label: 情绪特征
+  - from: diary_list
+    to: assistant
+    type: data
+    label: 可检索
+  - from: analysis
+    to: assistant
+    type: optional
+  - from: diary_list
+    to: community
+    type: optional
+    label: 分享感受
+  - from: openclaw
+    to: diary_list
+    type: data
+    label: 写入/追加
+  - from: auth
+    to: privacy
+    type: data

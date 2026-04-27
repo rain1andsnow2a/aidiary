@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "title": "映记 - 管理员功能模块图",
+  "type": "module-diagram",
+  "source": "generated",
+  "profile": "default",
+  "theme": "academic-color",
+  "layout": "horizontal",
+  "counts": {
+    "nodes": 12,
+    "edges": 11,
+    "modules": 4
+  },
+  "nodes": [
+    {
+      "id": "admin",
+      "label": "管理员",
+      "type": "user",
+      "module": "console",
+      "size": "large"
+    },
+    {
+      "id": "login",
+      "label": "管理后台入口\\nAdminRoute 权限守卫",
+      "type": "service",
+      "module": "console"
+    },
+    {
+      "id": "overview",
+      "label": "系统概览\\n用户/日记/社区统计",
+      "type": "service",
+      "module": "console"
+    },
+    {
+      "id": "users",
+      "label": "用户管理\\n搜索/筛选/启停账号",
+      "type": "service",
+      "module": "account"
+    },
+    {
+      "id": "roles",
+      "label": "角色管理\\nstudent/counselor/psychologist/admin",
+      "type": "service",
+      "module": "account"
+    },
+    {
+      "id": "applications",
+      "label": "认证审核\\n辅导员/心理老师申请",
+      "type": "document",
+      "module": "account"
+    },
+    {
+      "id": "bindings",
+      "label": "负责范围维护\\n院系/班级绑定",
+      "type": "service",
+      "module": "account"
+    },
+    {
+      "id": "posts",
+      "label": "社区帖子管理\\n隐藏/删除/标记",
+      "type": "service",
+      "module": "content"
+    },
+    {
+      "id": "identity",
+      "label": "匿名真实身份查看\\n仅管理员治理使用",
+      "type": "database",
+      "module": "content"
+    },
+    {
+      "id": "audit",
+      "label": "审计与安全边界\\n权限隔离/操作留痕",
+      "type": "service",
+      "module": "operation"
+    },
+    {
+      "id": "email",
+      "label": "邮件与定时任务\\n验证码/周报推送",
+      "type": "service",
+      "module": "operation"
+    },
+    {
+      "id": "config",
+      "label": "系统配置\\n部署/反代/API 文档",
+      "type": "service",
+      "module": "operation"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "admin",
+      "to": "login",
+      "type": "primary"
+    },
+    {
+      "id": "edge-2",
+      "from": "login",
+      "to": "overview",
+      "type": "primary"
+    },
+    {
+      "id": "edge-3",
+      "from": "overview",
+      "to": "users",
+      "type": "data"
+    },
+    {
+      "id": "edge-4",
+      "from": "users",
+      "to": "roles",
+      "type": "primary"
+    },
+    {
+      "id": "edge-5",
+      "from": "roles",
+      "to": "applications",
+      "type": "primary"
+    },
+    {
+      "id": "edge-6",
+      "from": "applications",
+      "to": "bindings",
+      "type": "data"
+    },
+    {
+      "id": "edge-7",
+      "from": "overview",
+      "to": "posts",
+      "type": "data"
+    },
+    {
+      "id": "edge-8",
+      "from": "posts",
+      "to": "identity",
+      "type": "optional",
+      "label": "治理需要"
+    },
+    {
+      "id": "edge-9",
+      "from": "login",
+      "to": "audit",
+      "type": "data"
+    },
+    {
+      "id": "edge-10",
+      "from": "applications",
+      "to": "email",
+      "type": "data",
+      "label": "审核/通知"
+    },
+    {
+      "id": "edge-11",
+      "from": "config",
+      "to": "audit",
+      "type": "optional"
+    }
+  ],
+  "modules": [
+    {
+      "id": "console",
+      "label": "管理入口"
+    },
+    {
+      "id": "account",
+      "label": "用户与角色治理"
+    },
+    {
+      "id": "content",
+      "label": "内容与社区治理"
+    },
+    {
+      "id": "operation",
+      "label": "系统运营与安全"
+    }
+  ]
+}

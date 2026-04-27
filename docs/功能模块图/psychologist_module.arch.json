@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "title": "映记 - 心理老师功能模块图",
+  "type": "module-diagram",
+  "source": "generated",
+  "profile": "default",
+  "theme": "academic-color",
+  "layout": "horizontal",
+  "counts": {
+    "nodes": 11,
+    "edges": 10,
+    "modules": 4
+  },
+  "nodes": [
+    {
+      "id": "psychologist",
+      "label": "心理老师",
+      "type": "user",
+      "module": "identity",
+      "size": "large"
+    },
+    {
+      "id": "certify",
+      "label": "心理老师认证\\n资质/院系/负责范围",
+      "type": "document",
+      "module": "identity"
+    },
+    {
+      "id": "scope",
+      "label": "负责范围绑定\\n班级/院系维度",
+      "type": "service",
+      "module": "identity"
+    },
+    {
+      "id": "risk",
+      "label": "重点关注概览\\n低落/焦虑/波动学生",
+      "type": "service",
+      "module": "assessment"
+    },
+    {
+      "id": "pattern",
+      "label": "长期趋势观察\\n连续低谷/恢复轨迹",
+      "type": "service",
+      "module": "assessment"
+    },
+    {
+      "id": "summary",
+      "label": "AI 辅助摘要\\n脱敏心理状态概览",
+      "type": "service",
+      "module": "assessment"
+    },
+    {
+      "id": "consult",
+      "label": "专业咨询支持\\n建立跟进计划",
+      "type": "service",
+      "module": "intervention"
+    },
+    {
+      "id": "crisis",
+      "label": "危机识别与转介\\n必要时线下介入",
+      "type": "service",
+      "module": "intervention"
+    },
+    {
+      "id": "digest",
+      "label": "周度分析邮件\\n负责范围内趋势报告",
+      "type": "service",
+      "module": "intervention"
+    },
+    {
+      "id": "no_raw",
+      "label": "隐私最小化\\n默认不看原始日记正文",
+      "type": "database",
+      "module": "ethics"
+    },
+    {
+      "id": "boundary",
+      "label": "辅助而非诊断\\nAI 结果仅作参考",
+      "type": "service",
+      "module": "ethics"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "psychologist",
+      "to": "certify",
+      "type": "primary"
+    },
+    {
+      "id": "edge-2",
+      "from": "certify",
+      "to": "scope",
+      "type": "primary"
+    },
+    {
+      "id": "edge-3",
+      "from": "scope",
+      "to": "risk",
+      "type": "primary"
+    },
+    {
+      "id": "edge-4",
+      "from": "risk",
+      "to": "pattern",
+      "type": "primary"
+    },
+    {
+      "id": "edge-5",
+      "from": "pattern",
+      "to": "summary",
+      "type": "data"
+    },
+    {
+      "id": "edge-6",
+      "from": "summary",
+      "to": "consult",
+      "type": "primary"
+    },
+    {
+      "id": "edge-7",
+      "from": "risk",
+      "to": "crisis",
+      "type": "primary",
+      "label": "高风险"
+    },
+    {
+      "id": "edge-8",
+      "from": "pattern",
+      "to": "digest",
+      "type": "data"
+    },
+    {
+      "id": "edge-9",
+      "from": "no_raw",
+      "to": "risk",
+      "type": "data"
+    },
+    {
+      "id": "edge-10",
+      "from": "boundary",
+      "to": "consult",
+      "type": "optional"
+    }
+  ],
+  "modules": [
+    {
+      "id": "identity",
+      "label": "身份与权限"
+    },
+    {
+      "id": "assessment",
+      "label": "观察与评估"
+    },
+    {
+      "id": "intervention",
+      "label": "专业支持"
+    },
+    {
+      "id": "ethics",
+      "label": "伦理与安全"
+    }
+  ]
+}
