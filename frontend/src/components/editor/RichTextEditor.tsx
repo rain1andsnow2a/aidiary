@@ -102,37 +102,17 @@ function downsampleBuffer(buffer: Float32Array, inputSampleRate: number, outputS
   return result
 }
 
-function encodeWav(samples: Float32Array, sampleRate: number) {
-  const buffer = new ArrayBuffer(44 + samples.length * 2)
+function encodePcm16(samples: Float32Array) {
+  const buffer = new ArrayBuffer(samples.length * 2)
   const view = new DataView(buffer)
 
-  const writeString = (offset: number, str: string) => {
-    for (let i = 0; i < str.length; i++) {
-      view.setUint8(offset + i, str.charCodeAt(i))
-    }
-  }
-
-  writeString(0, 'RIFF')
-  view.setUint32(4, 36 + samples.length * 2, true)
-  writeString(8, 'WAVE')
-  writeString(12, 'fmt ')
-  view.setUint32(16, 16, true)
-  view.setUint16(20, 1, true)
-  view.setUint16(22, 1, true)
-  view.setUint32(24, sampleRate, true)
-  view.setUint32(28, sampleRate * 2, true)
-  view.setUint16(32, 2, true)
-  view.setUint16(34, 16, true)
-  writeString(36, 'data')
-  view.setUint32(40, samples.length * 2, true)
-
-  let offset = 44
+  let offset = 0
   for (let i = 0; i < samples.length; i++, offset += 2) {
     const s = Math.max(-1, Math.min(1, samples[i]))
     view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true)
   }
 
-  return new Blob([view], { type: 'audio/wav' })
+  return buffer
 }
 
 // ---- Toolbar button (顶部栏用) ----
@@ -169,13 +149,21 @@ function TopToolbarPlugin({
   onToggleRecording,
   isRecording,
   isTranscribing,
+  liveTranscript,
 }: {
   onRequestImage: () => void
   uploading: boolean
   onToggleRecording: () => void
   isRecording: boolean
   isTranscribing: boolean
+  liveTranscript: string
 }) {
+  const speechHint = isTranscribing
+    ? '正在整理识别结果...'
+    : isRecording
+      ? liveTranscript || '正在听写，点击方块结束'
+      : '选中文字可弹出格式工具栏 · 输入 / 可插入图片 · Ctrl+V 可粘贴图片'
+
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b border-rose-50 bg-rose-50/30">
       <ToolbarBtn title="插入图片" onClick={onRequestImage} disabled={uploading}>
@@ -193,9 +181,13 @@ function TopToolbarPlugin({
           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
           : isRecording
             ? <Square className="w-3.5 h-3.5" />
-            : <Mic className="w-3.5 h-3.5" />}
+          : <Mic className="w-3.5 h-3.5" />}
       </ToolbarBtn>
-      <span className="ml-2 text-[11px] text-stone-300 select-none">选中文字可弹出格式工具栏 · 输入 / 可插入图片 · Ctrl+V 可粘贴图片</span>
+      <span className={`ml-2 text-[11px] select-none truncate ${
+        isRecording || isTranscribing ? 'text-rose-400' : 'text-stone-300'
+      }`}>
+        {speechHint}
+      </span>
     </div>
   )
 }
@@ -683,9 +675,16 @@ export default function RichTextEditor({
   const [uploading, setUploading] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
+  const [liveTranscript, setLiveTranscript] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const processorRef = useRef<ScriptProcessorNode | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const recordingActiveRef = useRef(false)
+  const streamFinishedRef = useRef(false)
+  const finalTranscriptRef = useRef('')
 
   const initialConfig = {
     namespace: 'DiaryEditor',
@@ -722,80 +721,223 @@ export default function RichTextEditor({
     [onChange]
   )
 
-  const transcribeAudioBlob = useCallback(async (audioBlob: Blob) => {
-    setIsTranscribing(true)
-    try {
-      const audioBuffer = await audioBlob.arrayBuffer()
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const decoded = await audioContext.decodeAudioData(audioBuffer.slice(0))
-      const channelData = decoded.getChannelData(0)
-      const downsampled = downsampleBuffer(channelData, decoded.sampleRate, 16000)
-      const wavBlob = encodeWav(downsampled, 16000)
-      const text = await diaryService.speechToText(wavBlob)
-      if (!text) {
-        toast('未识别到有效语音，请重试', 'error')
-        return
-      }
-      setPendingInsertText(`${text}\n`)
-      toast('语音识别成功', 'success')
-      void audioContext.close()
-    } catch (e: any) {
-      toast(e?.response?.data?.detail || '语音识别失败，请稍后重试', 'error')
-    } finally {
-      setIsTranscribing(false)
+  const cleanupRecordingResources = useCallback(async () => {
+    const processor = processorRef.current
+    if (processor) {
+      processor.onaudioprocess = null
+      processor.disconnect()
+      processorRef.current = null
     }
+
+    const source = sourceRef.current
+    if (source) {
+      source.disconnect()
+      sourceRef.current = null
+    }
+
+    const stream = streamRef.current
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+
+    const audioContext = audioContextRef.current
+    if (audioContext && audioContext.state !== 'closed') {
+      await audioContext.close().catch(() => undefined)
+      audioContextRef.current = null
+    }
+  }, [])
+
+  const finishTranscription = useCallback((text: string, options?: { silent?: boolean }) => {
+    if (streamFinishedRef.current) return
+    streamFinishedRef.current = true
+    recordingActiveRef.current = false
+
+    const ws = wsRef.current
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.close(1000)
+    }
+    wsRef.current = null
+
+    const finalText = text.trim()
+    setIsRecording(false)
+    setIsTranscribing(false)
+    setLiveTranscript('')
+
+    if (!finalText) {
+      if (!options?.silent) toast('未识别到有效语音，请重试', 'error')
+      return
+    }
+
+    setPendingInsertText(`${finalText}\n`)
+    toast('语音识别成功', 'success')
+  }, [])
+
+  const failTranscription = useCallback((message: string) => {
+    if (streamFinishedRef.current) return
+    streamFinishedRef.current = true
+    recordingActiveRef.current = false
+    setIsRecording(false)
+    setIsTranscribing(false)
+    setLiveTranscript('')
+    toast(message, 'error')
   }, [])
 
   const stopRecording = useCallback(() => {
-    const recorder = mediaRecorderRef.current
-    if (!recorder) return
-    if (recorder.state !== 'inactive') {
-      recorder.stop()
+    if (!recordingActiveRef.current) return
+    recordingActiveRef.current = false
+    setIsRecording(false)
+    setIsTranscribing(true)
+    void cleanupRecordingResources()
+
+    const ws = wsRef.current
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'end' }))
+      return
     }
-  }, [])
+
+    failTranscription('语音通道已断开，请重试')
+  }, [cleanupRecordingResources, failTranscription])
 
   const handleToggleRecording = useCallback(async () => {
     if (isTranscribing) return
-    if (isRecording) {
+    if (isRecording || recordingActiveRef.current) {
       stopRecording()
       return
     }
+
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+      toast('语音输入需要 HTTPS 安全环境，请使用 https://yingjiapp.com 访问', 'error')
+      return
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       toast('当前浏览器不支持录音', 'error')
       return
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      audioChunksRef.current = []
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data)
-      }
-      recorder.onstop = () => {
-        setIsRecording(false)
-        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-        audioChunksRef.current = []
-        stream.getTracks().forEach((track) => track.stop())
-        void transcribeAudioBlob(blob)
-      }
-      recorder.start()
-      mediaRecorderRef.current = recorder
-      setIsRecording(true)
-      toast('开始录音，再次点击可结束', 'info')
-    } catch {
-      toast('无法访问麦克风，请检查浏览器权限', 'error')
+
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextCtor) {
+      toast('当前浏览器不支持 Web Audio 录音处理', 'error')
+      return
     }
-  }, [isRecording, isTranscribing, stopRecording, transcribeAudioBlob])
+
+    try {
+      streamFinishedRef.current = false
+      finalTranscriptRef.current = ''
+      setLiveTranscript('')
+
+      const ws = new WebSocket(diaryService.getSpeechStreamUrl())
+      ws.binaryType = 'arraybuffer'
+      wsRef.current = ws
+
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error('语音服务连接超时')), 8000)
+        ws.onopen = () => {
+          window.clearTimeout(timer)
+          resolve()
+        }
+        ws.onerror = () => {
+          window.clearTimeout(timer)
+          reject(new Error('语音服务连接失败'))
+        }
+      })
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'ready') return
+          if (data.type === 'error') {
+            void cleanupRecordingResources()
+            failTranscription(data.message || '语音识别失败')
+            return
+          }
+          if (data.type === 'partial' || data.type === 'final') {
+            const text = String(data.text || '')
+            finalTranscriptRef.current = text
+            setLiveTranscript(text)
+            if (data.type === 'final' && !recordingActiveRef.current) {
+              finishTranscription(text)
+            }
+          }
+        } catch {
+          // 忽略非 JSON 控制帧
+        }
+      }
+      ws.onclose = () => {
+        if (!streamFinishedRef.current && !recordingActiveRef.current) {
+          finishTranscription(finalTranscriptRef.current)
+        }
+      }
+      ws.onerror = () => {
+        if (!streamFinishedRef.current) {
+          void cleanupRecordingResources()
+          failTranscription('语音服务连接异常，请稍后重试')
+        }
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      })
+      streamRef.current = stream
+
+      const audioContext = new AudioContextCtor()
+      audioContextRef.current = audioContext
+      const source = audioContext.createMediaStreamSource(stream)
+      const processor = audioContext.createScriptProcessor(4096, 1, 1)
+      sourceRef.current = source
+      processorRef.current = processor
+
+      processor.onaudioprocess = (event) => {
+        event.outputBuffer.getChannelData(0).fill(0)
+        if (!recordingActiveRef.current || ws.readyState !== WebSocket.OPEN) return
+        const input = event.inputBuffer.getChannelData(0)
+        const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000)
+        const pcm = encodePcm16(downsampled)
+        if (pcm.byteLength > 0) {
+          ws.send(pcm)
+        }
+      }
+
+      source.connect(processor)
+      processor.connect(audioContext.destination)
+
+      recordingActiveRef.current = true
+      setIsRecording(true)
+      toast('开始实时听写，再次点击可结束', 'info')
+    } catch (e: any) {
+      recordingActiveRef.current = false
+      streamFinishedRef.current = true
+      await cleanupRecordingResources()
+      const ws = wsRef.current
+      if (ws && ws.readyState === WebSocket.OPEN) ws.close(1011)
+      wsRef.current = null
+      toast(e?.message || '无法访问麦克风，请检查浏览器权限', 'error')
+    }
+  }, [
+    cleanupRecordingResources,
+    failTranscription,
+    finishTranscription,
+    isRecording,
+    isTranscribing,
+    stopRecording,
+  ])
 
   useEffect(() => {
     return () => {
-      try {
-        stopRecording()
-      } catch {
-        // ignore
+      recordingActiveRef.current = false
+      const ws = wsRef.current
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close(1000)
       }
+      void cleanupRecordingResources()
     }
-  }, [stopRecording])
+  }, [cleanupRecordingResources])
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
@@ -806,6 +948,7 @@ export default function RichTextEditor({
           onToggleRecording={handleToggleRecording}
           isRecording={isRecording}
           isTranscribing={isTranscribing}
+          liveTranscript={liveTranscript}
         />
         <input
           ref={fileInputRef}

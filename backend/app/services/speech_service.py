@@ -9,6 +9,7 @@ import io
 import json
 import wave
 from email.utils import formatdate
+from typing import Awaitable, Callable, Optional
 from urllib.parse import quote
 
 import websockets
@@ -68,6 +69,42 @@ class SpeechService:
         )
 
     @staticmethod
+    def _extract_text(result: dict) -> str:
+        ws_items = result.get("ws", [])
+        return "".join(
+            cw.get("w", "")
+            for item in ws_items
+            for cw in item.get("cw", [])
+        )
+
+    @staticmethod
+    def _merge_result(result_map: dict[int, str], result: dict) -> str:
+        """
+        合并讯飞流式返回结果。
+
+        讯飞可能返回普通追加结果，也可能通过 pgs=rpl + rg 做动态修正。
+        这里按 sn 分片维护文本，避免简单 append 带来的重复字。
+        """
+        sn_raw = result.get("sn")
+        try:
+            sn = int(sn_raw)
+        except (TypeError, ValueError):
+            sn = len(result_map) + 1
+
+        if result.get("pgs") == "rpl":
+            rg = result.get("rg") or []
+            if len(rg) == 2:
+                try:
+                    start, end = int(rg[0]), int(rg[1])
+                    for idx in range(start, end + 1):
+                        result_map.pop(idx, None)
+                except (TypeError, ValueError):
+                    pass
+
+        result_map[sn] = SpeechService._extract_text(result)
+        return "".join(result_map[k] for k in sorted(result_map))
+
+    @staticmethod
     def _extract_pcm_from_wav(wav_bytes: bytes) -> bytes:
         with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
             channels = wf.getnchannels()
@@ -91,7 +128,7 @@ class SpeechService:
 
         ws_url = self._build_ws_url()
         frame_size = 1280  # 40ms @ 16kHz, 16bit mono
-        result_parts: list[str] = []
+        result_map: dict[int, str] = {}
 
         async with websockets.connect(ws_url, ping_interval=20, ping_timeout=20, close_timeout=8) as ws:
             index = 0
@@ -130,14 +167,8 @@ class SpeechService:
                         raise ValueError(msg.get("message", "语音识别失败"))
                     data = msg.get("data", {})
                     result = data.get("result", {})
-                    ws_items = result.get("ws", [])
-                    text = "".join(
-                        cw.get("w", "")
-                        for item in ws_items
-                        for cw in item.get("cw", [])
-                    )
-                    if text:
-                        result_parts.append(text)
+                    if result:
+                        self._merge_result(result_map, result)
                 except asyncio.TimeoutError:
                     pass
 
@@ -151,18 +182,133 @@ class SpeechService:
                     break
                 data = msg.get("data", {})
                 result = data.get("result", {})
-                ws_items = result.get("ws", [])
-                text = "".join(
-                    cw.get("w", "")
-                    for item in ws_items
-                    for cw in item.get("cw", [])
-                )
-                if text:
-                    result_parts.append(text)
+                if result:
+                    self._merge_result(result_map, result)
                 if data.get("status") == 2:
                     break
 
-        return "".join(result_parts).strip()
+        return "".join(result_map[k] for k in sorted(result_map)).strip()
+
+    async def stream_pcm(
+        self,
+        incoming: "asyncio.Queue[Optional[bytes]]",
+        on_text: Callable[[str, bool], Awaitable[None]],
+    ) -> str:
+        """
+        将前端实时传入的 16kHz/16bit/mono PCM 流转发给讯飞。
+
+        Args:
+            incoming: PCM 队列，None 表示用户停止录音。
+            on_text: 回调，参数为当前完整文本、是否最终结果。
+        """
+        if not self.is_configured():
+            raise ValueError("语音识别服务未配置")
+
+        ws_url = self._build_ws_url()
+        result_map: dict[int, str] = {}
+        final_text = ""
+
+        async with websockets.connect(
+            ws_url,
+            ping_interval=20,
+            ping_timeout=20,
+            close_timeout=8,
+            max_size=2 * 1024 * 1024,
+        ) as ws:
+            first_frame = True
+            finished_sending = False
+            final_received = asyncio.Event()
+
+            async def receiver() -> None:
+                nonlocal final_text
+                while True:
+                    response = await ws.recv()
+                    msg = json.loads(response)
+                    if msg.get("code", 0) != 0:
+                        raise ValueError(msg.get("message", "语音识别失败"))
+
+                    data = msg.get("data", {})
+                    result = data.get("result", {})
+                    if result:
+                        final_text = self._merge_result(result_map, result).strip()
+                        await on_text(final_text, data.get("status") == 2)
+
+                    if data.get("status") == 2:
+                        final_received.set()
+                        break
+
+            recv_task = asyncio.create_task(receiver())
+            try:
+                while True:
+                    chunk = await asyncio.wait_for(incoming.get(), timeout=65)
+                    if chunk is None:
+                        finished_sending = True
+                        if first_frame:
+                            final_received.set()
+                            break
+                        payload = {
+                            "data": {
+                                "status": 2,
+                                "format": "audio/L16;rate=16000",
+                                "audio": "",
+                                "encoding": "raw",
+                            }
+                        }
+                        await ws.send(json.dumps(payload))
+                        break
+
+                    if not chunk:
+                        continue
+
+                    status = 0 if first_frame else 1
+                    first_frame = False
+                    payload: dict = {
+                        "data": {
+                            "status": status,
+                            "format": "audio/L16;rate=16000",
+                            "audio": base64.b64encode(chunk).decode("utf-8"),
+                            "encoding": "raw",
+                        }
+                    }
+                    if status == 0:
+                        payload["common"] = {"app_id": self._appid()}
+                        payload["business"] = {
+                            "domain": "iat",
+                            "language": "zh_cn",
+                            "accent": "mandarin",
+                            "vad_eos": 2500,
+                            "dwa": "wpgs",
+                        }
+
+                    await ws.send(json.dumps(payload))
+
+                if finished_sending:
+                    if first_frame:
+                        return ""
+                    try:
+                        await asyncio.wait_for(final_received.wait(), timeout=8)
+                    except asyncio.TimeoutError:
+                        pass
+                else:
+                    final_received.set()
+
+                if not recv_task.done():
+                    recv_task.cancel()
+                    try:
+                        await recv_task
+                    except asyncio.CancelledError:
+                        pass
+                else:
+                    await recv_task
+            finally:
+                if not recv_task.done():
+                    recv_task.cancel()
+                    try:
+                        await recv_task
+                    except asyncio.CancelledError:
+                        pass
+
+        return final_text.strip()
 
 
 speech_service = SpeechService()

@@ -124,4 +124,11 @@ export const diaryService = {
     })
     return response.data.text || ''
   },
+
+  getSpeechStreamUrl: (): string => {
+    const base = import.meta.env.VITE_API_BASE_URL || window.location.origin
+    const url = new URL('/api/v1/diaries/speech-to-text/stream', base)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    return url.toString()
+  },
 }

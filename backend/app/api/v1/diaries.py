@@ -4,9 +4,10 @@
 import os
 import uuid
 import asyncio
+import json
 from typing import Optional
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 
@@ -24,6 +25,7 @@ from app.services.diary_service import diary_service, timeline_service
 from app.services.speech_service import speech_service
 from app.agents.llm import deepseek_client
 from app.core.deps import get_current_active_user
+from app.core.security import decode_access_token
 from app.models.database import User
 from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight
 
@@ -284,6 +286,110 @@ async def speech_to_text(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="语音识别服务调用失败")
 
     return {"text": text}
+
+
+@router.websocket("/speech-to-text/stream")
+async def speech_to_text_stream(websocket: WebSocket):
+    """
+    流式语音听写。
+
+    前端发送 16kHz / 16bit / mono PCM 二进制片段，发送 {"type":"end"} 结束。
+    后端实时转发到讯飞 IAT WebSocket，并把 partial/final 文本推回前端。
+    """
+    await websocket.accept()
+
+    token = websocket.cookies.get("access_token")
+    payload = decode_access_token(token) if token else None
+    if not payload or payload.get("type") not in (None, "access") or not payload.get("sub"):
+        await websocket.send_json({"type": "error", "message": "请先登录后再使用语音输入"})
+        await websocket.close(code=1008)
+        return
+
+    if not speech_service.is_configured():
+        await websocket.send_json({"type": "error", "message": "语音识别服务未配置，请联系管理员"})
+        await websocket.close(code=1011)
+        return
+
+    pcm_queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue(maxsize=80)
+    last_text = ""
+
+    async def on_text(text: str, is_final: bool) -> None:
+        nonlocal last_text
+        last_text = text
+        await websocket.send_json({
+            "type": "final" if is_final else "partial",
+            "text": text,
+        })
+
+    async def receive_client_audio() -> None:
+        while True:
+            message = await websocket.receive()
+            if "bytes" in message and message["bytes"] is not None:
+                try:
+                    pcm_queue.put_nowait(message["bytes"])
+                except asyncio.QueueFull:
+                    # 网络或上游短暂拥堵时丢弃最旧片段，避免无限堆积导致“越录越卡”。
+                    try:
+                        _ = pcm_queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                    await pcm_queue.put(message["bytes"])
+                continue
+
+            text = message.get("text")
+            if text:
+                try:
+                    data = json.loads(text)
+                except json.JSONDecodeError:
+                    data = {}
+                if data.get("type") == "end":
+                    await pcm_queue.put(None)
+                    return
+
+            if message.get("type") == "websocket.disconnect":
+                await pcm_queue.put(None)
+                return
+
+    try:
+        await websocket.send_json({"type": "ready"})
+        receiver_task = asyncio.create_task(receive_client_audio())
+        transcribe_task = asyncio.create_task(speech_service.stream_pcm(pcm_queue, on_text))
+        done, pending = await asyncio.wait(
+            {receiver_task, transcribe_task},
+            return_when=asyncio.FIRST_EXCEPTION,
+        )
+        try:
+            for task in done:
+                if task.cancelled():
+                    continue
+                exc = task.exception()
+                if exc:
+                    raise exc
+
+            if receiver_task.done() and not transcribe_task.done():
+                final_text = await transcribe_task
+            elif transcribe_task.done():
+                final_text = transcribe_task.result()
+                if not receiver_task.done():
+                    receiver_task.cancel()
+            else:
+                final_text = last_text
+
+            await websocket.send_json({"type": "final", "text": final_text})
+            await websocket.close(code=1000)
+        finally:
+            for task in pending:
+                if not task.done():
+                    task.cancel()
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"[Speech Stream] error user={payload.get('sub') if payload else '?'}: {e}")
+        try:
+            await websocket.send_json({"type": "error", "message": str(e) or "语音识别失败"})
+            await websocket.close(code=1011)
+        except Exception:
+            pass
 
 
 # ==================== 时间轴 ====================
