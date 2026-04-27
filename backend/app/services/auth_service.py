@@ -8,7 +8,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import User, VerificationCode
-from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.security import get_password_hash, verify_and_update_password, create_access_token
 from app.core.config import settings
 from app.services.email_service import email_service
 
@@ -291,9 +291,14 @@ class AuthService:
         if not user.is_active:
             return False, "用户已被禁用", None
 
-        # 验证密码
-        if not verify_password(password, user.password_hash):
+        # 验证密码；若历史哈希方案已过期，则在登录成功后升级为 Argon2id
+        password_ok, updated_hash = verify_and_update_password(password, user.password_hash)
+        if not password_ok:
             return False, "邮箱或密码错误", None
+
+        if updated_hash:
+            user.password_hash = updated_hash
+            await db.commit()
 
         return True, "登录成功", user
 

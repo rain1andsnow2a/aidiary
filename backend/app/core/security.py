@@ -11,12 +11,16 @@ from app.core.config import settings
 
 # 密码哈希上下文
 # 说明：
-# - 新密码默认使用 pbkdf2_sha256，避免依赖本地 bcrypt 后端版本兼容性。
-# - 保留 bcrypt_sha256 / bcrypt 以兼容历史用户。
-# - 这样即使本地 venv 意外装到了 bcrypt 5.x，也不会影响新注册/改密。
+# - 新密码默认使用 Argon2id。Argon2id 同时消耗 CPU 和内存，更适合抵抗 GPU/ASIC 暴力破解。
+# - 保留 pbkdf2_sha256 / bcrypt_sha256 / bcrypt 以兼容历史用户。
+# - verify_and_update_password() 会在用户下次密码登录成功时，把旧哈希自动升级为 Argon2id。
 pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256", "bcrypt_sha256", "bcrypt"],
+    schemes=["argon2", "pbkdf2_sha256", "bcrypt_sha256", "bcrypt"],
     deprecated="auto",
+    argon2__type="ID",
+    argon2__time_cost=3,
+    argon2__memory_cost=65536,
+    argon2__parallelism=4,
 )
 
 # Token 过期时间
@@ -37,6 +41,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: 密码是否匹配
     """
     return pwd_context.verify(plain_password, hashed_password)
+
+
+def verify_and_update_password(plain_password: str, hashed_password: str) -> tuple[bool, Optional[str]]:
+    """
+    验证密码，并在旧哈希方案需要升级时返回新的 Argon2id 哈希。
+
+    Args:
+        plain_password: 明文密码
+        hashed_password: 数据库中保存的密码哈希
+
+    Returns:
+        tuple[bool, Optional[str]]: (密码是否匹配, 新哈希；无需升级时为 None)
+    """
+    return pwd_context.verify_and_update(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
