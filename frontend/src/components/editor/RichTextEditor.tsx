@@ -12,18 +12,22 @@ import {
   $getRoot, $createParagraphNode, $getSelection, $isRangeSelection,
   FORMAT_TEXT_COMMAND, SELECTION_CHANGE_COMMAND, PASTE_COMMAND,
   COMMAND_PRIORITY_LOW, COMMAND_PRIORITY_HIGH,
-  EditorState, LexicalEditor, $createTextNode
+  EditorState, LexicalEditor, $createTextNode, $isTextNode
 } from 'lexical'
-import { HeadingNode, QuoteNode } from '@lexical/rich-text'
-import { CodeNode } from '@lexical/code'
-import { ListNode, ListItemNode } from '@lexical/list'
+import { $setBlocksType } from '@lexical/selection'
+import { $createHeadingNode, $createQuoteNode, HeadingNode, QuoteNode, type HeadingTagType } from '@lexical/rich-text'
+import { $createCodeNode, CodeNode } from '@lexical/code'
+import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListNode, ListItemNode } from '@lexical/list'
 import { LinkNode } from '@lexical/link'
 import { $generateHtmlFromNodes } from '@lexical/html'
 import {
   $convertFromMarkdownString, $convertToMarkdownString,
   TRANSFORMERS, type ElementTransformer,
 } from '@lexical/markdown'
-import { Bold, Italic, Underline, Strikethrough, Code, Type, Image as ImageIcon, Loader2, ChevronDown, Mic, Square } from 'lucide-react'
+import {
+  Bold, Italic, Underline, Strikethrough, Code, Type, Image as ImageIcon, Loader2, ChevronDown, Mic, Square,
+  Pilcrow, Heading1, Heading2, Heading3, Heading4, List as ListIcon, ListOrdered, Quote, Code2,
+} from 'lucide-react'
 import { diaryService } from '@/services/diary.service'
 import { toast } from '@/components/ui/toast'
 import { ImageNode, $createImageNode, $isImageNode } from './ImageNode'
@@ -45,6 +49,116 @@ const IMAGE_TRANSFORMER: ElementTransformer = {
 }
 
 const STORAGE_TRANSFORMERS = [IMAGE_TRANSFORMER, ...TRANSFORMERS]
+
+type SlashCommandKind = 'paragraph' | 'heading' | 'bullet' | 'numbered' | 'quote' | 'code' | 'image'
+
+type SlashCommandItem = {
+  id: string
+  title: string
+  description: string
+  shortcut: string
+  keywords: string
+  kind: SlashCommandKind
+  headingTag?: HeadingTagType
+  icon: React.ComponentType<{ className?: string }>
+}
+
+const SLASH_COMMANDS: SlashCommandItem[] = [
+  {
+    id: 'text',
+    title: '文本',
+    description: '普通段落，用来记录想法',
+    shortcut: 'text',
+    keywords: 'text wenben duanluo paragraph',
+    kind: 'paragraph',
+    icon: Pilcrow,
+  },
+  {
+    id: 'h1',
+    title: '一级标题',
+    description: '大标题，适合章节开头',
+    shortcut: '#',
+    keywords: 'h1 heading title biaoti yiji',
+    kind: 'heading',
+    headingTag: 'h1',
+    icon: Heading1,
+  },
+  {
+    id: 'h2',
+    title: '二级标题',
+    description: '分段标题，适合整理结构',
+    shortcut: '##',
+    keywords: 'h2 heading title biaoti erji',
+    kind: 'heading',
+    headingTag: 'h2',
+    icon: Heading2,
+  },
+  {
+    id: 'h3',
+    title: '三级标题',
+    description: '小节标题，适合轻量分组',
+    shortcut: '###',
+    keywords: 'h3 heading title biaoti sanji',
+    kind: 'heading',
+    headingTag: 'h3',
+    icon: Heading3,
+  },
+  {
+    id: 'h4',
+    title: '四级标题',
+    description: '更轻的段内标题',
+    shortcut: '####',
+    keywords: 'h4 heading title biaoti siji',
+    kind: 'heading',
+    headingTag: 'h4',
+    icon: Heading4,
+  },
+  {
+    id: 'bullet',
+    title: '项目符号列表',
+    description: '把零散想法列出来',
+    shortcut: '-',
+    keywords: 'bullet list liebiao xiangmu',
+    kind: 'bullet',
+    icon: ListIcon,
+  },
+  {
+    id: 'numbered',
+    title: '编号列表',
+    description: '适合记录步骤和顺序',
+    shortcut: '1.',
+    keywords: 'number ordered list bianhao shunxu',
+    kind: 'numbered',
+    icon: ListOrdered,
+  },
+  {
+    id: 'quote',
+    title: '引用',
+    description: '突出一句重要的话',
+    shortcut: '>',
+    keywords: 'quote yinyong',
+    kind: 'quote',
+    icon: Quote,
+  },
+  {
+    id: 'code',
+    title: '代码块',
+    description: '记录代码、命令或原始文本',
+    shortcut: '```',
+    keywords: 'code daima mingling',
+    kind: 'code',
+    icon: Code2,
+  },
+  {
+    id: 'image',
+    title: '图片',
+    description: '上传并插入一张图片',
+    shortcut: 'image',
+    keywords: 'image picture tupian charu upload',
+    kind: 'image',
+    icon: ImageIcon,
+  },
+]
 
 // ---- 颜色/字号常量 ----
 const TEXT_COLORS = [
@@ -162,7 +276,7 @@ function TopToolbarPlugin({
     ? '正在整理识别结果...'
     : isRecording
       ? liveTranscript || '正在听写，点击方块结束'
-      : '选中文字可弹出格式工具栏 · 输入 / 可插入图片 · Ctrl+V 可粘贴图片'
+      : '选中文字可弹出格式工具栏 · 输入 / 打开模块菜单 · Ctrl+V 可粘贴图片'
 
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b border-rose-50 bg-rose-50/30">
@@ -510,26 +624,122 @@ function SlashCommandPlugin({
 }) {
   const [editor] = useLexicalComposerContext()
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+
+  const filteredCommands = SLASH_COMMANDS.filter((item) => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return true
+    return `${item.title} ${item.description} ${item.shortcut} ${item.keywords}`
+      .toLowerCase()
+      .includes(needle)
+  })
+
+  const closeMenu = useCallback(() => {
+    setOpen(false)
+    setQuery('')
+    setSelectedIndex(0)
+    onVisibilityChange(false)
+  }, [onVisibilityChange])
+
+  const removeSlashQuery = useCallback(() => {
+    editor.update(() => {
+      const selection = $getSelection()
+      if (!$isRangeSelection(selection) || !selection.isCollapsed()) return
+
+      const anchor = selection.anchor
+      const anchorNode = anchor.getNode()
+      if (!$isTextNode(anchorNode)) return
+
+      const textBeforeCursor = anchorNode.getTextContent().slice(0, anchor.offset)
+      const slashIndex = textBeforeCursor.lastIndexOf('/')
+      if (slashIndex < 0) return
+
+      anchorNode.spliceText(slashIndex, anchor.offset - slashIndex, '', true)
+    })
+  }, [editor])
+
+  const runCommand = useCallback((item: SlashCommandItem) => {
+    removeSlashQuery()
+
+    if (item.kind === 'image') {
+      closeMenu()
+      onOpenImagePicker()
+      return
+    }
+
+    editor.update(() => {
+      const selection = $getSelection()
+      if (!$isRangeSelection(selection)) return
+
+      if (item.kind === 'paragraph') {
+        $setBlocksType(selection, () => $createParagraphNode())
+      }
+
+      if (item.kind === 'heading' && item.headingTag) {
+        $setBlocksType(selection, () => $createHeadingNode(item.headingTag!))
+      }
+
+      if (item.kind === 'quote') {
+        $setBlocksType(selection, () => $createQuoteNode())
+      }
+
+      if (item.kind === 'code') {
+        $setBlocksType(selection, () => $createCodeNode())
+      }
+    })
+
+    if (item.kind === 'bullet') {
+      editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)
+    }
+
+    if (item.kind === 'numbered') {
+      editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)
+    }
+
+    closeMenu()
+  }, [closeMenu, editor, onOpenImagePicker, removeSlashQuery])
 
   useEffect(() => {
     const detectSlash = (editorState: EditorState) => {
       editorState.read(() => {
         const selection = $getSelection()
         if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
-          if (open) {
-            setOpen(false)
-            onVisibilityChange(false)
-          }
+          if (open) closeMenu()
           return
         }
 
         const anchorNode = selection.anchor.getNode()
+        if (!$isTextNode(anchorNode)) {
+          if (open) closeMenu()
+          return
+        }
+
         const textBeforeCursor = anchorNode.getTextContent().slice(0, selection.anchor.offset)
-        const shouldOpen = /(^|\s)\/$/.test(textBeforeCursor)
+        const match = textBeforeCursor.match(/(?:^|\s)\/([^\s/]*)$/)
+        const shouldOpen = Boolean(match)
 
         if (shouldOpen !== open) {
           setOpen(shouldOpen)
           onVisibilityChange(shouldOpen)
+        }
+        if (shouldOpen) {
+          const nextQuery = match?.[1] || ''
+          setQuery(nextQuery)
+          setSelectedIndex(0)
+
+          const nativeSelection = window.getSelection()
+          const range = nativeSelection?.rangeCount ? nativeSelection.getRangeAt(0) : null
+          const rect = range?.getBoundingClientRect()
+          const rootRect = editor.getRootElement()?.getBoundingClientRect()
+          const left = rect && rect.left > 0
+            ? rect.left + window.scrollX
+            : (rootRect?.left || 0) + window.scrollX + 24
+          const top = rect && rect.bottom > 0
+            ? rect.bottom + window.scrollY + 10
+            : (rootRect?.top || 0) + window.scrollY + 36
+          setMenuPos({ top, left })
         }
       })
     }
@@ -537,29 +747,105 @@ function SlashCommandPlugin({
     detectSlash(editor.getEditorState())
     const unregister = editor.registerUpdateListener(({ editorState }) => detectSlash(editorState))
     return () => unregister()
-  }, [editor, onVisibilityChange, open])
+  }, [closeMenu, editor, onVisibilityChange, open])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!open) return
+
       if (e.key === 'Escape') {
-        setOpen(false)
-        onVisibilityChange(false)
+        e.preventDefault()
+        closeMenu()
         return
       }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex((index) => Math.min(index + 1, Math.max(filteredCommands.length - 1, 0)))
+        return
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex((index) => Math.max(index - 1, 0))
+        return
+      }
+
       if (e.key === 'Enter') {
         e.preventDefault()
-        setOpen(false)
-        onVisibilityChange(false)
-        onOpenImagePicker()
+        const command = filteredCommands[selectedIndex]
+        if (command) runCommand(command)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onOpenImagePicker, onVisibilityChange, open])
+  }, [closeMenu, filteredCommands, open, runCommand, selectedIndex])
 
-  return null
+  if (!open) return null
+
+  const menuLeft = Math.max(16, Math.min(menuPos.left, window.innerWidth - 376))
+
+  const menu = (
+    <div
+      className="fixed z-[9998] w-[360px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-stone-200/80 bg-white/95 shadow-[0_18px_60px_rgba(82,64,54,0.16)] backdrop-blur-xl"
+      style={{ top: menuPos.top, left: menuLeft }}
+    >
+      <div className="px-4 pt-3 pb-2 border-b border-stone-100">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">基础模块</p>
+        <p className="mt-1 text-xs text-stone-400">输入关键词筛选，回车插入，Esc 关闭</p>
+      </div>
+      <div className="max-h-[320px] overflow-y-auto p-2">
+        {filteredCommands.length > 0 ? (
+          filteredCommands.map((item, index) => {
+            const Icon = item.icon
+            const active = index === selectedIndex
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  runCommand(item)
+                }}
+                className={`w-full min-h-[54px] rounded-xl px-3 py-2 flex items-center gap-3 text-left transition-colors ${
+                  active ? 'bg-stone-100/90' : 'hover:bg-stone-50'
+                }`}
+              >
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  active ? 'bg-white text-stone-700 shadow-sm' : 'bg-stone-50 text-stone-500'
+                }`}>
+                  <Icon className="w-4 h-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-stone-700">{item.title}</span>
+                  <span className="block text-xs text-stone-400 truncate">{item.description}</span>
+                </span>
+                <span className="text-xs text-stone-300 shrink-0">{item.shortcut}</span>
+              </button>
+            )
+          })
+        ) : (
+          <div className="px-3 py-8 text-center text-sm text-stone-400">
+            没有找到相关模块
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onMouseDown={(event) => {
+          event.preventDefault()
+          closeMenu()
+        }}
+        className="w-full px-4 py-3 border-t border-stone-100 text-left text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+      >
+        关闭菜单 <span className="float-right text-xs text-stone-300">esc</span>
+      </button>
+    </div>
+  )
+
+  return createPortal(menu, document.body)
 }
 
 // ---- Image insertion plugin ----
@@ -671,7 +957,7 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null)
   const [pendingInsertText, setPendingInsertText] = useState<string | null>(null)
-  const [showSlashMenu, setShowSlashMenu] = useState(false)
+  const [, setShowSlashMenu] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
@@ -958,18 +1244,6 @@ export default function RichTextEditor({
           onChange={handleImageUpload}
         />
         <div className="relative" style={{ minHeight }}>
-          {showSlashMenu && (
-            <button
-              type="button"
-              onClick={() => {
-                setShowSlashMenu(false)
-                fileInputRef.current?.click()
-              }}
-              className="absolute z-20 left-6 top-3 px-3 py-2 rounded-xl border border-rose-100 bg-white text-xs text-stone-600 shadow-sm hover:bg-rose-50 transition-colors"
-            >
-              插入图片
-            </button>
-          )}
           <RichTextPlugin
             contentEditable={
               <ContentEditable
