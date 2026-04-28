@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 
-from app.db import get_db, async_session_maker
+from app.db import get_db, async_session_maker, set_rls_service_context
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads", "diary_images")
 from app.schemas.diary import (
@@ -35,6 +35,7 @@ router = APIRouter(prefix="/diaries", tags=["日记"])
 async def _ai_refine_event_task(user_id: int, diary_id: int):
     try:
         async with async_session_maker() as session:
+            await set_rls_service_context(session)
             await timeline_service.refine_event_from_diary_with_ai(
                 db=session,
                 user_id=user_id,

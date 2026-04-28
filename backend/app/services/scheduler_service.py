@@ -11,7 +11,7 @@ from datetime import datetime, date, timedelta, time as dtime
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import async_session_maker
+from app.db import async_session_maker, set_rls_service_context
 from app.models.database import User
 from app.models.diary import Diary, TimelineEvent
 from app.core.config import settings
@@ -86,6 +86,7 @@ async def run_daily_analysis():
     print(f"\n[Scheduler] === 每日分析任务开始 === 目标日期: {yesterday} ~ {today}")
 
     async with async_session_maker() as db:
+        await set_rls_service_context(db)
         # 找出这两天有日记的所有用户
         user_result = await db.execute(
             select(Diary.user_id).where(
@@ -136,6 +137,7 @@ async def run_growth_analysis_for_range(
     )
 
     async with async_session_maker() as db:
+        await set_rls_service_context(db)
         user_query = select(Diary.user_id).where(Diary.diary_date.in_(target_dates))
         if user_id is not None:
             user_query = user_query.where(Diary.user_id == user_id)
@@ -180,6 +182,7 @@ async def run_weekly_counselor_digest():
 
     print(f"\n[Scheduler] === 辅导员/心理老师周报任务开始 === 日期: {today}")
     async with async_session_maker() as db:
+        await set_rls_service_context(db)
         from app.services.counselor_digest_service import send_weekly_counselor_digests
 
         sent_count = await send_weekly_counselor_digests(db=db, today=today)

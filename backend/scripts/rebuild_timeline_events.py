@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 from sqlalchemy import select
 
-from app.db import async_session_maker
+from app.db import async_session_maker, set_rls_service_context
 from app.models.database import User
 from app.services.diary_service import timeline_service
 
@@ -20,6 +20,7 @@ async def rebuild_for_user(user_id: int, days: int) -> dict:
     end = date.today()
     start = end - timedelta(days=max(days - 1, 0))
     async with async_session_maker() as db:
+        await set_rls_service_context(db)
         stats = await timeline_service.rebuild_events_for_user(
             db=db,
             user_id=user_id,
@@ -46,6 +47,7 @@ async def main() -> None:
         return
 
     async with async_session_maker() as db:
+        await set_rls_service_context(db)
         result = await db.execute(select(User.id).where(User.is_active == True))  # noqa: E712
         user_ids = [row[0] for row in result.all()]
 

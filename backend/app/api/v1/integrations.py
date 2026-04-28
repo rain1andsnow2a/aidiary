@@ -18,7 +18,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_active_user
-from app.db import get_db
+from app.db import get_db, set_rls_context, set_rls_service_context
 from app.models.database import User
 from app.models.diary import Diary
 from app.models.integration import ExternalIntegrationToken
@@ -113,6 +113,7 @@ async def _get_user_by_external_token(
     raw_token: str,
     provider: str = OPENCLAW_PROVIDER,
 ) -> tuple[User, ExternalIntegrationToken]:
+    await set_rls_service_context(db)
     hashed = _hash_token(raw_token)
     token_result = await db.execute(
         select(ExternalIntegrationToken).where(
@@ -135,6 +136,7 @@ async def _get_user_by_external_token(
     user = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=403, detail="用户不可用")
+    await set_rls_context(db, user.id, user.role)
     return user, token_row
 
 

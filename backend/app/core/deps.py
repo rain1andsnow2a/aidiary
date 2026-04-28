@@ -8,7 +8,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_access_token
-from app.db import get_db
+from app.db import get_db, set_rls_context
 from app.models.database import User, UserRole
 
 # HTTP Bearer认证（设为可选，cookie 优先）
@@ -74,6 +74,8 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="用户已被禁用"
         )
+
+    await set_rls_context(db, user.id, user.role)
 
     return user
 

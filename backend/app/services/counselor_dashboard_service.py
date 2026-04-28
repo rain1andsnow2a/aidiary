@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import set_rls_service_context
 from app.models.database import CounselorBinding, CounselorWeeklyDigestLog, User
 from app.models.diary import Diary
 from app.schemas.counselor import (
@@ -50,6 +51,8 @@ async def build_counselor_dashboard(
     counselor: User,
     window_days: int = 14,
 ) -> CounselorDashboardResponse:
+    await set_rls_service_context(db)
+
     today = date.today()
     start_date = today - timedelta(days=max(window_days - 1, 0))
 

@@ -24,6 +24,28 @@ async_session_maker = async_sessionmaker(
 )
 
 
+RLS_OWNER_TABLES = [
+    "diaries",
+    "timeline_events",
+    "ai_analyses",
+    "social_post_samples",
+    "growth_daily_insights",
+    "assistant_profiles",
+    "assistant_sessions",
+    "assistant_messages",
+    "external_integration_tokens",
+    "counselor_applications",
+    "counselor_bindings",
+    "counselor_weekly_digest_logs",
+]
+
+RLS_COMMUNITY_PRIVATE_TABLES = [
+    "post_likes",
+    "post_collects",
+    "post_views",
+]
+
+
 class Base(DeclarativeBase):
     """所有模型的基类"""
     pass
@@ -40,7 +62,46 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield session
         finally:
+            await reset_rls_context(session)
             await session.close()
+
+
+def _is_postgresql_session(session: AsyncSession) -> bool:
+    return session.get_bind().dialect.name == "postgresql"
+
+
+async def set_rls_context(session: AsyncSession, user_id: int, role: str) -> None:
+    """把当前请求用户写入 PostgreSQL 会话，供 RLS policy 读取。"""
+    if not _is_postgresql_session(session):
+        return
+    await session.execute(
+        text("SELECT set_config('app.current_user_id', :user_id, false)"),
+        {"user_id": str(user_id)},
+    )
+    await session.execute(
+        text("SELECT set_config('app.current_user_role', :role, false)"),
+        {"role": role},
+    )
+
+
+async def set_rls_service_context(session: AsyncSession) -> None:
+    """后台任务/受控聚合查询使用的服务上下文。"""
+    if not _is_postgresql_session(session):
+        return
+    await session.execute(text("SELECT set_config('app.current_user_id', '', false)"))
+    await session.execute(text("SELECT set_config('app.current_user_role', 'service', false)"))
+
+
+async def reset_rls_context(session: AsyncSession) -> None:
+    """归还连接前清理会话变量，避免连接池复用时串上下文。"""
+    if not _is_postgresql_session(session):
+        return
+    try:
+        await session.execute(text("SELECT set_config('app.current_user_id', '', false)"))
+        await session.execute(text("SELECT set_config('app.current_user_role', '', false)"))
+    except Exception:
+        # 会话正在异常回滚/关闭时不阻塞请求收尾。
+        pass
 
 
 async def init_db():
@@ -132,6 +193,9 @@ async def init_db():
                     )
                 )
 
+        if conn.dialect.name == "postgresql":
+            await _ensure_rls_policies(conn)
+
 
 async def _ensure_user_columns(conn):
     """为既有数据库补齐历史缺失的用户字段，兼容旧库直接升级。"""
@@ -217,3 +281,193 @@ async def _ensure_user_columns(conn):
             "postgresql" if dialect == "postgresql" else "sqlite"
         ]
         await conn.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {definition}"))
+
+
+async def _ensure_rls_policies(conn) -> None:
+    """为 PostgreSQL 启用行级安全策略。
+
+    应用层仍然保留资源归属校验；RLS 作为数据库层兜底，防止查询漏写 user_id。
+    """
+    statements: list[str] = [
+        """
+        CREATE OR REPLACE FUNCTION app_current_user_id()
+        RETURNS integer
+        LANGUAGE sql
+        STABLE
+        AS $$
+            SELECT NULLIF(current_setting('app.current_user_id', true), '')::integer
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION app_current_user_role()
+        RETURNS text
+        LANGUAGE sql
+        STABLE
+        AS $$
+            SELECT COALESCE(NULLIF(current_setting('app.current_user_role', true), ''), 'anonymous')
+        $$;
+        """,
+    ]
+
+    for table_name in RLS_OWNER_TABLES:
+        statements.extend(
+            [
+                f'ALTER TABLE "{table_name}" ENABLE ROW LEVEL SECURITY;',
+                f'ALTER TABLE "{table_name}" FORCE ROW LEVEL SECURITY;',
+                f'DROP POLICY IF EXISTS "{table_name}_owner_select" ON "{table_name}";',
+                f'DROP POLICY IF EXISTS "{table_name}_owner_insert" ON "{table_name}";',
+                f'DROP POLICY IF EXISTS "{table_name}_owner_update" ON "{table_name}";',
+                f'DROP POLICY IF EXISTS "{table_name}_owner_delete" ON "{table_name}";',
+                f"""
+                CREATE POLICY "{table_name}_owner_select" ON "{table_name}"
+                FOR SELECT
+                USING (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                );
+                """,
+                f"""
+                CREATE POLICY "{table_name}_owner_insert" ON "{table_name}"
+                FOR INSERT
+                WITH CHECK (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                );
+                """,
+                f"""
+                CREATE POLICY "{table_name}_owner_update" ON "{table_name}"
+                FOR UPDATE
+                USING (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                )
+                WITH CHECK (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                );
+                """,
+                f"""
+                CREATE POLICY "{table_name}_owner_delete" ON "{table_name}"
+                FOR DELETE
+                USING (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                );
+                """,
+            ]
+        )
+
+    statements.extend(
+        [
+            'ALTER TABLE "community_posts" ENABLE ROW LEVEL SECURITY;',
+            'ALTER TABLE "community_posts" FORCE ROW LEVEL SECURITY;',
+            'DROP POLICY IF EXISTS "community_posts_visible_select" ON "community_posts";',
+            'DROP POLICY IF EXISTS "community_posts_owner_insert" ON "community_posts";',
+            'DROP POLICY IF EXISTS "community_posts_owner_update" ON "community_posts";',
+            'DROP POLICY IF EXISTS "community_posts_owner_delete" ON "community_posts";',
+            """
+            CREATE POLICY "community_posts_visible_select" ON "community_posts"
+            FOR SELECT
+            USING (
+                (is_deleted = false AND is_hidden = false)
+                OR user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            """
+            CREATE POLICY "community_posts_owner_insert" ON "community_posts"
+            FOR INSERT
+            WITH CHECK (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            """
+            CREATE POLICY "community_posts_owner_update" ON "community_posts"
+            FOR UPDATE
+            USING (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            )
+            WITH CHECK (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            """
+            CREATE POLICY "community_posts_owner_delete" ON "community_posts"
+            FOR DELETE
+            USING (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            'ALTER TABLE "post_comments" ENABLE ROW LEVEL SECURITY;',
+            'ALTER TABLE "post_comments" FORCE ROW LEVEL SECURITY;',
+            'DROP POLICY IF EXISTS "post_comments_visible_select" ON "post_comments";',
+            'DROP POLICY IF EXISTS "post_comments_owner_insert" ON "post_comments";',
+            'DROP POLICY IF EXISTS "post_comments_owner_update" ON "post_comments";',
+            'DROP POLICY IF EXISTS "post_comments_owner_delete" ON "post_comments";',
+            """
+            CREATE POLICY "post_comments_visible_select" ON "post_comments"
+            FOR SELECT
+            USING (
+                is_deleted = false
+                OR user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            """
+            CREATE POLICY "post_comments_owner_insert" ON "post_comments"
+            FOR INSERT
+            WITH CHECK (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            """
+            CREATE POLICY "post_comments_owner_update" ON "post_comments"
+            FOR UPDATE
+            USING (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            )
+            WITH CHECK (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+            """
+            CREATE POLICY "post_comments_owner_delete" ON "post_comments"
+            FOR DELETE
+            USING (
+                user_id = app_current_user_id()
+                OR app_current_user_role() IN ('admin', 'service')
+            );
+            """,
+        ]
+    )
+
+    for table_name in RLS_COMMUNITY_PRIVATE_TABLES:
+        statements.extend(
+            [
+                f'ALTER TABLE "{table_name}" ENABLE ROW LEVEL SECURITY;',
+                f'ALTER TABLE "{table_name}" FORCE ROW LEVEL SECURITY;',
+                f'DROP POLICY IF EXISTS "{table_name}_owner_all" ON "{table_name}";',
+                f"""
+                CREATE POLICY "{table_name}_owner_all" ON "{table_name}"
+                FOR ALL
+                USING (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                )
+                WITH CHECK (
+                    user_id = app_current_user_id()
+                    OR app_current_user_role() IN ('admin', 'service')
+                );
+                """,
+            ]
+        )
+
+    for statement in statements:
+        await conn.execute(text(statement))
