@@ -30,6 +30,7 @@ RLS_OWNER_TABLES = [
     "ai_analyses",
     "social_post_samples",
     "growth_daily_insights",
+    "care_statuses",
     "assistant_profiles",
     "assistant_sessions",
     "assistant_messages",
@@ -118,7 +119,7 @@ async def init_db():
             CounselorBinding,
             CounselorWeeklyDigestLog,
         )
-        from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight
+        from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight, CareStatus
         from app.models.community import CommunityPost, PostComment, PostLike, PostCollect, PostView
         from app.models.assistant import AssistantProfile, AssistantSession, AssistantMessage
         from app.models.integration import ExternalIntegrationToken

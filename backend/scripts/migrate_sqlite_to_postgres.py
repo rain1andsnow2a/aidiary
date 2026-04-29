@@ -36,6 +36,7 @@ TABLE_ORDER = [
     "counselor_applications",
     "counselor_bindings",
     "counselor_weekly_digest_logs",
+    "care_statuses",
     "diaries",
     "timeline_events",
     "ai_analyses",

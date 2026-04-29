@@ -173,9 +173,12 @@ export interface DashboardInsights {
 
 export interface CareProgress {
   active_days: number
+  actual_streak: number
   protected_streak: number
   shield_balance: number
   shielded_days: number
+  shield_awarded: boolean
+  shield_max: number
   weekly_goal: number
   weekly_active_count: number
   weekly_completed: boolean

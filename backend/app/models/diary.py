@@ -64,6 +64,37 @@ class Diary(Base):
         return f"<Diary(id={self.id}, title={self.title}, date={self.diary_date})>"
 
 
+class CareStatus(Base):
+    """用户心灯连续与护盾状态"""
+    __tablename__ = "care_statuses"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_care_statuses_user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    shield_balance: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    last_reward_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    shielded_dates: Mapped[Optional[list]] = mapped_column(StringListJSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CareStatus(user_id={self.user_id}, shield_balance={self.shield_balance})>"
+
+
 class TimelineEvent(Base):
     """时间轴事件表"""
     __tablename__ = "timeline_events"

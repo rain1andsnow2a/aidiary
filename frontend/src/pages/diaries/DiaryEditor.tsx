@@ -10,7 +10,7 @@ import RichTextEditor from '@/components/editor/RichTextEditor'
 import { aiService } from '@/services/ai.service'
 import { diaryService } from '@/services/diary.service'
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
-import type { CareProgress } from '@/types/diary'
+import type { CareProgress, Diary } from '@/types/diary'
 
 const PRESET_EMOTIONS_KEYS = [
   'happy', 'calm', 'anxious', 'achievement', 'satisfied',
@@ -59,10 +59,13 @@ interface DiaryDraft {
   savedAt: number
 }
 
+type LightMemory = Pick<Diary, 'id' | 'title' | 'content' | 'diary_date'>
+
 export default function DiaryEditor() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const isEditMode = Boolean(id)
+  const [showDeepEditor, setShowDeepEditor] = useState(isEditMode)
   const navigate = useNavigate()
   const { createDiary, updateDiary, isLoading } = useDiaryStore()
 
@@ -114,6 +117,7 @@ export default function DiaryEditor() {
   const [lightReward, setLightReward] = useState<{ points: number; card: string } | null>(null)
   const [savedLightDiaryId, setSavedLightDiaryId] = useState<number | null>(null)
   const [careProgress, setCareProgress] = useState<CareProgress | null>(null)
+  const [lightMemory, setLightMemory] = useState<LightMemory | null>(null)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastAutoSaveSnapshotRef = useRef('')
   const hasInitializedDraftRef = useRef(false)
@@ -258,6 +262,28 @@ export default function DiaryEditor() {
     if (!isEditMode) void loadCareProgress()
   }, [isEditMode, loadCareProgress])
 
+  useEffect(() => {
+    if (isEditMode) return
+    let cancelled = false
+    diaryService.list({ page: 1, page_size: 4, emotion_tag: checkinEmotion })
+      .then((result) => {
+        if (cancelled) return
+        const memory = result.items.find((item) => item.diary_date !== diaryDate)
+        setLightMemory(memory ? {
+          id: memory.id,
+          title: memory.title,
+          content: memory.content,
+          diary_date: memory.diary_date,
+        } : null)
+      })
+      .catch(() => {
+        if (!cancelled) setLightMemory(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [checkinEmotion, diaryDate, isEditMode])
+
   const toggleEmotionTag = (tag: string) => {
     setEmotionTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -312,7 +338,7 @@ export default function DiaryEditor() {
   const handleRestCareRecord = async () => {
     try {
       const result = await diaryService.createRestCareRecord()
-      setSavedLightDiaryId(result.diary_id)
+      if (result.created) setSavedLightDiaryId(result.diary_id)
       setIsLightCompleted(true)
       localStorage.removeItem(draftKey)
       void loadCareProgress()
@@ -391,6 +417,17 @@ export default function DiaryEditor() {
     saved: lastAutoSavedAt ? `已自动保存 ${formatAutoSaveTime(lastAutoSavedAt)}` : '已自动保存',
     error: '保存失败，请重试',
   }[autoSaveStatus]
+  const isFullEditorVisible = isEditMode || showDeepEditor
+
+  const openFullEditor = () => {
+    const nextContent = content.trim() || lightContent
+    setShowDeepEditor(true)
+    setShowOneLine(true)
+    setTitle((prev) => prev || `今日心灯：${selectedCheckinEmotion.label}`)
+    setContent(nextContent)
+    setContentHtml(`<p>${escapeHtml(nextContent).replace(/\n/g, '<br>')}</p>`)
+    setTimeout(() => document.getElementById('full-diary-editor-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(158deg, #f8f5ef 0%, #f2eef5 58%, #f5f2ee 100%)' }}>
@@ -417,19 +454,26 @@ export default function DiaryEditor() {
                 {t('navigation.dashboard')}
               </button>
             </div>
-            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><PenLine className="w-4 h-4 text-[#b56f61]" /> {isEditMode ? t('diary.editDiary') : t('diary.newDiary')}</span>
-            <button
-              onClick={handleSubmit}
-              disabled={isLoading || isInitializing}
-              className="h-8 px-4 rounded-xl text-xs font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.97] shadow-sm"
-              style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
-            >
-              {isLoading || isAnalyzing
-                ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : isEditMode ? t('common.update') : t('common.save')}
-            </button>
+            <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5">
+              <PenLine className="w-4 h-4 text-[#b56f61]" />
+              {isEditMode ? t('diary.editDiary') : isFullEditorVisible ? t('diary.newDiary') : '今日心灯'}
+            </span>
+            {isFullEditorVisible ? (
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading || isInitializing}
+                className="h-8 px-4 rounded-xl text-xs font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.97] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
+              >
+                {isLoading || isAnalyzing
+                  ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : isEditMode ? t('common.update') : t('common.save')}
+              </button>
+            ) : (
+              <div className="h-8 w-16" />
+            )}
           </div>
-          <div className="pb-2 text-center">
+          {isFullEditorVisible && <div className="pb-2 text-center">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${
               autoSaveStatus === 'error'
                 ? 'bg-red-50 text-red-400 border border-red-100'
@@ -440,7 +484,7 @@ export default function DiaryEditor() {
               {autoSaveStatus === 'saving' && <span className="h-2 w-2 rounded-full border border-amber-300 border-t-transparent animate-spin" />}
               {autoSaveText}
             </span>
-          </div>
+          </div>}
         </div>
       </header>
 
@@ -463,16 +507,17 @@ export default function DiaryEditor() {
                 onEnergyChange={setCheckinEnergy}
                 onEventChange={setCheckinEvent}
                 onComplete={completeHeartLight}
+                onRest={handleRestCareRecord}
                 onAddLine={() => {
                   setShowOneLine(true)
                   setTimeout(() => document.getElementById('light-one-line')?.focus(), 50)
                 }}
               />
 
-              <CareProgressPanel progress={careProgress} />
+              <CareProgressSummary progress={careProgress} />
 
               <DailyReflectionPrompt
-                question="今天有没有一个瞬间，让你觉得自己被消耗了？"
+                question={guidedQuestion}
                 showAiQuestion={showAiQuestion}
                 selectedReflection={selectedReflection}
                 onSkip={handleRestCareRecord}
@@ -491,6 +536,8 @@ export default function DiaryEditor() {
                   setTitle((prev) => prev || `今日心灯：${selectedCheckinEmotion.label}`)
                 }}
               />
+
+              <LightNextStepBar onOpenFullEditor={openFullEditor} onOpenGrowth={() => navigate('/growth')} />
 
               <div className="grid gap-4 lg:grid-cols-[1fr_0.82fr]">
                 <LightNotePanel
@@ -513,7 +560,7 @@ export default function DiaryEditor() {
                 />
                 <div className="space-y-4">
                   <EmotionPlanet emotion={selectedCheckinEmotion} />
-                  <MemoryBlindBox emotion={selectedCheckinEmotion.label} />
+                  {lightMemory ? <MemoryBlindBox memory={lightMemory} onOpen={() => navigate(`/diaries/${lightMemory.id}`)} /> : null}
                 </div>
               </div>
 
@@ -521,8 +568,10 @@ export default function DiaryEditor() {
             </>
           )}
 
+          {isFullEditorVisible && (
+          <>
           {/* 标题与日期 */}
-          <div className="card-warm p-6 space-y-4">
+          <div id="full-diary-editor-anchor" className="card-warm p-6 space-y-4">
             <div className="flex items-center gap-3">
               <input
                 type="text"
@@ -676,6 +725,8 @@ export default function DiaryEditor() {
                 : isEditMode ? t('editor.saveChanges') : t('editor.saveDiary')}
             </button>
           </div>
+          </>
+          )}
         </form>
         )}
       </main>
@@ -692,6 +743,7 @@ function HeartLightCheckin({
   onEnergyChange,
   onEventChange,
   onComplete,
+  onRest,
   onAddLine,
 }: {
   emotion: string
@@ -702,28 +754,34 @@ function HeartLightCheckin({
   onEnergyChange: (value: number) => void
   onEventChange: (value: string) => void
   onComplete: () => void
+  onRest: () => void
   onAddLine: () => void
 }) {
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-[#eadfd8] bg-white/78 shadow-[0_22px_70px_rgba(122,83,73,0.12)]">
-      <div className="absolute inset-y-0 left-0 w-44 overflow-hidden bg-[linear-gradient(160deg,#fff4e8,#ffe7ee_55%,#f2edff)]">
-        <div className="absolute left-8 top-12 h-24 w-24 rounded-full bg-white/45 blur-xl" />
-        <div className="absolute left-10 top-16 flex h-24 w-24 items-end justify-center rounded-[36px] border border-white/60 bg-white/30 pb-5 shadow-inner">
-          <span className="relative flex h-12 w-8 items-center justify-center rounded-b-lg rounded-t-2xl bg-[#fff7df] shadow-[0_0_24px_rgba(250,190,86,0.55)]">
+    <section className="relative overflow-hidden rounded-[28px] border border-[#eadfd8] bg-white/82 shadow-[0_18px_54px_rgba(122,83,73,0.1)]">
+      <div className="absolute inset-y-0 left-0 hidden w-32 overflow-hidden bg-[linear-gradient(160deg,#fff4e8,#ffe7ee_55%,#f2edff)] sm:block">
+        <div className="absolute left-6 top-10 h-20 w-20 rounded-full bg-white/45 blur-xl" />
+        <div className="absolute left-7 top-14 flex h-20 w-20 items-end justify-center rounded-[30px] border border-white/60 bg-white/30 pb-4 shadow-inner">
+          <span className="relative flex h-10 w-7 items-center justify-center rounded-b-lg rounded-t-2xl bg-[#fff7df] shadow-[0_0_24px_rgba(250,190,86,0.55)]">
             <Flame className="h-6 w-6 text-amber-400" />
           </span>
         </div>
         <Sparkles className="absolute left-6 top-6 h-4 w-4 text-white" />
-        <Sparkles className="absolute left-32 top-11 h-3 w-3 text-[#f2a7a0]" />
+        <Sparkles className="absolute right-5 top-11 h-3 w-3 text-[#f2a7a0]" />
       </div>
 
-      <div className="relative p-5 sm:pl-48">
-        <div className="mb-4">
-          <div className="flex items-center gap-2">
+      <div className="relative p-5 sm:pl-36">
+        <div className="mb-4 flex items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff4df] text-amber-400 shadow-inner sm:hidden">
+            <Flame className="h-6 w-6" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold tracking-normal text-stone-800">今天也来点亮一盏心灯吧</h2>
             <Sparkles className="h-4 w-4 text-[#f0a09a]" />
+            </div>
+            <p className="mt-1 text-sm text-stone-400">只需要 5 秒，不必马上写很多。</p>
           </div>
-          <p className="mt-1 text-sm text-stone-400">只需要 5 秒，不必马上写很多。</p>
         </div>
 
         <div className="rounded-3xl border border-[#eadfd8] bg-white/62 p-4 shadow-inner">
@@ -773,9 +831,16 @@ function HeartLightCheckin({
           <button
             type="button"
             onClick={onAddLine}
-            className="inline-flex h-12 items-center gap-2 rounded-2xl border border-[#eadfd8] bg-white/82 px-7 text-sm font-bold text-stone-600 shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.98]"
+            className="inline-flex h-12 items-center gap-2 rounded-2xl border border-[#eadfd8] bg-white/82 px-6 text-sm font-bold text-stone-600 shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.98]"
           >
-            <PenLine className="h-4 w-4" /> 补一句话
+            <PenLine className="h-4 w-4" /> 继续补一句
+          </button>
+          <button
+            type="button"
+            onClick={onRest}
+            className="h-12 px-3 text-sm font-semibold text-stone-400 transition-colors hover:text-[#b56f61]"
+          >
+            今天不想写
           </button>
         </div>
         <p className="mt-3 text-center text-sm text-stone-400">
@@ -811,59 +876,58 @@ function ChoicePill({ active, onClick, children }: { active: boolean; onClick: (
   )
 }
 
-function CareProgressPanel({ progress }: { progress: CareProgress | null }) {
+function CareProgressSummary({ progress }: { progress: CareProgress | null }) {
   const protectedStreak = progress?.protected_streak ?? 0
-  const activeDays = progress?.active_days ?? 0
-  const shieldedDays = progress?.shielded_days ?? 0
   const shieldBalance = progress?.shield_balance ?? 0
   const weeklyActive = progress?.weekly_active_count ?? 0
   const weeklyGoal = progress?.weekly_goal ?? 3
+  const shieldMax = progress?.shield_max ?? 3
 
   return (
-    <section className="space-y-3">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <ProgressCard
-          icon={<Sprout />}
-          label="连续照顾自己"
-          value={`${protectedStreak} 天`}
-          desc={`其中 ${activeDays} 天真实记录，${shieldedDays} 天由护盾保护`}
-        />
-        <ProgressCard
-          icon={<ShieldCheck />}
-          label="心灯护盾"
-          value={`${shieldBalance} 个`}
-          desc="漏记一天时自动保护连续照顾"
-        />
-        <ProgressCard
-          icon={<Target />}
-          label="本周目标"
-          value={`${Math.min(weeklyActive, weeklyGoal)} / ${weeklyGoal} 次轻记录`}
-          desc={progress?.weekly_completed ? '本周目标已完成' : '一周完成 3 次就很好'}
-        />
-      </div>
-      <div className="rounded-3xl border border-[#eadfd8] bg-white/62 px-5 py-4 text-sm leading-7 text-stone-500 shadow-[0_10px_30px_rgba(122,83,73,0.06)]">
-        <span className="font-semibold text-stone-700">心灯护盾不是心理分数。</span>
-        它只是断签保护：如果某天你完全没有打开或操作，系统可消耗 1 个护盾，帮你保留连续照顾天数，减少“断了就算失败”的挫败感。
-        主动选择“今天不想写”也算一次有效照顾，不会消耗护盾。
-        {progress?.message && <span className="mt-1 block text-[#9d756b]">{progress.message}</span>}
-      </div>
+    <section className="flex flex-wrap items-center justify-center gap-3 rounded-3xl border border-[#eadfd8] bg-white/62 px-4 py-3 text-sm text-stone-500 shadow-[0_10px_28px_rgba(122,83,73,0.06)]">
+      <SummaryPill icon={<Sprout />} label={`${protectedStreak} 天连续心灯`} />
+      <SummaryPill icon={<ShieldCheck />} label={`${shieldBalance}/${shieldMax} 个心灯护盾`} />
+      <SummaryPill icon={<Target />} label={`本周 ${Math.min(weeklyActive, weeklyGoal)}/${weeklyGoal} 次轻记录`} />
+      {progress?.shield_awarded && <span className="rounded-full bg-[#fff2d8] px-3 py-1 text-xs font-semibold text-amber-600">已奖励护盾 +1</span>}
     </section>
   )
 }
 
-function ProgressCard({ icon, label, value, desc }: { icon: ReactNode; label: string; value: string; desc: string }) {
+function SummaryPill({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <div className="group flex items-center gap-4 rounded-3xl border border-[#eadfd8] bg-white/74 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)] transition-all hover:-translate-y-0.5">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#fff8ed,#f4efff)] text-[#b88f72] [&_svg]:h-6 [&_svg]:w-6">
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm text-stone-400">{label}</p>
-        <p className="mt-1 text-2xl font-bold text-stone-800">{value}</p>
-        <p className="mt-1 text-xs leading-5 text-stone-400">{desc}</p>
-      </div>
-      <ChevronRight className="ml-auto h-5 w-5 text-stone-300 transition-transform group-hover:translate-x-0.5" />
-    </div>
+    <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 font-semibold text-stone-600 shadow-sm [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-[#b88f72]">
+      {icon}
+      {label}
+    </span>
+  )
+}
+
+function LightNextStepBar({ onOpenFullEditor, onOpenGrowth }: { onOpenFullEditor: () => void; onOpenGrowth: () => void }) {
+  return (
+    <section className="grid gap-3 sm:grid-cols-2">
+      <button
+        type="button"
+        onClick={onOpenFullEditor}
+        className="flex items-center justify-between rounded-3xl border border-[#eadfd8] bg-white/78 px-5 py-4 text-left shadow-[0_12px_34px_rgba(122,83,73,0.07)] transition-all hover:-translate-y-0.5"
+      >
+        <span>
+          <span className="block text-sm font-bold text-stone-700">写完整日记</span>
+          <span className="mt-1 block text-xs text-stone-400">进入富文本编辑、图片和自动保存</span>
+        </span>
+        <ChevronRight className="h-5 w-5 text-stone-300" />
+      </button>
+      <button
+        type="button"
+        onClick={onOpenGrowth}
+        className="flex items-center justify-between rounded-3xl border border-[#eadfd8] bg-white/64 px-5 py-4 text-left shadow-[0_12px_34px_rgba(122,83,73,0.05)] transition-all hover:-translate-y-0.5"
+      >
+        <span>
+          <span className="block text-sm font-bold text-stone-700">查看成长旅程</span>
+          <span className="mt-1 block text-xs text-stone-400">情绪趋势、时间线和长期回看</span>
+        </span>
+        <ChevronRight className="h-5 w-5 text-stone-300" />
+      </button>
+    </section>
   )
 }
 
@@ -999,9 +1063,14 @@ function EmotionPlanet({ emotion }: { emotion: typeof CHECKIN_EMOTIONS[number] }
   )
 }
 
-function MemoryBlindBox({ emotion }: { emotion: string }) {
+function MemoryBlindBox({ memory, onOpen }: { memory: LightMemory; onOpen: () => void }) {
+  const preview = memory.content.replace(/\s+/g, ' ').slice(0, 68)
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-[#eadfd8] bg-white/78 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="relative w-full overflow-hidden rounded-3xl border border-[#eadfd8] bg-white/78 p-5 text-left shadow-[0_14px_40px_rgba(122,83,73,0.08)] transition-all hover:-translate-y-0.5"
+    >
       <div className="absolute right-4 top-5 h-20 w-24 rounded-full bg-[radial-gradient(circle,#ffe1b8_0%,#f1d8ff_55%,transparent_72%)] blur-sm" />
       <div className="relative flex items-center gap-4">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff0df] text-2xl shadow-inner">
@@ -1012,11 +1081,11 @@ function MemoryBlindBox({ emotion }: { emotion: string }) {
             <Gift className="h-4 w-4 text-[#d99370]" />
             <h3 className="text-base font-bold text-stone-700">记忆盲盒</h3>
           </div>
-          <p className="text-sm leading-6 text-stone-600">你在 4 月 3 日也写到过“{emotion}”。</p>
-          <p className="text-sm leading-6 text-stone-500">那次你后来提到：“先做最小的一步会好一点。”今天要不要试一个 10 分钟小任务？</p>
+          <p className="text-sm leading-6 text-stone-600">你在 {memory.diary_date} 有过相近记录。</p>
+          <p className="text-sm leading-6 text-stone-500">{preview}{memory.content.length > 68 ? '...' : ''}</p>
         </div>
       </div>
-    </section>
+    </button>
   )
 }
 

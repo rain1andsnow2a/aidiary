@@ -27,9 +27,13 @@ from app.agents.llm import deepseek_client
 from app.core.deps import get_current_active_user
 from app.core.security import decode_access_token
 from app.models.database import User
-from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight
+from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight, CareStatus
 
 router = APIRouter(prefix="/diaries", tags=["日记"])
+
+MAX_HEART_LIGHT_SHIELDS = 3
+DEFAULT_HEART_LIGHT_SHIELDS = 3
+HEART_LIGHT_REWARD_INTERVAL = 7
 
 
 async def _ai_refine_event_task(user_id: int, diary_id: int):
@@ -146,26 +150,51 @@ def _dashboard_emotion_label(tag: str) -> str:
     return labels.get(tag, tag or "平稳")
 
 
+async def _get_or_create_care_status(db: AsyncSession, user_id: int) -> CareStatus:
+    result = await db.execute(select(CareStatus).where(CareStatus.user_id == user_id))
+    status_row = result.scalars().first()
+    if status_row:
+        return status_row
+
+    status_row = CareStatus(
+        user_id=user_id,
+        shield_balance=DEFAULT_HEART_LIGHT_SHIELDS,
+        last_reward_streak=0,
+        shielded_dates=[],
+    )
+    db.add(status_row)
+    await db.commit()
+    await db.refresh(status_row)
+    return status_row
+
+
+def _count_consecutive_dates(active_dates: set[date], start_day: date, stop_day: date) -> int:
+    streak = 0
+    cursor = start_day
+    while cursor >= stop_day and cursor in active_dates:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
 @router.get("/care/progress", summary="获取连续照顾与心灯护盾进度")
 async def get_care_progress(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    基于真实日记日期计算轻记录进度。
+    基于真实日记日期计算今日心灯进度。
 
-    当前版本不把“心灯护盾”当心理分数，只作为连续照顾的漏记保护展示：
-    - ACTIVE：当天有日记/轻记录
+    心灯护盾不是心理分数，只作为连续心灯的漏记保护：
+    - ACTIVE：当天有正式日记、5秒记录，或主动选择“今天不想写”
     - SHIELDED：当天没有记录，但可由护盾保护连续照顾
     - MISSED：当天没有记录且没有护盾可用，连续照顾中断
-
-    护盾获取/消耗的持久化表后续再接入；这里先用后端统一返回的可替换余额。
     """
     today = date.today()
     lookback_start = today - timedelta(days=365)
     week_start = today - timedelta(days=today.weekday())
     weekly_goal = 3
-    base_shield_balance = 2
+    care_status = await _get_or_create_care_status(db, current_user.id)
 
     result = await db.execute(
         select(Diary.diary_date)
@@ -179,13 +208,24 @@ async def get_care_progress(
         .order_by(desc(Diary.diary_date))
     )
     active_dates = {row[0] for row in result.all() if row[0] is not None}
+    shielded_dates = set()
+    for value in care_status.shielded_dates or []:
+        if not isinstance(value, str):
+            continue
+        try:
+            shielded_dates.add(date.fromisoformat(value))
+        except ValueError:
+            continue
 
     if not active_dates:
         return {
             "active_days": 0,
+            "actual_streak": 0,
             "protected_streak": 0,
-            "shield_balance": base_shield_balance,
+            "shield_balance": min(care_status.shield_balance, MAX_HEART_LIGHT_SHIELDS),
             "shielded_days": 0,
+            "shield_awarded": False,
+            "shield_max": MAX_HEART_LIGHT_SHIELDS,
             "weekly_goal": weekly_goal,
             "weekly_active_count": 0,
             "weekly_completed": False,
@@ -195,7 +235,17 @@ async def get_care_progress(
             "message": "先点亮第一盏心灯就好，5 秒也算一次照顾。",
         }
 
-    shield_remaining = base_shield_balance
+    actual_streak_start = today if today in active_dates else today - timedelta(days=1)
+    actual_streak = _count_consecutive_dates(active_dates, actual_streak_start, lookback_start)
+    reward_milestone = (actual_streak // HEART_LIGHT_REWARD_INTERVAL) * HEART_LIGHT_REWARD_INTERVAL
+    shield_awarded = False
+    if reward_milestone >= HEART_LIGHT_REWARD_INTERVAL and reward_milestone > care_status.last_reward_streak:
+        if care_status.shield_balance < MAX_HEART_LIGHT_SHIELDS:
+            care_status.shield_balance += 1
+            shield_awarded = True
+        care_status.last_reward_streak = reward_milestone
+
+    shield_remaining = min(care_status.shield_balance, MAX_HEART_LIGHT_SHIELDS)
     protected_streak = 0
     shielded_days = 0
     cursor = today if today in active_dates else today - timedelta(days=1)
@@ -205,10 +255,15 @@ async def get_care_progress(
         if cursor in active_dates:
             protected_streak += 1
             day_statuses.append({"date": str(cursor), "status": "ACTIVE"})
+        elif cursor in shielded_dates:
+            protected_streak += 1
+            shielded_days += 1
+            day_statuses.append({"date": str(cursor), "status": "SHIELDED"})
         elif shield_remaining > 0:
             protected_streak += 1
             shielded_days += 1
             shield_remaining -= 1
+            shielded_dates.add(cursor)
             day_statuses.append({"date": str(cursor), "status": "SHIELDED"})
         else:
             day_statuses.append({"date": str(cursor), "status": "MISSED"})
@@ -218,18 +273,25 @@ async def get_care_progress(
     weekly_active_count = len([d for d in active_dates if d >= week_start])
     active_days = len(active_dates)
 
-    if active_days == 0:
-        message = "先点亮第一盏心灯就好，5 秒也算一次照顾。"
+    care_status.shield_balance = shield_remaining
+    care_status.shielded_dates = sorted(str(value) for value in shielded_dates)
+    await db.commit()
+
+    if shield_awarded:
+        message = "连续心灯已满 7 天，奖励 1 个心灯护盾。"
     elif shielded_days > 0:
         message = f"已用 {shielded_days} 个心灯护盾保护连续照顾，偶尔停一下也没关系。"
     else:
-        message = "这段连续照顾都来自真实记录，保持轻轻地回来就好。"
+        message = "这段连续心灯都来自真实记录，保持轻轻地回来就好。"
 
     return {
         "active_days": active_days,
+        "actual_streak": actual_streak,
         "protected_streak": protected_streak,
         "shield_balance": shield_remaining,
         "shielded_days": shielded_days,
+        "shield_awarded": shield_awarded,
+        "shield_max": MAX_HEART_LIGHT_SHIELDS,
         "weekly_goal": weekly_goal,
         "weekly_active_count": weekly_active_count,
         "weekly_completed": weekly_active_count >= weekly_goal,
