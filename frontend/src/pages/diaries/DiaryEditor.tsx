@@ -784,15 +784,37 @@ function ChoicePill({ active, onClick, children }: { active: boolean; onClick: (
 
 function CareProgressPanel() {
   return (
-    <section className="grid gap-4 sm:grid-cols-3">
-      <ProgressCard icon={<Sprout />} label="连续照顾自己" value="12 天" />
-      <ProgressCard icon={<ShieldCheck />} label="心灯护盾" value="2 个" />
-      <ProgressCard icon={<Target />} label="本周目标" value="3 / 3 次轻记录" />
+    <section className="space-y-3">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <ProgressCard
+          icon={<Sprout />}
+          label="连续照顾自己"
+          value="12 天"
+          desc="其中 12 天真实记录，0 天由护盾保护"
+        />
+        <ProgressCard
+          icon={<ShieldCheck />}
+          label="心灯护盾"
+          value="2 个"
+          desc="漏记一天时自动保护连续照顾"
+        />
+        <ProgressCard
+          icon={<Target />}
+          label="本周目标"
+          value="3 / 3 次轻记录"
+          desc="一周完成 3 次就很好"
+        />
+      </div>
+      <div className="rounded-3xl border border-[#eadfd8] bg-white/62 px-5 py-4 text-sm leading-7 text-stone-500 shadow-[0_10px_30px_rgba(122,83,73,0.06)]">
+        <span className="font-semibold text-stone-700">心灯护盾不是心理分数。</span>
+        它只是断签保护：如果某天你完全没有打开或操作，系统可消耗 1 个护盾，帮你保留连续照顾天数，减少“断了就算失败”的挫败感。
+        主动选择“今天不想写”也算一次有效照顾，不会消耗护盾。
+      </div>
     </section>
   )
 }
 
-function ProgressCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function ProgressCard({ icon, label, value, desc }: { icon: ReactNode; label: string; value: string; desc: string }) {
   return (
     <div className="group flex items-center gap-4 rounded-3xl border border-[#eadfd8] bg-white/74 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)] transition-all hover:-translate-y-0.5">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#fff8ed,#f4efff)] text-[#b88f72] [&_svg]:h-6 [&_svg]:w-6">
@@ -801,6 +823,7 @@ function ProgressCard({ icon, label, value }: { icon: ReactNode; label: string; 
       <div className="min-w-0">
         <p className="text-sm text-stone-400">{label}</p>
         <p className="mt-1 text-2xl font-bold text-stone-800">{value}</p>
+        <p className="mt-1 text-xs leading-5 text-stone-400">{desc}</p>
       </div>
       <ChevronRight className="ml-auto h-5 w-5 text-stone-300 transition-transform group-hover:translate-x-0.5" />
     </div>
