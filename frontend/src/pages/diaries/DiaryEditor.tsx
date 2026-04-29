@@ -1,10 +1,11 @@
 // 日记编辑器 - 温暖柔和心理日记风格
 import { useState, useCallback, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDiaryStore } from '@/store/diaryStore'
 import { toast } from '@/components/ui/toast'
-import { PenLine, Calendar, MessageCircle, Star, Smile, CloudSun, AlertCircle, Trophy, HeartHandshake, HelpCircle, Sparkles, Battery, Heart, Angry, Frown, PartyPopper, ChevronRight, RefreshCw } from 'lucide-react'
+import { PenLine, Calendar, MessageCircle, Star, Smile, CloudSun, AlertCircle, Trophy, HeartHandshake, HelpCircle, Sparkles, Battery, Heart, Angry, Frown, PartyPopper, ChevronRight, RefreshCw, ShieldCheck, Target, Gift, Mic, Wand2, Flame, Sprout } from 'lucide-react'
 import RichTextEditor from '@/components/editor/RichTextEditor'
 import { aiService } from '@/services/ai.service'
 import { diaryService } from '@/services/diary.service'
@@ -17,6 +18,32 @@ const PRESET_EMOTIONS_KEYS = [
 
 const GUIDED_QUESTIONS_KEYS = [
   'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10'
+]
+
+const CHECKIN_EMOTIONS = [
+  { key: 'happy', label: '开心', emoji: '😄', planet: '晴屿', description: '通常出现在你感到轻松、愿意靠近世界的时候。' },
+  { key: 'calm', label: '平静', emoji: '🙂', planet: '静湾', description: '通常出现在你节奏稳定、心里有一点空间的时候。' },
+  { key: 'neutral', label: '一般', emoji: '😐', planet: '灰原', description: '通常出现在你没有明显起伏，只是平平走过一天的时候。' },
+  { key: 'sad', label: '低落', emoji: '😞', planet: '雨谷', description: '通常出现在你需要被理解、也需要慢一点的时候。' },
+  { key: 'anxious', label: '焦虑', emoji: '😰', planet: '雾岛', description: '通常出现在你感到疲惫、任务很多或想独处的时候。' },
+  { key: 'angry', label: '烦躁', emoji: '😡', planet: '赤丘', description: '通常出现在你的边界被触碰、能量被消耗的时候。' },
+  { key: 'exhausted', label: '疲惫', emoji: '😴', planet: '眠星', description: '通常出现在身体想暂停、需要恢复的时候。' },
+]
+
+const CHECKIN_EVENTS = [
+  { key: 'study', label: '学习' },
+  { key: 'relationship', label: '人际' },
+  { key: 'family', label: '家庭' },
+  { key: 'body', label: '身体' },
+  { key: 'work', label: '工作' },
+  { key: 'other', label: '其他' },
+]
+
+const REFLECTION_OPTIONS = [
+  { key: 'too_much', label: '事情太多' },
+  { key: 'not_good_enough', label: '害怕做不好' },
+  { key: 'where_to_start', label: '不知道从哪里开始' },
+  { key: 'messy', label: '说不清，只是很乱' },
 ]
 
 type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -75,6 +102,16 @@ export default function DiaryEditor() {
   const [isLoadingGuidance, setIsLoadingGuidance] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle')
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null)
+  const [checkinEmotion, setCheckinEmotion] = useState('anxious')
+  const [checkinEnergy, setCheckinEnergy] = useState(2)
+  const [checkinEvent, setCheckinEvent] = useState('study')
+  const [isLightCompleted, setIsLightCompleted] = useState(false)
+  const [showOneLine, setShowOneLine] = useState(false)
+  const [showAiQuestion, setShowAiQuestion] = useState(false)
+  const [oneLineText, setOneLineText] = useState('')
+  const [selectedReflection, setSelectedReflection] = useState('')
+  const [lightReward, setLightReward] = useState<{ points: number; card: string } | null>(null)
+  const [savedLightDiaryId, setSavedLightDiaryId] = useState<number | null>(null)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastAutoSaveSnapshotRef = useRef('')
   const hasInitializedDraftRef = useRef(false)
@@ -217,32 +254,76 @@ export default function DiaryEditor() {
     setContentHtml(html)
   }, [])
 
+  const selectedCheckinEmotion = CHECKIN_EMOTIONS.find((item) => item.key === checkinEmotion) || CHECKIN_EMOTIONS[0]
+  const selectedCheckinEvent = CHECKIN_EVENTS.find((item) => item.key === checkinEvent) || CHECKIN_EVENTS[0]
+  const selectedReflectionLabel = REFLECTION_OPTIONS.find((item) => item.key === selectedReflection)?.label
+  const lightContent = buildLightContent({
+    emotionLabel: selectedCheckinEmotion.label,
+    energy: checkinEnergy,
+    eventLabel: selectedCheckinEvent.label,
+    oneLineText,
+    reflectionLabel: selectedReflectionLabel,
+  })
+  const canLightSubmit = isLightCompleted || Boolean(checkinEmotion && checkinEvent)
+
+  const completeHeartLight = async () => {
+    const nextTitle = title.trim() || `今日心灯：${selectedCheckinEmotion.label}`
+    const nextContent = content.trim() || lightContent
+    setTitle(nextTitle)
+    setContent(nextContent)
+    setContentHtml(`<p>${escapeHtml(nextContent).replace(/\n/g, '<br>')}</p>`)
+    try {
+      if (!savedLightDiaryId) {
+        const diary = await createDiary({
+          title: nextTitle,
+          content: nextContent,
+          content_html: `<p>${escapeHtml(nextContent).replace(/\n/g, '<br>')}</p>`,
+          diary_date: diaryDate,
+          emotion_tags: emotionTags.length > 0 ? emotionTags : [checkinEmotion],
+          importance_score: importanceScore,
+        })
+        setSavedLightDiaryId(diary.id)
+        localStorage.removeItem(draftKey)
+      }
+      setIsLightCompleted(true)
+      setLightReward({ points: oneLineText.trim() || selectedReflection ? 10 : 5, card: selectedReflectionLabel || selectedCheckinEmotion.label })
+      toast('今日心灯已点亮。你可以到这里为止，也可以补充几句话。', 'success')
+    } catch (error: any) {
+      toast(error.message || t('diary.saveFailed'), 'error')
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !content.trim()) {
-      toast('请填写标题和内容', 'error')
+    const finalTitle = title.trim() || (canLightSubmit ? `今日心灯：${selectedCheckinEmotion.label}` : '')
+    const finalContent = content.trim() || (canLightSubmit ? lightContent : '')
+    const finalContentHtml = contentHtml || (finalContent ? `<p>${escapeHtml(finalContent).replace(/\n/g, '<br>')}</p>` : undefined)
+
+    if (!finalTitle || !finalContent) {
+      toast('可以先完成 5 秒情绪签到，也可以写标题和内容', 'error')
       return
     }
     try {
-      if (isEditMode && id) {
-        await updateDiary(Number(id), {
-          title: title.trim(),
-          content: content.trim(),
-          content_html: contentHtml || undefined,
+      if ((isEditMode && id) || savedLightDiaryId) {
+        const targetId = savedLightDiaryId || Number(id)
+        await updateDiary(targetId, {
+          title: finalTitle,
+          content: finalContent,
+          content_html: finalContentHtml,
           diary_date: diaryDate,
-          emotion_tags: emotionTags.length > 0 ? emotionTags : [],
+          emotion_tags: emotionTags.length > 0 ? emotionTags : (savedLightDiaryId ? [checkinEmotion] : []),
           importance_score: importanceScore,
         })
         localStorage.removeItem(draftKey)
         toast(t('diary.updateSuccess'), 'success')
-        navigate(`/diaries/${id}`)
+        navigate(`/diaries/${targetId}`)
       } else {
         const diary = await createDiary({
-          title: title.trim(),
-          content: content.trim(),
-          content_html: contentHtml || undefined,
+          title: finalTitle,
+          content: finalContent,
+          content_html: finalContentHtml,
           diary_date: diaryDate,
-          emotion_tags: emotionTags.length > 0 ? emotionTags : undefined,
+          emotion_tags: emotionTags.length > 0 ? emotionTags : [checkinEmotion],
           importance_score: importanceScore,
         })
         localStorage.removeItem(draftKey)
@@ -291,7 +372,7 @@ export default function DiaryEditor() {
           <LanguageSwitcher />
         </div>
         
-        <div className="max-w-2xl mx-auto px-6">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="flex justify-between items-center py-3.5">
             <div className="flex items-center gap-3">
               <button
@@ -334,11 +415,83 @@ export default function DiaryEditor() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-8">
         {isInitializing ? (
           <div className="card-warm p-8 text-center text-stone-400 text-sm">{t('common.loading')}</div>
         ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
+          {!isEditMode && (
+            <>
+              <HeartLightCheckin
+                emotion={checkinEmotion}
+                energy={checkinEnergy}
+                eventType={checkinEvent}
+                isCompleted={isLightCompleted}
+                onEmotionChange={(value) => {
+                  setCheckinEmotion(value)
+                  setEmotionTags((prev) => prev.includes(value) ? prev : [value, ...prev.filter((tag) => tag !== 'neutral')].slice(0, 4))
+                }}
+                onEnergyChange={setCheckinEnergy}
+                onEventChange={setCheckinEvent}
+                onComplete={completeHeartLight}
+                onAddLine={() => {
+                  setShowOneLine(true)
+                  setTimeout(() => document.getElementById('light-one-line')?.focus(), 50)
+                }}
+              />
+
+              <CareProgressPanel />
+
+              <DailyReflectionPrompt
+                question="今天有没有一个瞬间，让你觉得自己被消耗了？"
+                showAiQuestion={showAiQuestion}
+                selectedReflection={selectedReflection}
+                onSkip={() => toast('已跳过，今天到这里也很好。', 'success')}
+                onWriteOneLine={() => {
+                  setShowOneLine(true)
+                  setTimeout(() => document.getElementById('light-one-line')?.focus(), 50)
+                }}
+                onVoice={() => toast('语音轻记录可以作为下一步接入，这里先保留入口。', 'success')}
+                onAskAi={() => setShowAiQuestion(true)}
+                onSelectReflection={(value) => {
+                  setSelectedReflection(value)
+                  const label = REFLECTION_OPTIONS.find((item) => item.key === value)?.label || ''
+                  const generated = `今天我有点${selectedCheckinEmotion.label}，主要是${label}。`
+                  setOneLineText(generated)
+                  setShowOneLine(true)
+                  setTitle((prev) => prev || `今日心灯：${selectedCheckinEmotion.label}`)
+                }}
+              />
+
+              <div className="grid gap-4 lg:grid-cols-[1fr_0.82fr]">
+                <LightNotePanel
+                  visible={showOneLine}
+                  value={oneLineText}
+                  onChange={(value) => {
+                    setOneLineText(value)
+                    if (isLightCompleted || value.trim()) {
+                      const nextContent = buildLightContent({
+                        emotionLabel: selectedCheckinEmotion.label,
+                        energy: checkinEnergy,
+                        eventLabel: selectedCheckinEvent.label,
+                        oneLineText: value,
+                        reflectionLabel: selectedReflectionLabel,
+                      })
+                      setContent(nextContent)
+                      setContentHtml(`<p>${escapeHtml(nextContent).replace(/\n/g, '<br>')}</p>`)
+                    }
+                  }}
+                />
+                <div className="space-y-4">
+                  <EmotionPlanet emotion={selectedCheckinEmotion} />
+                  <MemoryBlindBox emotion={selectedCheckinEmotion.label} />
+                </div>
+              </div>
+
+              {lightReward && <LightRewardBar points={lightReward.points} card={lightReward.card} />}
+            </>
+          )}
+
           {/* 标题与日期 */}
           <div className="card-warm p-6 space-y-4">
             <div className="flex items-center gap-3">
@@ -485,7 +638,7 @@ export default function DiaryEditor() {
             </button>
             <button
               type="submit"
-              disabled={isLoading || !title.trim() || !content.trim()}
+              disabled={isLoading || (!title.trim() && !content.trim() && !canLightSubmit)}
               className="flex-1 h-12 rounded-2xl text-sm font-semibold text-white disabled:opacity-40 transition-all active:scale-[0.98] shadow-md"
               style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
             >
@@ -499,6 +652,363 @@ export default function DiaryEditor() {
       </main>
     </div>
   )
+}
+
+function HeartLightCheckin({
+  emotion,
+  energy,
+  eventType,
+  isCompleted,
+  onEmotionChange,
+  onEnergyChange,
+  onEventChange,
+  onComplete,
+  onAddLine,
+}: {
+  emotion: string
+  energy: number
+  eventType: string
+  isCompleted: boolean
+  onEmotionChange: (value: string) => void
+  onEnergyChange: (value: number) => void
+  onEventChange: (value: string) => void
+  onComplete: () => void
+  onAddLine: () => void
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-[28px] border border-[#eadfd8] bg-white/78 shadow-[0_22px_70px_rgba(122,83,73,0.12)]">
+      <div className="absolute inset-y-0 left-0 w-44 overflow-hidden bg-[linear-gradient(160deg,#fff4e8,#ffe7ee_55%,#f2edff)]">
+        <div className="absolute left-8 top-12 h-24 w-24 rounded-full bg-white/45 blur-xl" />
+        <div className="absolute left-10 top-16 flex h-24 w-24 items-end justify-center rounded-[36px] border border-white/60 bg-white/30 pb-5 shadow-inner">
+          <span className="relative flex h-12 w-8 items-center justify-center rounded-b-lg rounded-t-2xl bg-[#fff7df] shadow-[0_0_24px_rgba(250,190,86,0.55)]">
+            <Flame className="h-6 w-6 text-amber-400" />
+          </span>
+        </div>
+        <Sparkles className="absolute left-6 top-6 h-4 w-4 text-white" />
+        <Sparkles className="absolute left-32 top-11 h-3 w-3 text-[#f2a7a0]" />
+      </div>
+
+      <div className="relative p-5 sm:pl-48">
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-normal text-stone-800">今天也来点亮一盏心灯吧</h2>
+            <Sparkles className="h-4 w-4 text-[#f0a09a]" />
+          </div>
+          <p className="mt-1 text-sm text-stone-400">只需要 5 秒，不必马上写很多。</p>
+        </div>
+
+        <div className="rounded-3xl border border-[#eadfd8] bg-white/62 p-4 shadow-inner">
+          <CheckinRow label="情绪">
+            {CHECKIN_EMOTIONS.map((item) => (
+              <ChoicePill
+                key={item.key}
+                active={emotion === item.key}
+                onClick={() => onEmotionChange(item.key)}
+              >
+                <span>{item.emoji}</span>{item.label}
+              </ChoicePill>
+            ))}
+          </CheckinRow>
+          <CheckinRow label="能量">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <ChoicePill
+                key={item}
+                active={energy === item}
+                onClick={() => onEnergyChange(item)}
+              >
+                {item}
+              </ChoicePill>
+            ))}
+          </CheckinRow>
+          <CheckinRow label="事件">
+            {CHECKIN_EVENTS.map((item) => (
+              <ChoicePill
+                key={item.key}
+                active={eventType === item.key}
+                onClick={() => onEventChange(item.key)}
+              >
+                {item.label}
+              </ChoicePill>
+            ))}
+          </CheckinRow>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={onComplete}
+            className="inline-flex h-12 items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#f58b7d,#b19adc)] px-7 text-sm font-bold text-white shadow-[0_14px_34px_rgba(210,113,121,0.24)] transition-all hover:-translate-y-0.5 active:scale-[0.98]"
+          >
+            <Sparkles className="h-4 w-4" /> 完成今日心灯
+          </button>
+          <button
+            type="button"
+            onClick={onAddLine}
+            className="inline-flex h-12 items-center gap-2 rounded-2xl border border-[#eadfd8] bg-white/82 px-7 text-sm font-bold text-stone-600 shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.98]"
+          >
+            <PenLine className="h-4 w-4" /> 补一句话
+          </button>
+        </div>
+        <p className="mt-3 text-center text-sm text-stone-400">
+          {isCompleted ? '今日心灯已点亮。你可以到这里为止，也可以补充一句话。' : '不写正文也可以完成一次轻记录。'}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function CheckinRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-3 py-2 sm:grid-cols-[72px_1fr] sm:items-center">
+      <div className="text-sm font-semibold text-stone-500">{label}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  )
+}
+
+function ChoicePill({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-w-16 rounded-2xl border px-4 py-2 text-sm font-semibold transition-all ${
+        active
+          ? 'border-[#a7a0d8] bg-[#f6f1ff] text-[#6c62af] shadow-sm ring-1 ring-[#cfc8ef]'
+          : 'border-[#eadfd8] bg-white/78 text-stone-500 hover:border-[#d5c5bc] hover:bg-[#fff8f4]'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CareProgressPanel() {
+  return (
+    <section className="grid gap-4 sm:grid-cols-3">
+      <ProgressCard icon={<Sprout />} label="连续照顾自己" value="12 天" />
+      <ProgressCard icon={<ShieldCheck />} label="心灯护盾" value="2 个" />
+      <ProgressCard icon={<Target />} label="本周目标" value="3 / 3 次轻记录" />
+    </section>
+  )
+}
+
+function ProgressCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="group flex items-center gap-4 rounded-3xl border border-[#eadfd8] bg-white/74 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)] transition-all hover:-translate-y-0.5">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#fff8ed,#f4efff)] text-[#b88f72] [&_svg]:h-6 [&_svg]:w-6">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm text-stone-400">{label}</p>
+        <p className="mt-1 text-2xl font-bold text-stone-800">{value}</p>
+      </div>
+      <ChevronRight className="ml-auto h-5 w-5 text-stone-300 transition-transform group-hover:translate-x-0.5" />
+    </div>
+  )
+}
+
+function DailyReflectionPrompt({
+  question,
+  showAiQuestion,
+  selectedReflection,
+  onSkip,
+  onWriteOneLine,
+  onVoice,
+  onAskAi,
+  onSelectReflection,
+}: {
+  question: string
+  showAiQuestion: boolean
+  selectedReflection: string
+  onSkip: () => void
+  onWriteOneLine: () => void
+  onVoice: () => void
+  onAskAi: () => void
+  onSelectReflection: (value: string) => void
+}) {
+  return (
+    <section className="rounded-3xl border border-[#eadfd8] bg-white/76 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#fff4dc] text-amber-500">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-stone-500">今日映题</p>
+            <p className="mt-1 text-lg font-bold leading-7 text-stone-800">{question}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <PromptButton icon={<ChevronRight />} label="跳过" onClick={onSkip} />
+          <PromptButton icon={<PenLine />} label="写一句" onClick={onWriteOneLine} active />
+          <PromptButton icon={<Mic />} label="语音说说" onClick={onVoice} />
+          <PromptButton icon={<Wand2 />} label="让 AI 问我" onClick={onAskAi} />
+        </div>
+      </div>
+      {showAiQuestion && (
+        <div className="mt-4 rounded-3xl border border-[#eadfd8] bg-[#fffaf6] p-4">
+          <p className="mb-3 text-sm font-semibold text-stone-600">这份感受更像是：</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {REFLECTION_OPTIONS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => onSelectReflection(item.key)}
+                className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
+                  selectedReflection === item.key
+                    ? 'border-[#a7a0d8] bg-[#f6f1ff] text-[#6c62af]'
+                    : 'border-[#eadfd8] bg-white text-stone-500 hover:bg-[#fff6f2]'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function PromptButton({ icon, label, onClick, active = false }: { icon: ReactNode; label: string; onClick: () => void; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-5 text-sm font-semibold transition-all active:scale-[0.98] ${
+        active ? 'border-[#b7a6df] bg-white text-[#7767b6]' : 'border-[#eadfd8] bg-white/78 text-stone-500 hover:bg-[#fff6f2]'
+      }`}
+    >
+      <span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span>{label}
+    </button>
+  )
+}
+
+function LightNotePanel({ visible, value, onChange }: { visible: boolean; value: string; onChange: (value: string) => void }) {
+  return (
+    <section className="rounded-3xl border border-[#eadfd8] bg-white/78 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
+      <div className="mb-3 flex items-center gap-2">
+        <PenLine className="h-4 w-4 text-[#d98878]" />
+        <h3 className="text-base font-bold text-stone-700">轻记录</h3>
+      </div>
+      {visible ? (
+        <>
+          <textarea
+            id="light-one-line"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="比如：今天我有点焦虑，主要是害怕自己做不好。"
+            className="min-h-36 w-full resize-none rounded-2xl border border-[#eadfd8] bg-white/70 p-4 text-sm leading-7 text-stone-700 outline-none transition-all placeholder:text-stone-300 focus:border-[#c9badc]"
+          />
+          <div className="mt-2 flex items-center justify-between text-xs text-stone-400">
+            <span>{value.length} 字</span>
+            <span>写得不精确也没关系</span>
+          </div>
+        </>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-[#eadfd8] bg-white/50 p-6 text-sm leading-7 text-stone-400">
+          你可以只完成心灯签到，不需要写正文。想补充时，再写一句就好。
+        </div>
+      )}
+    </section>
+  )
+}
+
+function EmotionPlanet({ emotion }: { emotion: typeof CHECKIN_EMOTIONS[number] }) {
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-[#eadfd8] bg-white/78 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
+      <div className="absolute right-3 top-4 h-24 w-32 rounded-full bg-[radial-gradient(circle,#d8c4ff_0%,#ffe1f2_45%,transparent_70%)] blur-sm" />
+      <div className="relative flex items-center justify-between gap-4">
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-lg">🌌</span>
+            <h3 className="text-base font-bold text-stone-700">情绪星球</h3>
+          </div>
+          <p className="text-sm leading-7 text-stone-600">今天你点亮了“{emotion.planet}”的一颗星。</p>
+          <p className="text-sm leading-7 text-stone-500">{emotion.description}</p>
+        </div>
+        <div className="relative flex h-24 w-28 shrink-0 items-center justify-center">
+          <div className="absolute h-16 w-24 rotate-[-10deg] rounded-full border border-violet-200" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#b8a7ff,#ffd5e5)] text-2xl shadow-[0_0_24px_rgba(170,137,245,0.35)]">
+            {emotion.emoji}
+          </div>
+          <Sparkles className="absolute right-2 top-1 h-5 w-5 text-amber-300" />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function MemoryBlindBox({ emotion }: { emotion: string }) {
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-[#eadfd8] bg-white/78 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
+      <div className="absolute right-4 top-5 h-20 w-24 rounded-full bg-[radial-gradient(circle,#ffe1b8_0%,#f1d8ff_55%,transparent_72%)] blur-sm" />
+      <div className="relative flex items-center gap-4">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff0df] text-2xl shadow-inner">
+          🎁
+        </span>
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <Gift className="h-4 w-4 text-[#d99370]" />
+            <h3 className="text-base font-bold text-stone-700">记忆盲盒</h3>
+          </div>
+          <p className="text-sm leading-6 text-stone-600">你在 4 月 3 日也写到过“{emotion}”。</p>
+          <p className="text-sm leading-6 text-stone-500">那次你后来提到：“先做最小的一步会好一点。”今天要不要试一个 10 分钟小任务？</p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function LightRewardBar({ points, card }: { points: number; card: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-[#eadfd8] bg-[linear-gradient(100deg,#fffaf3,#ffe7df,#f0e9ff)] px-6 py-4 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
+      <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_20%_40%,#fff_0_2px,transparent_3px),radial-gradient(circle_at_80%_55%,#fff_0_2px,transparent_3px)]" />
+      <div className="relative flex flex-wrap items-center justify-center gap-6 text-sm font-bold text-stone-700">
+        <span className="inline-flex items-center gap-2 rounded-2xl bg-white/62 px-5 py-2 text-[#c47a61]">
+          <Sparkles className="h-4 w-4" /> +{points} 映光
+        </span>
+        <span className="h-6 w-px bg-[#e6d7d0]" />
+        <span>获得卡牌：{card}</span>
+        <span className="rotate-6 rounded-xl bg-white/60 px-3 py-2 text-xs text-[#8e83bd] shadow-sm">心灯已点亮</span>
+      </div>
+    </div>
+  )
+}
+
+function buildLightContent({
+  emotionLabel,
+  energy,
+  eventLabel,
+  oneLineText,
+  reflectionLabel,
+}: {
+  emotionLabel: string
+  energy: number
+  eventLabel: string
+  oneLineText: string
+  reflectionLabel?: string
+}) {
+  const lines = [
+    `今天我点亮了一盏心灯。`,
+    `情绪：${emotionLabel}；能量：${energy}/5；事件：${eventLabel}。`,
+  ]
+  if (reflectionLabel) {
+    lines.push(`这份感受更像是：${reflectionLabel}。`)
+  }
+  if (oneLineText.trim()) {
+    lines.push(oneLineText.trim())
+  }
+  return lines.join('\n')
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 function readDraft(key: string): DiaryDraft | null {
@@ -537,4 +1047,3 @@ function formatAutoSaveTime(timestamp: number): string {
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
-
