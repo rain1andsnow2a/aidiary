@@ -31,6 +31,8 @@ RLS_OWNER_TABLES = [
     "social_post_samples",
     "growth_daily_insights",
     "care_statuses",
+    "heart_light_checkins",
+    "light_point_ledger",
     "assistant_profiles",
     "assistant_sessions",
     "assistant_messages",
@@ -119,7 +121,7 @@ async def init_db():
             CounselorBinding,
             CounselorWeeklyDigestLog,
         )
-        from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight, CareStatus
+        from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight, CareStatus, HeartLightCheckin, LightPointLedger
         from app.models.community import CommunityPost, PostComment, PostLike, PostCollect, PostView
         from app.models.assistant import AssistantProfile, AssistantSession, AssistantMessage
         from app.models.integration import ExternalIntegrationToken
@@ -127,6 +129,7 @@ async def init_db():
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)
         await _ensure_user_columns(conn)
+        await _ensure_care_status_columns(conn)
 
         # SQLite -> PostgreSQL 迁移后，部分表可能只有主键约束却没有默认序列。
         # 启动时做一次轻量自检，确保整数主键具备 nextval 默认值。
@@ -282,6 +285,54 @@ async def _ensure_user_columns(conn):
             "postgresql" if dialect == "postgresql" else "sqlite"
         ]
         await conn.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {definition}"))
+
+
+async def _ensure_care_status_columns(conn) -> None:
+    """为老库的 care_statuses 表补 total_light_points 字段。"""
+    dialect = conn.dialect.name
+    # 表不存在时直接返回（此刻 create_all 已跑过，但防御一下）
+    if dialect == "sqlite":
+        table_exists = (
+            await conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name='care_statuses'")
+            )
+        ).first()
+        if not table_exists:
+            return
+        existing_columns = {
+            row[1] for row in (await conn.execute(text("PRAGMA table_info('care_statuses')"))).all()
+        }
+    else:
+        existing_columns = {
+            row[0]
+            for row in (
+                await conn.execute(
+                    text(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = 'care_statuses'
+                        """
+                    )
+                )
+            ).all()
+        }
+        if not existing_columns:
+            return
+
+    if "total_light_points" in existing_columns:
+        return
+
+    if dialect == "sqlite":
+        await conn.execute(
+            text("ALTER TABLE care_statuses ADD COLUMN total_light_points INTEGER NOT NULL DEFAULT 0")
+        )
+    else:
+        await conn.execute(
+            text(
+                "ALTER TABLE care_statuses ADD COLUMN total_light_points INTEGER NOT NULL DEFAULT 0"
+            )
+        )
 
 
 async def _ensure_rls_policies(conn) -> None:

@@ -216,3 +216,110 @@ export interface PlanetCollection {
   unlocked: number
   planets: PlanetEntry[]
 }
+
+export interface HeartLightCheckinPayload {
+  emotion: string
+  energy: number
+  event?: string | null
+  one_line_text?: string | null
+  reflection_key?: string | null
+  is_rest?: boolean
+}
+
+export interface HeartLightCheckin {
+  id: number
+  user_id: number
+  checkin_date: string
+  emotion: string
+  energy: number
+  event: string | null
+  one_line_text: string | null
+  reflection_key: string | null
+  is_rest: boolean
+  awarded_points: number
+  created_at: string
+  updated_at: string
+}
+
+export interface HeartLightCheckinSubmitResponse {
+  checkin: HeartLightCheckin
+  points_delta: number
+  total_points: number
+  new_planet: string | null
+  streak: number
+  shield_balance: number
+}
+
+export interface MonthCheckinDay {
+  date: string
+  emotion: string
+  energy: number
+  event: string | null
+  is_rest: boolean
+  one_line_excerpt: string | null
+}
+
+export interface MonthCheckinsResponse {
+  month: string
+  days: MonthCheckinDay[]
+  diary_dates: string[]
+  streak: number
+  total_points: number
+}
+
+export type LightPointReason = 'checkin' | 'one_line' | 'planet_unlock' | string
+
+export interface LightPointLedgerEntry {
+  id: number
+  delta: number
+  reason: LightPointReason
+  ref_date: string
+  ref_id: number | null
+  meta: Record<string, any> | null
+  created_at: string
+}
+
+export interface LightPointsSummary {
+  total: number
+  recent_ledger: LightPointLedgerEntry[]
+}
+
+export interface LightPointByReason {
+  checkin: number
+  one_line: number
+  planet_unlock: number
+}
+
+export interface TreasureTopDay {
+  date: string | null
+  points: number
+}
+
+export interface TreasureTopWeek {
+  week_start: string | null
+  points: number
+}
+
+export interface TreasureShield {
+  balance: number
+  max: number
+  last_reward_streak: number
+}
+
+export interface TreasurePlanets {
+  unlocked: number
+  total: number
+}
+
+export interface TreasureResponse {
+  total: number
+  by_reason: LightPointByReason
+  this_week_points: number
+  this_month_points: number
+  all_time_count: number
+  top_day: TreasureTopDay
+  top_week: TreasureTopWeek
+  shield: TreasureShield
+  planets: TreasurePlanets
+  recent_ledger: LightPointLedgerEntry[]
+}

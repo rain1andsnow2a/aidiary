@@ -19,7 +19,20 @@ from app.schemas.diary import (
     DiaryUpdate,
     DiaryResponse,
     DiaryListResponse,
-    TimelineEventResponse
+    TimelineEventResponse,
+    HeartLightCheckinCreate,
+    HeartLightCheckinOut,
+    HeartLightCheckinSubmitResponse,
+    LightPointLedgerOut,
+    LightPointsSummary,
+    MonthCheckinDay,
+    MonthCheckinsResponse,
+    LightPointByReason,
+    TreasureTopDay,
+    TreasureTopWeek,
+    TreasureShield,
+    TreasurePlanets,
+    TreasureResponse,
 )
 from app.services.diary_service import diary_service, timeline_service
 from app.services.speech_service import speech_service
@@ -27,7 +40,7 @@ from app.agents.llm import deepseek_client
 from app.core.deps import get_current_active_user
 from app.core.security import decode_access_token
 from app.models.database import User
-from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight, CareStatus
+from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight, CareStatus, HeartLightCheckin, LightPointLedger
 
 router = APIRouter(prefix="/diaries", tags=["日记"])
 
@@ -161,6 +174,7 @@ async def _get_or_create_care_status(db: AsyncSession, user_id: int) -> CareStat
         shield_balance=DEFAULT_HEART_LIGHT_SHIELDS,
         last_reward_streak=0,
         shielded_dates=[],
+        total_light_points=0,
     )
     db.add(status_row)
     await db.commit()
@@ -175,6 +189,187 @@ def _count_consecutive_dates(active_dates: set[date], start_day: date, stop_day:
         streak += 1
         cursor -= timedelta(days=1)
     return streak
+
+
+async def _compute_active_dates(
+    db: AsyncSession,
+    user_id: int,
+    lookback_start: date,
+    today: date,
+) -> set[date]:
+    """心灯 streak 的有效日期 = 心灯签到日 ∪ 真日记日。"""
+    checkins_result = await db.execute(
+        select(HeartLightCheckin.checkin_date).where(
+            and_(
+                HeartLightCheckin.user_id == user_id,
+                HeartLightCheckin.checkin_date >= lookback_start,
+                HeartLightCheckin.checkin_date <= today,
+            )
+        )
+    )
+    diary_result = await db.execute(
+        select(Diary.diary_date).where(
+            and_(
+                Diary.user_id == user_id,
+                Diary.diary_date >= lookback_start,
+                Diary.diary_date <= today,
+            )
+        )
+    )
+    dates: set[date] = set()
+    for row in checkins_result.all():
+        if row[0] is not None:
+            dates.add(row[0])
+    for row in diary_result.all():
+        if row[0] is not None:
+            dates.add(row[0])
+    return dates
+
+
+async def _recompute_streak(db: AsyncSession, user_id: int) -> int:
+    today = date.today()
+    lookback_start = today - timedelta(days=365)
+    active_dates = await _compute_active_dates(db, user_id, lookback_start, today)
+    if not active_dates:
+        return 0
+    start = today if today in active_dates else today - timedelta(days=1)
+    return _count_consecutive_dates(active_dates, start, lookback_start)
+
+
+def _one_line_excerpt(text: str | None, max_len: int = 40) -> str | None:
+    if not text:
+        return None
+    trimmed = " ".join(text.split())
+    if not trimmed:
+        return None
+    return trimmed if len(trimmed) <= max_len else trimmed[:max_len] + "..."
+
+
+PLANET_EMOTION_KEYS: set[str] = set()
+
+
+def _ensure_planet_keys() -> set[str]:
+    global PLANET_EMOTION_KEYS
+    if not PLANET_EMOTION_KEYS:
+        PLANET_EMOTION_KEYS = {p["emotion"] for p in HEART_LIGHT_PLANETS}
+    return PLANET_EMOTION_KEYS
+
+
+async def _evaluate_rewards(
+    db: AsyncSession,
+    user_id: int,
+    checkin: HeartLightCheckin,
+) -> tuple[int, Optional[str]]:
+    """按规则判定本次提交应新增哪些 ledger 条目并写入；返回 (delta_sum, new_planet)。
+
+    规则（一次判定，避免双计，同日 checkin 与 one_line 互斥）：
+    - is_rest=True ⇒ 不发映光
+    - 否则若 one_line_text 非空 ⇒ 当日应得 +10 reason=one_line
+      - 若之前已发 checkin(+5) → 本次不再追加 checkin，直接补 +5 reason=one_line（即 delta=5 使当日从 5 升到 10）
+      - 若当日尚无奖励 → 发 +10 reason=one_line
+      - 若已有 one_line → 不再发
+    - 否则（one_line 为空）⇒ 当日应得 +5 reason=checkin
+      - 若当日尚无奖励 → 发 +5 reason=checkin
+      - 若已有奖励 → 不发（即不能把 10 降回 5）
+    - 行星解锁：每个 emotion 首次 +20（不受上面互斥影响）
+    """
+    today = checkin.checkin_date
+    planets = _ensure_planet_keys()
+
+    ledger_q = await db.execute(
+        select(LightPointLedger).where(
+            and_(
+                LightPointLedger.user_id == user_id,
+                LightPointLedger.ref_date == today,
+            )
+        )
+    )
+    same_day_ledger = list(ledger_q.scalars().all())
+    has_checkin_reward = any(r.reason == "checkin" for r in same_day_ledger)
+    has_one_line_reward = any(r.reason == "one_line" for r in same_day_ledger)
+
+    delta_sum = 0
+    new_planet: Optional[str] = None
+
+    if not checkin.is_rest:
+        wants_one_line = bool((checkin.one_line_text or "").strip())
+        if wants_one_line:
+            if not has_one_line_reward:
+                # 若之前已经发过 +5 checkin，只追加 +5 达到 10；否则直接发 +10
+                remaining = 5 if has_checkin_reward else 10
+                db.add(
+                    LightPointLedger(
+                        user_id=user_id,
+                        delta=remaining,
+                        reason="one_line",
+                        ref_date=today,
+                        ref_id=checkin.id,
+                        meta={"emotion": checkin.emotion},
+                    )
+                )
+                delta_sum += remaining
+        else:
+            if not has_checkin_reward and not has_one_line_reward:
+                db.add(
+                    LightPointLedger(
+                        user_id=user_id,
+                        delta=5,
+                        reason="checkin",
+                        ref_date=today,
+                        ref_id=checkin.id,
+                        meta={"emotion": checkin.emotion},
+                    )
+                )
+                delta_sum += 5
+
+        # 行星首解
+        if checkin.emotion in planets:
+            planet_already_unlocked = False
+            ledger_full_q = await db.execute(
+                select(LightPointLedger).where(
+                    and_(
+                        LightPointLedger.user_id == user_id,
+                        LightPointLedger.reason == "planet_unlock",
+                    )
+                )
+            )
+            for row in ledger_full_q.scalars().all():
+                meta = row.meta or {}
+                if meta.get("planet") == checkin.emotion:
+                    planet_already_unlocked = True
+                    break
+
+            earlier_checkin_q = await db.execute(
+                select(HeartLightCheckin.id)
+                .where(
+                    and_(
+                        HeartLightCheckin.user_id == user_id,
+                        HeartLightCheckin.emotion == checkin.emotion,
+                        HeartLightCheckin.id != checkin.id,
+                    )
+                )
+                .limit(1)
+            )
+            has_earlier_checkin = earlier_checkin_q.first() is not None
+
+            if not planet_already_unlocked and not has_earlier_checkin:
+                db.add(
+                    LightPointLedger(
+                        user_id=user_id,
+                        delta=20,
+                        reason="planet_unlock",
+                        ref_date=today,
+                        ref_id=checkin.id,
+                        meta={"planet": checkin.emotion},
+                    )
+                )
+                delta_sum += 20
+                new_planet = checkin.emotion
+
+    if delta_sum:
+        checkin.awarded_points = (checkin.awarded_points or 0) + delta_sum
+
+    return delta_sum, new_planet
 
 
 @router.get("/care/progress", summary="获取连续照顾与心灯护盾进度")
@@ -196,18 +391,7 @@ async def get_care_progress(
     weekly_goal = 3
     care_status = await _get_or_create_care_status(db, current_user.id)
 
-    result = await db.execute(
-        select(Diary.diary_date)
-        .where(
-            and_(
-                Diary.user_id == current_user.id,
-                Diary.diary_date >= lookback_start,
-                Diary.diary_date <= today,
-            )
-        )
-        .order_by(desc(Diary.diary_date))
-    )
-    active_dates = {row[0] for row in result.all() if row[0] is not None}
+    active_dates = await _compute_active_dates(db, current_user.id, lookback_start, today)
     shielded_dates = set()
     for value in care_status.shielded_dates or []:
         if not isinstance(value, str):
@@ -308,48 +492,302 @@ async def create_rest_care_record(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    记录一次“今天不想写”的有效照顾行为。
+    记录一次"今天不想写"的有效照顾行为。
 
-    心理日记里，主动承认今天不想表达也属于状态采样。这里用一条轻量日记落库，
-    避免前端只做提示、后端连续照顾统计却没有真实依据。
+    2026-05 起不再写入 diaries 表，而是转为心灯签到表的一条 rest 记录；
+    rest 不发映光，但仍计入 streak。
     """
+    payload = HeartLightCheckinCreate(
+        emotion="rest",
+        energy=3,
+        event="rest",
+        is_rest=True,
+    )
+    response = await _submit_heart_light_checkin_impl(payload, current_user, db)
+    return {
+        "created": True,
+        "diary_id": None,
+        "checkin_id": response.checkin.id,
+        "message": "已记录「今天不想写」。你可以到这里为止。",
+    }
+
+
+async def _submit_heart_light_checkin_impl(
+    payload: HeartLightCheckinCreate,
+    current_user: User,
+    db: AsyncSession,
+) -> HeartLightCheckinSubmitResponse:
     today = date.today()
-    result = await db.execute(
-        select(Diary)
+
+    existing_q = await db.execute(
+        select(HeartLightCheckin).where(
+            and_(
+                HeartLightCheckin.user_id == current_user.id,
+                HeartLightCheckin.checkin_date == today,
+            )
+        )
+    )
+    checkin = existing_q.scalars().first()
+
+    if checkin is None:
+        checkin = HeartLightCheckin(
+            user_id=current_user.id,
+            checkin_date=today,
+            emotion=payload.emotion,
+            energy=payload.energy,
+            event=payload.event,
+            one_line_text=payload.one_line_text,
+            reflection_key=payload.reflection_key,
+            is_rest=bool(payload.is_rest or payload.event == "rest"),
+            awarded_points=0,
+        )
+        db.add(checkin)
+        await db.flush()  # 拿到 checkin.id 用于 ledger.ref_id
+    else:
+        # 允许同日覆盖更新情绪/能量/事件/一句话
+        checkin.emotion = payload.emotion
+        checkin.energy = payload.energy
+        checkin.event = payload.event
+        if payload.one_line_text is not None:
+            checkin.one_line_text = payload.one_line_text
+        if payload.reflection_key is not None:
+            checkin.reflection_key = payload.reflection_key
+        checkin.is_rest = bool(payload.is_rest or payload.event == "rest")
+
+    delta_sum, new_planet = await _evaluate_rewards(db, current_user.id, checkin)
+
+    care_status = await _get_or_create_care_status(db, current_user.id)
+    if delta_sum:
+        care_status.total_light_points = (care_status.total_light_points or 0) + delta_sum
+
+    await db.commit()
+    await db.refresh(checkin)
+    await db.refresh(care_status)
+
+    streak = await _recompute_streak(db, current_user.id)
+
+    return HeartLightCheckinSubmitResponse(
+        checkin=HeartLightCheckinOut.model_validate(checkin),
+        points_delta=delta_sum,
+        total_points=care_status.total_light_points or 0,
+        new_planet=new_planet,
+        streak=streak,
+        shield_balance=min(care_status.shield_balance, MAX_HEART_LIGHT_SHIELDS),
+    )
+
+
+@router.post(
+    "/care/heart-light",
+    response_model=HeartLightCheckinSubmitResponse,
+    summary="提交今日心灯签到",
+)
+async def submit_heart_light_checkin(
+    payload: HeartLightCheckinCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    今日心灯签到入口：只写签到表，不再生成日记行。
+    同日幂等：重复提交相同 payload 不会重复发映光；允许覆盖更新情绪/能量/事件/一句话。
+    """
+    return await _submit_heart_light_checkin_impl(payload, current_user, db)
+
+
+@router.get(
+    "/care/checkins",
+    response_model=MonthCheckinsResponse,
+    summary="获取某月心灯签到数据（月历）",
+)
+async def get_month_checkins(
+    month: str = Query(..., description="YYYY-MM", pattern=r"^\d{4}-\d{2}$"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """为 Dashboard 月历签到图返回单月数据 + 当天是否同时有真日记。"""
+    try:
+        year_str, month_str = month.split("-", 1)
+        year = int(year_str)
+        month_num = int(month_str)
+        if month_num < 1 or month_num > 12:
+            raise ValueError
+        month_start = date(year, month_num, 1)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="month 格式应为 YYYY-MM")
+
+    if month_num == 12:
+        next_month_start = date(year + 1, 1, 1)
+    else:
+        next_month_start = date(year, month_num + 1, 1)
+    month_end = next_month_start - timedelta(days=1)
+
+    checkin_q = await db.execute(
+        select(HeartLightCheckin)
+        .where(
+            and_(
+                HeartLightCheckin.user_id == current_user.id,
+                HeartLightCheckin.checkin_date >= month_start,
+                HeartLightCheckin.checkin_date <= month_end,
+            )
+        )
+        .order_by(HeartLightCheckin.checkin_date.asc())
+    )
+    checkins = list(checkin_q.scalars().all())
+
+    diary_q = await db.execute(
+        select(Diary.diary_date)
         .where(
             and_(
                 Diary.user_id == current_user.id,
-                Diary.diary_date == today,
+                Diary.diary_date >= month_start,
+                Diary.diary_date <= month_end,
             )
         )
-        .order_by(desc(Diary.created_at))
     )
-    existing_diary = result.scalars().first()
-    if existing_diary:
-        return {
-            "created": False,
-            "diary_id": existing_diary.id,
-            "message": "今天已经有记录了，这也算一次有效照顾。",
-        }
+    diary_dates = sorted({row[0] for row in diary_q.all() if row[0] is not None})
 
-    rest_content = "今天不想写，也是一种照顾自己。"
-    diary = await diary_service.create_diary(
-        db,
-        current_user.id,
-        DiaryCreate(
-            title="今天不想写",
-            content=rest_content,
-            content_html=f"<p>{rest_content}</p>",
-            diary_date=today,
-            emotion_tags=["rest"],
-            importance_score=5,
-        ),
+    days = [
+        MonthCheckinDay(
+            date=c.checkin_date,
+            emotion=c.emotion,
+            energy=c.energy,
+            event=c.event,
+            is_rest=bool(c.is_rest),
+            one_line_excerpt=_one_line_excerpt(c.one_line_text),
+        )
+        for c in checkins
+    ]
+
+    streak = await _recompute_streak(db, current_user.id)
+    care_status = await _get_or_create_care_status(db, current_user.id)
+
+    return MonthCheckinsResponse(
+        month=f"{year:04d}-{month_num:02d}",
+        days=days,
+        diary_dates=diary_dates,
+        streak=streak,
+        total_points=care_status.total_light_points or 0,
     )
-    return {
-        "created": True,
-        "diary_id": diary.id,
-        "message": "已记录“今天不想写”。你可以到这里为止。",
-    }
+
+
+@router.get(
+    "/care/light-points",
+    response_model=LightPointsSummary,
+    summary="获取映光总量与近期流水",
+)
+async def get_light_points(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    care_status = await _get_or_create_care_status(db, current_user.id)
+    ledger_q = await db.execute(
+        select(LightPointLedger)
+        .where(LightPointLedger.user_id == current_user.id)
+        .order_by(desc(LightPointLedger.created_at))
+        .limit(20)
+    )
+    rows = list(ledger_q.scalars().all())
+    return LightPointsSummary(
+        total=care_status.total_light_points or 0,
+        recent_ledger=[LightPointLedgerOut.model_validate(r) for r in rows],
+    )
+
+
+@router.get(
+    "/care/treasure",
+    response_model=TreasureResponse,
+    summary="资产总览：映光/护盾/星球/流水",
+)
+async def get_treasure(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """为 /treasure 页面提供一次性聚合：
+    - 映光总量与分类型汇总
+    - 本周/本月获得
+    - 历史单日/单周映光峰值
+    - 护盾状态
+    - 情绪星球解锁数
+    - 最近 50 条流水
+    """
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+
+    care_status = await _get_or_create_care_status(db, current_user.id)
+
+    all_q = await db.execute(
+        select(LightPointLedger)
+        .where(LightPointLedger.user_id == current_user.id)
+        .order_by(desc(LightPointLedger.created_at))
+    )
+    all_rows = list(all_q.scalars().all())
+
+    by_reason = LightPointByReason()
+    this_week_points = 0
+    this_month_points = 0
+    day_bucket: dict[date, int] = {}
+    week_bucket: dict[date, int] = {}
+
+    for row in all_rows:
+        if row.reason == "checkin":
+            by_reason.checkin += row.delta
+        elif row.reason == "one_line":
+            by_reason.one_line += row.delta
+        elif row.reason == "planet_unlock":
+            by_reason.planet_unlock += row.delta
+
+        ref = row.ref_date
+        if ref is None:
+            continue
+        if ref >= week_start:
+            this_week_points += row.delta
+        if ref >= month_start:
+            this_month_points += row.delta
+        day_bucket[ref] = day_bucket.get(ref, 0) + row.delta
+        wk = ref - timedelta(days=ref.weekday())
+        week_bucket[wk] = week_bucket.get(wk, 0) + row.delta
+
+    top_day = TreasureTopDay()
+    if day_bucket:
+        d, p = max(day_bucket.items(), key=lambda item: item[1])
+        top_day = TreasureTopDay(date=d, points=p)
+
+    top_week = TreasureTopWeek()
+    if week_bucket:
+        w, p = max(week_bucket.items(), key=lambda item: item[1])
+        top_week = TreasureTopWeek(week_start=w, points=p)
+
+    planet_unlock_count_q = await db.execute(
+        select(HeartLightCheckin.emotion)
+        .where(
+            and_(
+                HeartLightCheckin.user_id == current_user.id,
+                HeartLightCheckin.emotion != "rest",
+            )
+        )
+        .distinct()
+    )
+    unlocked_emotions = {row[0] for row in planet_unlock_count_q.all() if row[0]}
+    unlocked_known = len({e for e in unlocked_emotions if e in _ensure_planet_keys()})
+
+    recent = all_rows[:50]
+
+    return TreasureResponse(
+        total=care_status.total_light_points or 0,
+        by_reason=by_reason,
+        this_week_points=this_week_points,
+        this_month_points=this_month_points,
+        all_time_count=len(all_rows),
+        top_day=top_day,
+        top_week=top_week,
+        shield=TreasureShield(
+            balance=min(care_status.shield_balance, MAX_HEART_LIGHT_SHIELDS),
+            max=MAX_HEART_LIGHT_SHIELDS,
+            last_reward_streak=care_status.last_reward_streak or 0,
+        ),
+        planets=TreasurePlanets(unlocked=unlocked_known, total=len(HEART_LIGHT_PLANETS)),
+        recent_ledger=[LightPointLedgerOut.model_validate(r) for r in recent],
+    )
 
 
 HEART_LIGHT_PLANETS = [
@@ -369,29 +807,29 @@ async def get_planet_collection(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    根据用户历史日记的情绪标签，聚合每个情绪星球的首次解锁日期与累计次数。
-
-    情绪星球图鉴用于鼓励用户从不同状态去回看自己——任何情绪首次出现都视为解锁。
+    根据心灯签到的 emotion 聚合每个情绪星球的首次解锁日期与累计次数。
     """
     result = await db.execute(
-        select(Diary.emotion_tags, Diary.diary_date)
-        .where(Diary.user_id == current_user.id)
-        .order_by(Diary.diary_date.asc())
+        select(HeartLightCheckin.emotion, HeartLightCheckin.checkin_date)
+        .where(
+            and_(
+                HeartLightCheckin.user_id == current_user.id,
+                HeartLightCheckin.emotion != "rest",
+            )
+        )
+        .order_by(HeartLightCheckin.checkin_date.asc())
     )
     rows = result.all()
 
     stats: dict[str, dict] = {}
-    for tags, diary_date in rows:
-        if not tags or diary_date is None:
+    for emotion, checkin_date in rows:
+        key = (emotion or "").strip().lower()
+        if not key or checkin_date is None:
             continue
-        for tag in tags:
-            key = (tag or "").strip().lower()
-            if not key:
-                continue
-            entry = stats.setdefault(key, {"count": 0, "first_unlocked": diary_date})
-            entry["count"] += 1
-            if diary_date < entry["first_unlocked"]:
-                entry["first_unlocked"] = diary_date
+        entry = stats.setdefault(key, {"count": 0, "first_unlocked": checkin_date})
+        entry["count"] += 1
+        if checkin_date < entry["first_unlocked"]:
+            entry["first_unlocked"] = checkin_date
 
     planets = []
     unlocked_count = 0

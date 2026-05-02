@@ -8,6 +8,8 @@ import { getEmotionDisplayLabel } from '@/utils/emotionLabels'
 import { diaryService } from '@/services/diary.service'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { toast } from '@/components/ui/toast'
+import HeartLightCalendar from '@/components/dashboard/HeartLightCalendar'
+import { useHeartLightStore } from '@/store/heartLightStore'
 import type { DashboardInsights, Diary } from '@/types/diary'
 import {
   ArrowRight,
@@ -210,6 +212,14 @@ export default function Dashboard() {
   }, [fetchDiaries])
 
   const fallbackDashboard = useMemo(() => buildStats(diaries), [diaries])
+  const lightPointsTotal = useHeartLightStore((s) => s.totalPoints)
+  const [shieldBalance, setShieldBalance] = useState<number | null>(null)
+  useEffect(() => {
+    diaryService
+      .getCareProgress()
+      .then((res) => setShieldBalance(res.shield_balance))
+      .catch(() => setShieldBalance(null))
+  }, [])
   const stats = useMemo(
     () => dashboardInsights ? toDashboardStats(dashboardInsights) : fallbackDashboard.stats,
     [dashboardInsights, fallbackDashboard.stats]
@@ -224,7 +234,13 @@ export default function Dashboard() {
     () => (dashboardInsights?.recent_diaries?.length
       ? dashboardInsights.recent_diaries
       : diaries.slice(0, 6).map((diary) => ({ ...diary, summary: toPreviewText(diary.content), analysis_path: `/analysis/${diary.id}` }))
-    ).filter((diary) => !deletedDiaryIds.includes(diary.id)),
+    )
+      .filter((diary) => !deletedDiaryIds.includes(diary.id))
+      .filter((diary) => {
+        const title = (diary.title || '').trim()
+        // 迁移完成后这些应当已从 diaries 表删除；这里作为防御性过滤保留
+        return !title.startsWith('今日心灯：') && title !== '今天不想写'
+      }),
     [dashboardInsights, deletedDiaryIds, diaries]
   )
   const displayName = user?.username || user?.email?.split('@')[0] || '用户'
@@ -310,7 +326,11 @@ export default function Dashboard() {
 
         <OverviewStatCards stats={stats} t={t} />
 
-        <PrimaryActionCards onNavigate={navigate} />
+        <PrimaryActionCards
+          onNavigate={navigate}
+          lightPoints={lightPointsTotal}
+          shieldBalance={shieldBalance}
+        />
 
         {emotionStats.length > 0 ? (
           <EmotionInsightSection
@@ -321,6 +341,8 @@ export default function Dashboard() {
             onNavigate={navigate}
           />
         ) : null}
+
+        <HeartLightCalendar />
 
         {recentDiaries.length > 0 ? (
           <RecentDiaryGrid diaries={recentDiaries} t={t} onNavigate={navigate} onDelete={setDeleteTarget} />
@@ -640,7 +662,15 @@ function OverviewStatCards({ stats, t }: { stats: DashboardStats; t: ReturnType<
   )
 }
 
-function PrimaryActionCards({ onNavigate }: { onNavigate: (path: string) => void }) {
+function PrimaryActionCards({
+  onNavigate,
+  lightPoints,
+  shieldBalance,
+}: {
+  onNavigate: (path: string) => void
+  lightPoints: number
+  shieldBalance: number | null
+}) {
   const actions = [
     {
       icon: <Sparkles />,
@@ -663,6 +693,15 @@ function PrimaryActionCards({ onNavigate }: { onNavigate: (path: string) => void
       path: '/growth',
       className: 'border-[#ccebdc] bg-[linear-gradient(135deg,#f6fffa,#effbf4)] text-[#4bbf88]',
     },
+    {
+      icon: <ShieldCheck />,
+      title: '映光资产',
+      desc:
+        `当前 ${lightPoints} 映光` +
+        (shieldBalance !== null ? ` · 护盾 ${shieldBalance}` : ''),
+      path: '/treasure',
+      className: 'border-[#f3dfa6] bg-[linear-gradient(135deg,#fffaf0,#fff2dc)] text-[#b78a3b]',
+    },
   ]
 
   const secondary = [
@@ -672,26 +711,28 @@ function PrimaryActionCards({ onNavigate }: { onNavigate: (path: string) => void
   ]
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_250px]">
-      {actions.map((item) => (
-        <button
-          key={item.title}
-          onClick={() => onNavigate(item.path)}
-          className={`group min-h-[98px] rounded-[22px] border p-4 text-left shadow-[0_12px_34px_rgba(115,84,69,0.055)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(115,84,69,0.12)] ${item.className}`}
-        >
-          <div className="flex items-center justify-between gap-4">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/76 shadow-sm [&_svg]:h-6 [&_svg]:w-6">
-              {item.icon}
-            </span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-400 transition-all group-hover:translate-x-1 group-hover:text-current">
-              <ChevronRight className="h-5 w-5" />
-            </span>
-          </div>
-          <h2 className="mt-3 text-lg font-bold text-stone-800">{item.title}</h2>
-          <p className="mt-1 text-sm text-stone-500">{item.desc}</p>
-        </button>
-      ))}
-      <div className="grid gap-2 rounded-[22px] border border-[#eadfd8] bg-white/64 p-3 shadow-[0_12px_34px_rgba(115,84,69,0.05)] sm:grid-cols-3 lg:grid-cols-1">
+    <section className="space-y-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {actions.map((item) => (
+          <button
+            key={item.title}
+            onClick={() => onNavigate(item.path)}
+            className={`group min-h-[98px] rounded-[22px] border p-4 text-left shadow-[0_12px_34px_rgba(115,84,69,0.055)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(115,84,69,0.12)] ${item.className}`}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/76 shadow-sm [&_svg]:h-6 [&_svg]:w-6">
+                {item.icon}
+              </span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-stone-400 transition-all group-hover:translate-x-1 group-hover:text-current">
+                <ChevronRight className="h-5 w-5" />
+              </span>
+            </div>
+            <h2 className="mt-3 text-lg font-bold text-stone-800">{item.title}</h2>
+            <p className="mt-1 text-sm text-stone-500">{item.desc}</p>
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-2 rounded-[22px] border border-[#eadfd8] bg-white/64 p-3 shadow-[0_12px_34px_rgba(115,84,69,0.05)] sm:grid-cols-3">
         {secondary.map((item) => (
           <button
             key={item.label}
@@ -840,7 +881,7 @@ function RecentDiaryGrid({
         <div className="flex items-center gap-3">
           <BookMarked className="h-5 w-5 text-[#b76458]" />
           <div>
-            <h2 className="text-xl font-bold text-stone-800">最近日记</h2>
+            <h2 className="text-xl font-bold text-stone-800">最近手写日记</h2>
             <p className="text-sm text-stone-400">从真实记录里，看见最近的自己</p>
           </div>
         </div>

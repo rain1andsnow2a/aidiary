@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useDiaryStore } from '@/store/diaryStore'
+import { useHeartLightStore } from '@/store/heartLightStore'
 import { diaryService } from '@/services/diary.service'
 import { toast } from '@/components/ui/toast'
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
@@ -10,7 +10,7 @@ import type { CareProgress, Diary, PlanetCollection } from '@/types/diary'
 import {
   PenLine, Sparkles, Mic, Wand2, ChevronRight, Gift, Orbit,
 } from 'lucide-react'
-import { CHECKIN_EMOTIONS, CHECKIN_EVENTS, REFLECTION_OPTIONS, buildLightContent, escapeHtml } from './constants'
+import { CHECKIN_EMOTIONS, CHECKIN_EVENTS, REFLECTION_OPTIONS } from './constants'
 import StreakFlame from './components/StreakFlame'
 import DailyQuestStrip from './components/DailyQuestStrip'
 import ChestTimeline from './components/ChestTimeline'
@@ -27,7 +27,8 @@ const DAILY_QUESTIONS = [
 
 export default function HeartLightPage() {
   const navigate = useNavigate()
-  const { createDiary } = useDiaryStore()
+  const submitCheckin = useHeartLightStore((state) => state.submitCheckin)
+  const loadLightPoints = useHeartLightStore((state) => state.loadLightPoints)
 
   const [checkinEmotion, setCheckinEmotion] = useState('anxious')
   const [checkinEnergy, setCheckinEnergy] = useState(2)
@@ -39,7 +40,6 @@ export default function HeartLightPage() {
   const [oneLineText, setOneLineText] = useState('')
   const [selectedReflection, setSelectedReflection] = useState('')
   const [lightReward, setLightReward] = useState<{ points: number; card: string } | null>(null)
-  const [savedLightDiaryId, setSavedLightDiaryId] = useState<number | null>(null)
   const [careProgress, setCareProgress] = useState<CareProgress | null>(null)
   const [lightMemory, setLightMemory] = useState<LightMemory | null>(null)
   const [planetCollection, setPlanetCollection] = useState<PlanetCollection | null>(null)
@@ -50,10 +50,6 @@ export default function HeartLightPage() {
   const selectedCheckinEmotion = useMemo(
     () => CHECKIN_EMOTIONS.find((item) => item.key === checkinEmotion) || CHECKIN_EMOTIONS[0],
     [checkinEmotion],
-  )
-  const selectedCheckinEvent = useMemo(
-    () => CHECKIN_EVENTS.find((item) => item.key === checkinEvent) || CHECKIN_EVENTS[0],
-    [checkinEvent],
   )
   const selectedReflectionLabel = REFLECTION_OPTIONS.find((item) => item.key === selectedReflection)?.label
 
@@ -108,33 +104,32 @@ export default function HeartLightPage() {
   }, [])
 
   const completeHeartLight = async () => {
-    const today = new Date().toISOString().slice(0, 10)
-    const nextTitle = `今日心灯：${selectedCheckinEmotion.label}`
-    const nextContent = buildLightContent({
-      emotionLabel: selectedCheckinEmotion.label,
-      energy: checkinEnergy,
-      eventLabel: selectedCheckinEvent.label,
-      oneLineText,
-      reflectionLabel: selectedReflectionLabel,
-    })
     try {
-      if (!savedLightDiaryId) {
-        const diary = await createDiary({
-          title: nextTitle,
-          content: nextContent,
-          content_html: `<p>${escapeHtml(nextContent).replace(/\n/g, '<br>')}</p>`,
-          diary_date: today,
-          emotion_tags: [checkinEmotion],
-          importance_score: 5,
-        })
-        setSavedLightDiaryId(diary.id)
-        void loadCareProgress()
-        void loadPlanets()
-      }
+      const res = await submitCheckin({
+        emotion: checkinEmotion,
+        energy: checkinEnergy,
+        event: checkinEvent,
+        one_line_text: oneLineText.trim() || null,
+        reflection_key: selectedReflection || null,
+        is_rest: false,
+      })
       setIsLightCompleted(true)
       triggerCelebration()
-      setLightReward({ points: oneLineText.trim() || selectedReflection ? 10 : 5, card: selectedReflectionLabel || selectedCheckinEmotion.label })
-      toast('今日心灯已点亮。你可以到这里为止，也可以补充几句话。', 'success')
+      if (res.points_delta > 0) {
+        setLightReward({
+          points: res.points_delta,
+          card: selectedReflectionLabel || selectedCheckinEmotion.label,
+        })
+      }
+      void loadCareProgress()
+      void loadPlanets()
+      void loadLightPoints()
+      if (res.new_planet) {
+        const label = CHECKIN_EMOTIONS.find((item) => item.key === res.new_planet)?.label || res.new_planet
+        toast(`首次解锁「${label}」星球 +20 映光`, 'success')
+      } else {
+        toast('今日心灯已点亮。你可以到这里为止，也可以补充几句话。', 'success')
+      }
     } catch (error: any) {
       toast(error.message || '保存失败，请稍后再试', 'error')
     }
@@ -142,23 +137,24 @@ export default function HeartLightPage() {
 
   const handleRestCareRecord = async () => {
     try {
-      const result = await diaryService.createRestCareRecord()
-      if (result.created) setSavedLightDiaryId(result.diary_id)
+      await submitCheckin({
+        emotion: 'rest',
+        energy: 3,
+        event: 'rest',
+        is_rest: true,
+      })
       setIsLightCompleted(true)
       triggerCelebration()
       void loadCareProgress()
-      toast(result.message || '已记录，今天到这里也很好。', 'success')
+      void loadLightPoints()
+      toast('已记录「今天不想写」。你可以到这里为止。', 'success')
     } catch (error: any) {
       toast(error.message || '记录失败，请稍后重试', 'error')
     }
   }
 
   const openFullEditor = () => {
-    if (savedLightDiaryId) {
-      navigate(`/diaries/${savedLightDiaryId}/edit`)
-    } else {
-      navigate('/diaries/new')
-    }
+    navigate(`/diaries/new?emotion=${encodeURIComponent(checkinEmotion)}`)
   }
 
   const goReviewOldDiary = () => {

@@ -81,6 +81,7 @@ class CareStatus(Base):
     shield_balance: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     last_reward_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     shielded_dates: Mapped[Optional[list]] = mapped_column(StringListJSON, default=list)
+    total_light_points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -93,6 +94,67 @@ class CareStatus(Base):
 
     def __repr__(self) -> str:
         return f"<CareStatus(user_id={self.user_id}, shield_balance={self.shield_balance})>"
+
+
+class HeartLightCheckin(Base):
+    """心灯签到表（每天一条，替代之前把心灯写进 diaries 的做法）"""
+    __tablename__ = "heart_light_checkins"
+    __table_args__ = (
+        UniqueConstraint("user_id", "checkin_date", name="uq_heart_light_user_date"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    checkin_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    emotion: Mapped[str] = mapped_column(String(20), nullable=False)
+    energy: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    event: Mapped[Optional[str]] = mapped_column(String(40))
+    one_line_text: Mapped[Optional[str]] = mapped_column(Text)
+    reflection_key: Mapped[Optional[str]] = mapped_column(String(40))
+    is_rest: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    awarded_points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<HeartLightCheckin(user_id={self.user_id}, date={self.checkin_date}, emotion={self.emotion})>"
+
+
+class LightPointLedger(Base):
+    """映光积分流水"""
+    __tablename__ = "light_point_ledger"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    delta: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(40), nullable=False)
+    ref_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    ref_id: Mapped[Optional[int]] = mapped_column(Integer)
+    meta: Mapped[Optional[dict]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<LightPointLedger(user_id={self.user_id}, delta={self.delta}, reason={self.reason})>"
 
 
 class TimelineEvent(Base):

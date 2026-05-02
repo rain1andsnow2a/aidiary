@@ -11,6 +11,11 @@ import type {
   GrowthDailyInsight,
   DashboardInsights,
   CareProgress,
+  HeartLightCheckinPayload,
+  HeartLightCheckinSubmitResponse,
+  MonthCheckinsResponse,
+  LightPointsSummary,
+  TreasureResponse,
 } from '@/types/diary'
 import type { PlanetCollection } from '@/types/diary'
 
@@ -112,6 +117,37 @@ export const diaryService = {
   // 获取情绪星球图鉴
   getPlanetCollection: async (): Promise<PlanetCollection> => {
     const response = await api.get<PlanetCollection>('/api/v1/diaries/care/planets')
+    return response.data
+  },
+
+  // 提交今日心灯签到（不再生成日记行）
+  submitHeartLightCheckin: async (
+    payload: HeartLightCheckinPayload,
+  ): Promise<HeartLightCheckinSubmitResponse> => {
+    const response = await api.post<HeartLightCheckinSubmitResponse>(
+      '/api/v1/diaries/care/heart-light',
+      payload,
+    )
+    return response.data
+  },
+
+  // 获取某月心灯签到（月历签到图数据源）
+  getHeartLightCheckins: async (month: string): Promise<MonthCheckinsResponse> => {
+    const response = await api.get<MonthCheckinsResponse>('/api/v1/diaries/care/checkins', {
+      params: { month },
+    })
+    return response.data
+  },
+
+  // 获取映光总量与近期流水
+  getLightPoints: async (): Promise<LightPointsSummary> => {
+    const response = await api.get<LightPointsSummary>('/api/v1/diaries/care/light-points')
+    return response.data
+  },
+
+  // 获取资产页聚合数据
+  getTreasure: async (): Promise<TreasureResponse> => {
+    const response = await api.get<TreasureResponse>('/api/v1/diaries/care/treasure')
     return response.data
   },
 
