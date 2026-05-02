@@ -200,3 +200,19 @@ export interface GrowthDailyInsight {
   source?: string
   message?: string
 }
+
+export interface PlanetEntry {
+  emotion: string
+  label: string
+  planet: string
+  emoji: string
+  unlocked: boolean
+  first_unlocked: string | null
+  count: number
+}
+
+export interface PlanetCollection {
+  total: number
+  unlocked: number
+  planets: PlanetEntry[]
+}

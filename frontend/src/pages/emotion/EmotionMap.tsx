@@ -188,7 +188,7 @@ export default function EmotionMap() {
         <Sparkles className="w-12 h-12" />
         <p className="text-lg">{t('emotionMap.notEnoughDiaries')}</p>
         <p className="text-sm">{t('emotionMap.writeMoreHint')}</p>
-        <button onClick={() => navigate('/diaries/new')} className="mt-2 px-5 py-2.5 rounded-2xl bg-[#c17f6e] text-white text-sm shadow-lg shadow-[#c17f6e]/20">
+        <button onClick={() => navigate('/heart-light')} className="mt-2 px-5 py-2.5 rounded-2xl bg-[#c17f6e] text-white text-sm shadow-lg shadow-[#c17f6e]/20">
           {t('emotionMap.goWrite')}
         </button>
       </div>

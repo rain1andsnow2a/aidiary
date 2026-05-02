@@ -29,6 +29,8 @@ const PostDetailPage = lazy(() => import('@/pages/community/PostDetailPage'))
 const CollectionsPage = lazy(() => import('@/pages/community/CollectionsPage'))
 const HistoryPage = lazy(() => import('@/pages/community/HistoryPage'))
 const EmotionMap = lazy(() => import('@/pages/emotion/EmotionMap'))
+const HeartLightPage = lazy(() => import('@/pages/heart-light/HeartLightPage'))
+const PlanetCollection = lazy(() => import('@/pages/heart-light/PlanetCollection'))
 // 2.0 新增
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 const CounselorApplyPage = lazy(() => import('@/pages/admin/CounselorApplyPage'))
@@ -269,6 +271,24 @@ function AppRoutes() {
             element={
               <PrivateRoute>
                 <EmotionMap />
+              </PrivateRoute>
+            }
+          />
+
+          {/* 今日心灯 */}
+          <Route
+            path="/heart-light"
+            element={
+              <PrivateRoute>
+                <HeartLightPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/heart-light/planets"
+            element={
+              <PrivateRoute>
+                <PlanetCollection />
               </PrivateRoute>
             }
           />

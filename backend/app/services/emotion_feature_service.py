@@ -13,6 +13,7 @@
 import re
 import math
 import os
+import json
 import logging
 from collections import Counter
 from pathlib import Path
@@ -30,55 +31,75 @@ logger = logging.getLogger(__name__)
 #    Dominance(控制感): 0(无力)  ~ 1(掌控)
 # ---------------------------------------------------------------------------
 # 来源参考: 大连理工情感词汇本体 + Russell 情绪环形模型
-EMOTION_LEXICON: dict[str, tuple[float, float, float]] = {
-    # ---- 高效价 高唤醒 (快乐/兴奋) ----
-    "开心": (0.9, 0.7, 0.7), "快乐": (0.9, 0.7, 0.7), "高兴": (0.85, 0.65, 0.7),
-    "兴奋": (0.8, 0.9, 0.7), "激动": (0.75, 0.95, 0.6), "惊喜": (0.85, 0.85, 0.5),
-    "欣喜": (0.88, 0.75, 0.65), "欢喜": (0.85, 0.7, 0.6), "喜悦": (0.9, 0.65, 0.7),
-    "愉快": (0.8, 0.5, 0.7), "愉悦": (0.82, 0.5, 0.7), "幸福": (0.95, 0.5, 0.8),
-    "甜蜜": (0.88, 0.45, 0.6), "美好": (0.85, 0.4, 0.7), "棒": (0.8, 0.6, 0.7),
-    "赞": (0.75, 0.55, 0.7), "哈哈": (0.8, 0.75, 0.6), "太好了": (0.85, 0.7, 0.7),
-    "庆幸": (0.7, 0.5, 0.6), "感恩": (0.85, 0.35, 0.6), "感谢": (0.8, 0.35, 0.55),
+# 核心 VAD 词典已迁移至 backend/app/data/lexicons/vad_zh_core.json
+# 代码只保留加载、校验和多源融合逻辑，便于版本化维护。
+CORE_VAD_LEXICON_FILENAME = "vad_zh_core.json"
 
-    # ---- 高效价 低唤醒 (满足/平静) ----
-    "满足": (0.75, 0.25, 0.75), "知足": (0.7, 0.2, 0.75), "安心": (0.7, 0.2, 0.8),
-    "平静": (0.5, 0.1, 0.7), "宁静": (0.55, 0.08, 0.7), "舒适": (0.7, 0.2, 0.7),
-    "放松": (0.65, 0.15, 0.65), "淡然": (0.5, 0.1, 0.6), "从容": (0.55, 0.15, 0.8),
-    "温暖": (0.75, 0.3, 0.6), "温馨": (0.78, 0.25, 0.6), "感动": (0.7, 0.5, 0.45),
-    "踏实": (0.65, 0.15, 0.8), "充实": (0.7, 0.35, 0.75),
 
-    # ---- 低效价 高唤醒 (愤怒/焦虑) ----
-    "愤怒": (-0.85, 0.9, 0.6), "生气": (-0.7, 0.8, 0.55), "暴怒": (-0.9, 0.95, 0.5),
-    "恼火": (-0.65, 0.7, 0.5), "烦躁": (-0.55, 0.7, 0.35), "烦": (-0.5, 0.6, 0.35),
-    "焦虑": (-0.6, 0.75, 0.2), "紧张": (-0.5, 0.8, 0.25), "慌": (-0.55, 0.85, 0.15),
-    "恐惧": (-0.7, 0.85, 0.1), "害怕": (-0.65, 0.8, 0.15), "担忧": (-0.5, 0.6, 0.25),
-    "担心": (-0.45, 0.55, 0.3), "不安": (-0.5, 0.65, 0.2), "崩溃": (-0.8, 0.9, 0.05),
-    "抓狂": (-0.6, 0.85, 0.2), "急": (-0.3, 0.75, 0.3), "压力": (-0.5, 0.7, 0.2),
+def load_core_vad_lexicon() -> dict[str, tuple[float, float, float]]:
+    """
+    从外部 JSON 文件加载核心中文 VAD 词典。
 
-    # ---- 低效价 低唤醒 (悲伤/疲惫) ----
-    "悲伤": (-0.8, 0.4, 0.15), "难过": (-0.7, 0.45, 0.2), "伤心": (-0.75, 0.5, 0.15),
-    "痛苦": (-0.85, 0.6, 0.1), "绝望": (-0.9, 0.3, 0.05), "无助": (-0.75, 0.3, 0.05),
-    "孤独": (-0.7, 0.25, 0.15), "寂寞": (-0.6, 0.2, 0.15), "空虚": (-0.65, 0.15, 0.1),
-    "失落": (-0.6, 0.35, 0.2), "沮丧": (-0.7, 0.4, 0.15), "郁闷": (-0.55, 0.35, 0.2),
-    "低落": (-0.6, 0.25, 0.2), "消沉": (-0.65, 0.2, 0.1), "委屈": (-0.6, 0.55, 0.1),
-    "疲惫": (-0.4, 0.15, 0.15), "累": (-0.35, 0.15, 0.2), "疲倦": (-0.4, 0.1, 0.15),
-    "无聊": (-0.3, 0.1, 0.3), "厌倦": (-0.45, 0.15, 0.25), "麻木": (-0.5, 0.05, 0.1),
-    "后悔": (-0.6, 0.45, 0.15), "遗憾": (-0.5, 0.3, 0.2), "惭愧": (-0.5, 0.4, 0.15),
+    默认路径:
+        backend/app/data/lexicons/vad_zh_core.json
 
-    # ---- 成就/动力 ----
-    "自豪": (0.8, 0.6, 0.85), "骄傲": (0.75, 0.55, 0.8), "成就感": (0.85, 0.6, 0.9),
-    "期待": (0.6, 0.65, 0.55), "希望": (0.65, 0.5, 0.55), "动力": (0.6, 0.65, 0.7),
-    "信心": (0.7, 0.5, 0.85), "坚定": (0.6, 0.45, 0.9), "勇敢": (0.6, 0.6, 0.8),
-    "努力": (0.5, 0.6, 0.7), "奋斗": (0.5, 0.7, 0.65), "进步": (0.7, 0.5, 0.7),
-    "收获": (0.75, 0.45, 0.7), "突破": (0.7, 0.7, 0.75),
+    可通过环境变量覆盖:
+        EMOTION_CORE_LEXICON_PATH=/abs/path/vad_zh_core.json
+    """
+    app_dir = Path(__file__).resolve().parents[1]
+    default_path = app_dir / "data" / "lexicons" / CORE_VAD_LEXICON_FILENAME
+    lexicon_path = Path(os.getenv("EMOTION_CORE_LEXICON_PATH", str(default_path))).expanduser()
 
-    # ---- 社交情绪 ----
-    "思念": (-0.3, 0.4, 0.2), "想念": (-0.25, 0.35, 0.2), "怀念": (-0.15, 0.3, 0.25),
-    "嫉妒": (-0.5, 0.6, 0.2), "羡慕": (-0.15, 0.4, 0.25), "尴尬": (-0.4, 0.6, 0.15),
-    "内疚": (-0.55, 0.45, 0.1), "愧疚": (-0.55, 0.45, 0.1),
-    "感激": (0.8, 0.4, 0.55), "珍惜": (0.7, 0.3, 0.6), "信任": (0.65, 0.25, 0.7),
-    "亲切": (0.65, 0.3, 0.55), "友好": (0.6, 0.3, 0.6),
-}
+    try:
+        with lexicon_path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except Exception as exc:
+        logger.error("[EmotionFeature] 核心VAD词典加载失败: path=%s err=%s", lexicon_path, exc)
+        return {}
+
+    if not isinstance(raw, dict):
+        logger.error("[EmotionFeature] 核心VAD词典格式错误: 根节点必须是对象 path=%s", lexicon_path)
+        return {}
+
+    entries = raw.get("entries", raw)
+    if not isinstance(entries, dict):
+        logger.error("[EmotionFeature] 核心VAD词典格式错误: entries 必须是对象 path=%s", lexicon_path)
+        return {}
+
+    loaded: dict[str, tuple[float, float, float]] = {}
+    for word, item in entries.items():
+        if not isinstance(word, str) or not word.strip():
+            continue
+
+        try:
+            if isinstance(item, dict):
+                valence = float(item["valence"])
+                arousal = float(item["arousal"])
+                dominance = float(item["dominance"])
+            elif isinstance(item, (list, tuple)) and len(item) >= 3:
+                valence = float(item[0])
+                arousal = float(item[1])
+                dominance = float(item[2])
+            else:
+                logger.warning("[EmotionFeature] 跳过无效VAD词条: word=%s item=%s", word, item)
+                continue
+        except Exception:
+            logger.warning("[EmotionFeature] 跳过无法解析的VAD词条: word=%s item=%s", word, item)
+            continue
+
+        loaded[word.strip()] = (
+            float(np.clip(valence, -1.0, 1.0)),
+            float(np.clip(arousal, 0.0, 1.0)),
+            float(np.clip(dominance, 0.0, 1.0)),
+        )
+
+    logger.info(
+        "[EmotionFeature] 核心VAD词典加载完成: path=%s version=%s entries=%d",
+        lexicon_path,
+        raw.get("version", "unknown"),
+        len(loaded),
+    )
+    return loaded
 
 # 否定词列表 —— 遇到否定词后反转效价
 NEGATION_WORDS = frozenset([
@@ -159,7 +180,7 @@ class EmotionFeatureExtractor:
 
     def __init__(self):
         jieba.setLogLevel(logging.WARNING)
-        self.vad_lexicon: dict[str, tuple[float, float, float]] = dict(EMOTION_LEXICON)
+        self.vad_lexicon = load_core_vad_lexicon()
         self._bootstrap_lexicon_sources()
 
     def _bootstrap_lexicon_sources(self) -> None:

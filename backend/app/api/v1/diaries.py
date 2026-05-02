@@ -352,6 +352,71 @@ async def create_rest_care_record(
     }
 
 
+HEART_LIGHT_PLANETS = [
+    {"emotion": "happy", "label": "开心", "planet": "晴屿", "emoji": "😄"},
+    {"emotion": "calm", "label": "平静", "planet": "静湾", "emoji": "🙂"},
+    {"emotion": "neutral", "label": "一般", "planet": "灰原", "emoji": "😐"},
+    {"emotion": "sad", "label": "低落", "planet": "雨谷", "emoji": "😞"},
+    {"emotion": "anxious", "label": "焦虑", "planet": "雾岛", "emoji": "😰"},
+    {"emotion": "angry", "label": "烦躁", "planet": "赤丘", "emoji": "😡"},
+    {"emotion": "exhausted", "label": "疲惫", "planet": "眠星", "emoji": "😴"},
+]
+
+
+@router.get("/care/planets", summary="获取情绪星球图鉴")
+async def get_planet_collection(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    根据用户历史日记的情绪标签，聚合每个情绪星球的首次解锁日期与累计次数。
+
+    情绪星球图鉴用于鼓励用户从不同状态去回看自己——任何情绪首次出现都视为解锁。
+    """
+    result = await db.execute(
+        select(Diary.emotion_tags, Diary.diary_date)
+        .where(Diary.user_id == current_user.id)
+        .order_by(Diary.diary_date.asc())
+    )
+    rows = result.all()
+
+    stats: dict[str, dict] = {}
+    for tags, diary_date in rows:
+        if not tags or diary_date is None:
+            continue
+        for tag in tags:
+            key = (tag or "").strip().lower()
+            if not key:
+                continue
+            entry = stats.setdefault(key, {"count": 0, "first_unlocked": diary_date})
+            entry["count"] += 1
+            if diary_date < entry["first_unlocked"]:
+                entry["first_unlocked"] = diary_date
+
+    planets = []
+    unlocked_count = 0
+    for definition in HEART_LIGHT_PLANETS:
+        entry = stats.get(definition["emotion"])
+        unlocked = entry is not None
+        if unlocked:
+            unlocked_count += 1
+        planets.append({
+            "emotion": definition["emotion"],
+            "label": definition["label"],
+            "planet": definition["planet"],
+            "emoji": definition["emoji"],
+            "unlocked": unlocked,
+            "first_unlocked": str(entry["first_unlocked"]) if unlocked else None,
+            "count": entry["count"] if unlocked else 0,
+        })
+
+    return {
+        "total": len(HEART_LIGHT_PLANETS),
+        "unlocked": unlocked_count,
+        "planets": planets,
+    }
+
+
 @router.get("/dashboard/insights", summary="获取首页仪表盘洞察")
 async def get_dashboard_insights(
     days: int = Query(30, ge=7, le=180, description="统计窗口天数"),

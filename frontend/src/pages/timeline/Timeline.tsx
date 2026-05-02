@@ -236,7 +236,7 @@ export default function Timeline() {
               ← {t('common.back')}
             </Button>
             <h1 className="text-lg sm:text-xl font-semibold text-stone-800 tracking-wide">{t('navigation.growth')}</h1>
-            <Button onClick={() => navigate('/diaries/new')} className="text-white" style={{ background: 'linear-gradient(135deg, #e28674, #9c95b5)' }}>
+            <Button onClick={() => navigate('/heart-light')} className="text-white" style={{ background: 'linear-gradient(135deg, #e28674, #9c95b5)' }}>
               {t('navigation.writeDiary')}
             </Button>
           </div>
@@ -248,7 +248,7 @@ export default function Timeline() {
           <Card className="border-stone-200/80 bg-white/90">
             <CardContent className="py-14 text-center">
               <p className="text-stone-500 mb-4">{t('growth.writeMoreDiaries')}</p>
-              <Button onClick={() => navigate('/diaries/new')}>{t('growth.writeFirstDiary')}</Button>
+              <Button onClick={() => navigate('/heart-light')}>{t('growth.writeFirstDiary')}</Button>
             </CardContent>
           </Card>
         ) : (

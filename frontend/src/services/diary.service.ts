@@ -12,6 +12,7 @@ import type {
   DashboardInsights,
   CareProgress,
 } from '@/types/diary'
+import type { PlanetCollection } from '@/types/diary'
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
@@ -105,6 +106,12 @@ export const diaryService = {
   // 主动选择“今天不想写”，也作为一次有效照顾行为落库
   createRestCareRecord: async (): Promise<{ created: boolean; diary_id: number; message: string }> => {
     const response = await api.post<{ created: boolean; diary_id: number; message: string }>('/api/v1/diaries/care/rest')
+    return response.data
+  },
+
+  // 获取情绪星球图鉴
+  getPlanetCollection: async (): Promise<PlanetCollection> => {
+    const response = await api.get<PlanetCollection>('/api/v1/diaries/care/planets')
     return response.data
   },
 

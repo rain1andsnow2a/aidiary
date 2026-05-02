@@ -1,0 +1,44 @@
+映记 Android App 工程说明
+==========================
+
+这个目录是使用 Capacitor 创建的安卓壳工程，用来把现有 React + TypeScript 前端打包成可安装在 Android 手机上的 App。
+
+目录关系：
+
+- android-app/：Capacitor 与 Android 工程目录
+- frontend/：原 React 前端源码
+- frontend/dist/：Android App 使用的 Web 构建产物
+
+常用命令：
+
+1. 安装依赖
+
+   cd android-app
+   npm install
+
+2. 构建前端并同步到 Android 工程
+
+   npm run sync
+
+3. 打开 Android Studio
+
+   npm run open
+
+4. 连接手机运行
+
+   npm run run
+
+说明：
+
+- build-web 脚本会默认注入 VITE_API_BASE_URL=https://yingjiapp.com，避免 App 内相对 /api 请求失效。
+- 如果要改为其他后端地址，可运行：
+
+  PowerShell:
+  $env:VITE_API_BASE_URL="https://your-domain.com"; npm run sync
+
+真机运行前置条件：
+
+- 安装 Android Studio
+- 安装 Android SDK / Platform Tools
+- 手机开启开发者选项和 USB 调试
+- Windows 能识别 adb devices

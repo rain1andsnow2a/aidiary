@@ -15,6 +15,8 @@ export const routes = {
   growth: '/growth',
   timeline: '/growth',
   dashboard: '/dashboard',
+  heartLight: '/heart-light',
+  heartLightPlanets: '/heart-light/planets',
   settings: '/settings',
 
   // 辅导员/心理老师
@@ -34,6 +36,8 @@ export const privateRoutes = [
   routes.analysis,
   routes.timeline,
   routes.dashboard,
+  routes.heartLight,
+  routes.heartLightPlanets,
   routes.settings,
   routes.counselorApply,
   routes.counselorDashboard,

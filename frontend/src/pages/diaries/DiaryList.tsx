@@ -115,7 +115,7 @@ export default function DiaryList() {
             </button>
             <span className="text-sm font-semibold text-stone-600 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-[#b56f61]" /> {t('navigation.myDiaries')}</span>
             <button
-              onClick={() => navigate('/diaries/new')}
+              onClick={() => navigate('/heart-light')}
               className="h-8 px-4 rounded-xl text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
               style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
             >
@@ -187,7 +187,7 @@ export default function DiaryList() {
                 <Sprout className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
                 <p className="text-stone-400 text-sm mb-5">{t('diary.noDiaries')}</p>
                 <button
-                  onClick={() => navigate('/diaries/new')}
+                  onClick={() => navigate('/heart-light')}
                   className="h-10 px-6 rounded-2xl text-sm font-semibold text-white shadow-md"
                   style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
                 >

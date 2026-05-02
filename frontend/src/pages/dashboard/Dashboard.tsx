@@ -6,6 +6,8 @@ import { useAuthStore } from '@/store/authStore'
 import { useDiaryStore } from '@/store/diaryStore'
 import { getEmotionDisplayLabel } from '@/utils/emotionLabels'
 import { diaryService } from '@/services/diary.service'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { toast } from '@/components/ui/toast'
 import type { DashboardInsights, Diary } from '@/types/diary'
 import {
   ArrowRight,
@@ -24,6 +26,7 @@ import {
   Sparkles,
   Sprout,
   TrendingUp,
+  Trash2,
 } from 'lucide-react'
 
 type EmotionStat = { tag: string; count: number; percentage: number }
@@ -181,9 +184,12 @@ export default function Dashboard() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { diaries, fetchDiaries, isLoading } = useDiaryStore()
+  const { diaries, fetchDiaries, deleteDiary, isLoading } = useDiaryStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [dashboardInsights, setDashboardInsights] = useState<DashboardInsights | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<RecentDashboardDiary | null>(null)
+  const [deletedDiaryIds, setDeletedDiaryIds] = useState<number[]>([])
+  const [isDeletingDiary, setIsDeletingDiary] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -215,10 +221,11 @@ export default function Dashboard() {
     [dashboardInsights, fallbackDashboard.emotionStats]
   )
   const recentDiaries: RecentDashboardDiary[] = useMemo(
-    () => dashboardInsights?.recent_diaries?.length
+    () => (dashboardInsights?.recent_diaries?.length
       ? dashboardInsights.recent_diaries
-      : diaries.slice(0, 6).map((diary) => ({ ...diary, summary: toPreviewText(diary.content), analysis_path: `/analysis/${diary.id}` })),
-    [dashboardInsights, diaries]
+      : diaries.slice(0, 6).map((diary) => ({ ...diary, summary: toPreviewText(diary.content), analysis_path: `/analysis/${diary.id}` }))
+    ).filter((diary) => !deletedDiaryIds.includes(diary.id)),
+    [dashboardInsights, deletedDiaryIds, diaries]
   )
   const displayName = user?.username || user?.email?.split('@')[0] || '用户'
   const avatarLetter = displayName.charAt(0).toUpperCase()
@@ -227,6 +234,32 @@ export default function Dashboard() {
     setShowUserMenu(false)
     await logout()
     navigate('/login')
+  }
+
+  const confirmDeleteDiary = async () => {
+    if (!deleteTarget) return
+    try {
+      setIsDeletingDiary(true)
+      await deleteDiary(deleteTarget.id)
+      setDeletedDiaryIds((ids) => ids.includes(deleteTarget.id) ? ids : [...ids, deleteTarget.id])
+      setDashboardInsights((current) => current ? {
+        ...current,
+        recent_diaries: current.recent_diaries.filter((diary) => diary.id !== deleteTarget.id),
+      } : current)
+      toast(t('diary.deleteSuccess'), 'success')
+      void fetchDiaries({ page: 1, pageSize: 80 })
+      diaryService.getDashboardInsights(30)
+        .then((data) => {
+          setDashboardInsights(data)
+          setDeletedDiaryIds([])
+        })
+        .catch(() => undefined)
+    } catch {
+      toast(t('diary.deleteFailed'), 'error')
+    } finally {
+      setIsDeletingDiary(false)
+      setDeleteTarget(null)
+    }
   }
 
   if (isLoading && diaries.length === 0) {
@@ -239,6 +272,18 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf6_0%,#f7f1ec_46%,#f4f1fb_100%)] text-stone-700">
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={t('diary.deleteConfirm')}
+        description={deleteTarget ? <>《{deleteTarget.title || t('diary.noTitle')}》</> : undefined}
+        confirmText={isDeletingDiary ? '删除中...' : t('common.confirm')}
+        cancelText={t('common.cancel')}
+        danger
+        onCancel={() => {
+          if (!isDeletingDiary) setDeleteTarget(null)
+        }}
+        onConfirm={confirmDeleteDiary}
+      />
       <DashboardNav
         displayName={displayName}
         avatarLetter={avatarLetter}
@@ -259,7 +304,7 @@ export default function Dashboard() {
           stats={stats}
           emotionStats={emotionStats}
           observation={dashboardInsights?.ai_observation}
-          onWrite={() => navigate('/diaries/new')}
+          onWrite={() => navigate('/heart-light')}
           onAnalysis={() => navigate('/analysis')}
         />
 
@@ -278,9 +323,9 @@ export default function Dashboard() {
         ) : null}
 
         {recentDiaries.length > 0 ? (
-          <RecentDiaryGrid diaries={recentDiaries} t={t} onNavigate={navigate} />
+          <RecentDiaryGrid diaries={recentDiaries} t={t} onNavigate={navigate} onDelete={setDeleteTarget} />
         ) : (
-          <EmptyDiaryState onWrite={() => navigate('/diaries/new')} />
+          <EmptyDiaryState onWrite={() => navigate('/heart-light')} />
         )}
       </main>
     </div>
@@ -387,7 +432,7 @@ function DashboardNav({
                 </div>
               </div>
               <div className="py-2">
-                <MenuButton icon={<PenLine />} label={t('navigation.writeDiary')} onClick={() => { onCloseMenu(); onNavigate('/diaries/new') }} />
+                <MenuButton icon={<PenLine />} label={t('navigation.writeDiary')} onClick={() => { onCloseMenu(); onNavigate('/heart-light') }} />
                 <MenuButton icon={<BookOpen />} label={t('navigation.myDiaries')} onClick={() => { onCloseMenu(); onNavigate('/diaries') }} />
                 <MenuButton icon={<Settings />} label={t('navigation.settings')} onClick={() => { onCloseMenu(); onNavigate('/settings') }} />
                 {role === 'student' ? (
@@ -598,17 +643,17 @@ function OverviewStatCards({ stats, t }: { stats: DashboardStats; t: ReturnType<
 function PrimaryActionCards({ onNavigate }: { onNavigate: (path: string) => void }) {
   const actions = [
     {
-      icon: <PenLine />,
-      title: '写日记',
-      desc: '记录今天的感受与事件',
-      path: '/diaries/new',
+      icon: <Sparkles />,
+      title: '今日心灯',
+      desc: '5 秒情绪签到 + 每日小目标',
+      path: '/heart-light',
       className: 'border-[#ffcfc8] bg-[linear-gradient(135deg,#fff8f5,#fff0ef)] text-[#dd6d62]',
     },
     {
-      icon: <Sparkles />,
-      title: 'AI 分析',
-      desc: '基于冰山模型理解情绪背后的原因',
-      path: '/analysis',
+      icon: <PenLine />,
+      title: '写完整日记',
+      desc: '富文本编辑、图片和自动保存',
+      path: '/diaries/new',
       className: 'border-[#dfd0ff] bg-[linear-gradient(135deg,#fbf8ff,#f6f0ff)] text-[#8f65e8]',
     },
     {
@@ -623,7 +668,7 @@ function PrimaryActionCards({ onNavigate }: { onNavigate: (path: string) => void
   const secondary = [
     { label: '日记浏览', path: '/diaries', icon: <BookOpen /> },
     { label: '情绪星图', path: '/emotion', icon: <Orbit /> },
-    { label: '匿名社区', path: '/community', icon: <MessageCircle /> },
+    { label: 'AI 分析', path: '/analysis', icon: <BarChart3 /> },
   ]
 
   return (
@@ -778,7 +823,17 @@ function EmotionInsightSection({
   )
 }
 
-function RecentDiaryGrid({ diaries, t, onNavigate }: { diaries: RecentDashboardDiary[]; t: ReturnType<typeof useTranslation>['t']; onNavigate: (path: string) => void }) {
+function RecentDiaryGrid({
+  diaries,
+  t,
+  onNavigate,
+  onDelete,
+}: {
+  diaries: RecentDashboardDiary[]
+  t: ReturnType<typeof useTranslation>['t']
+  onNavigate: (path: string) => void
+  onDelete: (diary: RecentDashboardDiary) => void
+}) {
   return (
     <section className="rounded-[28px] border border-[#eadfd8] bg-white/74 p-6 shadow-[0_18px_52px_rgba(115,84,69,0.08)]">
       <div className="mb-5 flex items-center justify-between gap-4">
@@ -801,7 +856,17 @@ function RecentDiaryGrid({ diaries, t, onNavigate }: { diaries: RecentDashboardD
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <h3 className="line-clamp-1 text-lg font-bold text-stone-800">{diary.title || '无标题'}</h3>
-              <span className="shrink-0 text-xs font-medium text-stone-400">{formatDate(diary.diary_date)}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-xs font-medium text-stone-400">{formatDate(diary.diary_date)}</span>
+                <button
+                  type="button"
+                  onClick={() => onDelete(diary)}
+                  title={t('common.delete')}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-stone-300 opacity-0 transition-all hover:bg-[#fff1ef] hover:text-[#c86f63] group-hover:opacity-100 focus:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="mb-3 flex min-h-[28px] flex-wrap gap-2">
               {(diary.emotion_tags ?? []).slice(0, 3).map((tag) => (

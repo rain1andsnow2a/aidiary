@@ -441,7 +441,7 @@ export default function DiaryDetail() {
         {/* 操作按钮 */}
         <div className="flex gap-3 pb-8">
           <button
-            onClick={() => navigate('/diaries/new')}
+            onClick={() => navigate('/heart-light')}
             className="flex-1 h-11 rounded-2xl text-sm font-medium text-white shadow-sm transition-all active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, #e88f7b, #a09ab8)' }}
           >

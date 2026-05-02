@@ -254,12 +254,16 @@ input:focus, textarea:focus {
     opacity: 0;
     transform: translate(-50%, calc(-50% + 10px)) scale(0.86);
   }
-  70% {
+  18% {
     opacity: 1;
     transform: translate(-50%, calc(-50% - 2px)) scale(1.04);
   }
-  100% {
+  72% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 10px)) scale(0.96);
   }
 }
