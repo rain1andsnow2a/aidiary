@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import get_password_hash
+from app.core.logging import logger
 from app.models.database import User, UserRole
 
 
@@ -25,7 +26,7 @@ async def ensure_bootstrap_admin(db: AsyncSession) -> None:
 
     if user is None:
         if not password:
-            print("[BootstrapAdmin] 未配置 bootstrap_admin_password，跳过管理员创建")
+            logger.warning("bootstrap admin skipped (missing bootstrap_admin_password)")
             return
         user = User(
             email=email,
@@ -37,7 +38,7 @@ async def ensure_bootstrap_admin(db: AsyncSession) -> None:
         )
         db.add(user)
         await db.commit()
-        print(f"[BootstrapAdmin] 已创建管理员账号: {email}")
+        logger.info("bootstrap admin created email={email}", email=email)
         return
 
     changed = False
@@ -52,4 +53,4 @@ async def ensure_bootstrap_admin(db: AsyncSession) -> None:
         changed = True
     if changed:
         await db.commit()
-        print(f"[BootstrapAdmin] 已提升账号为管理员: {email}")
+        logger.info("bootstrap admin promoted email={email}", email=email)

@@ -33,6 +33,8 @@ from app.schemas.diary import (
     TreasureShield,
     TreasurePlanets,
     TreasureResponse,
+    LightPointSpendRequest,
+    LightPointSpendResponse,
 )
 from app.services.diary_service import diary_service, timeline_service
 from app.services.speech_service import speech_service
@@ -41,12 +43,14 @@ from app.core.deps import get_current_active_user
 from app.core.security import decode_access_token
 from app.models.database import User
 from app.models.diary import Diary, TimelineEvent, GrowthDailyInsight, CareStatus, HeartLightCheckin, LightPointLedger
+from app.core.light_points_rules import RULES as LP_RULES
+from app.core.logging import logger
 
 router = APIRouter(prefix="/diaries", tags=["日记"])
 
-MAX_HEART_LIGHT_SHIELDS = 3
-DEFAULT_HEART_LIGHT_SHIELDS = 3
-HEART_LIGHT_REWARD_INTERVAL = 7
+MAX_HEART_LIGHT_SHIELDS = LP_RULES.shield_max_balance
+DEFAULT_HEART_LIGHT_SHIELDS = LP_RULES.shield_default_balance
+HEART_LIGHT_REWARD_INTERVAL = LP_RULES.shield_reward_interval
 
 
 async def _ai_refine_event_task(user_id: int, diary_id: int):
@@ -59,7 +63,12 @@ async def _ai_refine_event_task(user_id: int, diary_id: int):
                 diary_id=diary_id,
             )
     except Exception as e:
-        print(f"[Timeline AI Refine] warning user={user_id} diary={diary_id}: {e}")
+        logger.warning(
+            "timeline ai refine failed user={user_id} diary={diary_id} err={err}",
+            user_id=user_id,
+            diary_id=diary_id,
+            err=str(e),
+        )
 
 
 def _schedule_ai_refine(user_id: int, diary_id: int):
@@ -295,8 +304,12 @@ async def _evaluate_rewards(
         wants_one_line = bool((checkin.one_line_text or "").strip())
         if wants_one_line:
             if not has_one_line_reward:
-                # 若之前已经发过 +5 checkin，只追加 +5 达到 10；否则直接发 +10
-                remaining = 5 if has_checkin_reward else 10
+                # 若之前已经发过 checkin，只追加差额；否则直接发 one_line 全额
+                remaining = (
+                    LP_RULES.reward_one_line - LP_RULES.reward_checkin
+                    if has_checkin_reward
+                    else LP_RULES.reward_one_line
+                )
                 db.add(
                     LightPointLedger(
                         user_id=user_id,
@@ -313,14 +326,14 @@ async def _evaluate_rewards(
                 db.add(
                     LightPointLedger(
                         user_id=user_id,
-                        delta=5,
+                        delta=LP_RULES.reward_checkin,
                         reason="checkin",
                         ref_date=today,
                         ref_id=checkin.id,
                         meta={"emotion": checkin.emotion},
                     )
                 )
-                delta_sum += 5
+                delta_sum += LP_RULES.reward_checkin
 
         # 行星首解
         if checkin.emotion in planets:
@@ -356,14 +369,14 @@ async def _evaluate_rewards(
                 db.add(
                     LightPointLedger(
                         user_id=user_id,
-                        delta=20,
+                        delta=LP_RULES.reward_planet_unlock,
                         reason="planet_unlock",
                         ref_date=today,
                         ref_id=checkin.id,
                         meta={"planet": checkin.emotion},
                     )
                 )
-                delta_sum += 20
+                delta_sum += LP_RULES.reward_planet_unlock
                 new_planet = checkin.emotion
 
     if delta_sum:
@@ -692,6 +705,70 @@ async def get_light_points(
     )
 
 
+@router.post(
+    "/care/light-points/spend",
+    response_model=LightPointSpendResponse,
+    summary="花费映光（映光商店购买）",
+)
+async def spend_light_points(
+    payload: LightPointSpendRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """从用户的 total_light_points 扣除指定数量并记一条负 delta ledger。
+
+    幂等性约定：item_id + user_id 同日同 reason 已存在则视为重复购买，直接 200。
+    """
+    care_status = await _get_or_create_care_status(db, current_user.id)
+    today = date.today()
+
+    duplicate_q = await db.execute(
+        select(LightPointLedger)
+        .where(
+            and_(
+                LightPointLedger.user_id == current_user.id,
+                LightPointLedger.reason == payload.reason,
+                LightPointLedger.ref_date == today,
+            )
+        )
+    )
+    for row in duplicate_q.scalars().all():
+        meta = row.meta or {}
+        if meta.get("item_id") == payload.item_id:
+            return LightPointSpendResponse(
+                new_total=care_status.total_light_points or 0,
+                delta=row.delta,
+                ledger_id=row.id,
+            )
+
+    current_total = care_status.total_light_points or 0
+    if current_total < payload.amount:
+        raise HTTPException(status_code=400, detail="映光不足")
+
+    meta = dict(payload.meta or {})
+    meta["item_id"] = payload.item_id
+
+    entry = LightPointLedger(
+        user_id=current_user.id,
+        delta=-payload.amount,
+        reason=payload.reason,
+        ref_date=today,
+        ref_id=None,
+        meta=meta,
+    )
+    db.add(entry)
+    care_status.total_light_points = current_total - payload.amount
+    await db.commit()
+    await db.refresh(entry)
+    await db.refresh(care_status)
+
+    return LightPointSpendResponse(
+        new_total=care_status.total_light_points or 0,
+        delta=entry.delta,
+        ledger_id=entry.id,
+    )
+
+
 @router.get(
     "/care/treasure",
     response_model=TreasureResponse,
@@ -708,25 +785,46 @@ async def get_treasure(
     - 护盾状态
     - 情绪星球解锁数
     - 最近 50 条流水
+
+    防御性处理：若某张表/列暂不存在（例如生产尚未完成 init_db 自愈），
+    端点不 500，返回空聚合并记一条 warning。
     """
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)
 
-    care_status = await _get_or_create_care_status(db, current_user.id)
-
-    all_q = await db.execute(
-        select(LightPointLedger)
-        .where(LightPointLedger.user_id == current_user.id)
-        .order_by(desc(LightPointLedger.created_at))
-    )
-    all_rows = list(all_q.scalars().all())
+    try:
+        care_status = await _get_or_create_care_status(db, current_user.id)
+    except Exception as exc:
+        logger.warning(
+            "treasure care_status unavailable user={uid} err={err}",
+            uid=current_user.id,
+            err=str(exc),
+        )
+        await db.rollback()
+        care_status = None
 
     by_reason = LightPointByReason()
     this_week_points = 0
     this_month_points = 0
     day_bucket: dict[date, int] = {}
     week_bucket: dict[date, int] = {}
+    all_rows: list[LightPointLedger] = []
+
+    try:
+        all_q = await db.execute(
+            select(LightPointLedger)
+            .where(LightPointLedger.user_id == current_user.id)
+            .order_by(desc(LightPointLedger.created_at))
+        )
+        all_rows = list(all_q.scalars().all())
+    except Exception as exc:
+        logger.warning(
+            "treasure ledger unavailable user={uid} err={err}",
+            uid=current_user.id,
+            err=str(exc),
+        )
+        await db.rollback()
 
     for row in all_rows:
         if row.reason == "checkin":
@@ -750,30 +848,42 @@ async def get_treasure(
     top_day = TreasureTopDay()
     if day_bucket:
         d, p = max(day_bucket.items(), key=lambda item: item[1])
-        top_day = TreasureTopDay(date=d, points=p)
+        top_day = TreasureTopDay(top_date=d, points=p)
 
     top_week = TreasureTopWeek()
     if week_bucket:
         w, p = max(week_bucket.items(), key=lambda item: item[1])
         top_week = TreasureTopWeek(week_start=w, points=p)
 
-    planet_unlock_count_q = await db.execute(
-        select(HeartLightCheckin.emotion)
-        .where(
-            and_(
-                HeartLightCheckin.user_id == current_user.id,
-                HeartLightCheckin.emotion != "rest",
+    unlocked_known = 0
+    try:
+        planet_unlock_count_q = await db.execute(
+            select(HeartLightCheckin.emotion)
+            .where(
+                and_(
+                    HeartLightCheckin.user_id == current_user.id,
+                    HeartLightCheckin.emotion != "rest",
+                )
             )
+            .distinct()
         )
-        .distinct()
-    )
-    unlocked_emotions = {row[0] for row in planet_unlock_count_q.all() if row[0]}
-    unlocked_known = len({e for e in unlocked_emotions if e in _ensure_planet_keys()})
+        unlocked_emotions = {row[0] for row in planet_unlock_count_q.all() if row[0]}
+        unlocked_known = len({e for e in unlocked_emotions if e in _ensure_planet_keys()})
+    except Exception as exc:
+        logger.warning(
+            "treasure checkins unavailable user={uid} err={err}",
+            uid=current_user.id,
+            err=str(exc),
+        )
+        await db.rollback()
 
     recent = all_rows[:50]
+    total_points = (care_status.total_light_points or 0) if care_status else 0
+    shield_balance = min(care_status.shield_balance, MAX_HEART_LIGHT_SHIELDS) if care_status else DEFAULT_HEART_LIGHT_SHIELDS
+    last_reward_streak = (care_status.last_reward_streak or 0) if care_status else 0
 
     return TreasureResponse(
-        total=care_status.total_light_points or 0,
+        total=total_points,
         by_reason=by_reason,
         this_week_points=this_week_points,
         this_month_points=this_month_points,
@@ -781,9 +891,9 @@ async def get_treasure(
         top_day=top_day,
         top_week=top_week,
         shield=TreasureShield(
-            balance=min(care_status.shield_balance, MAX_HEART_LIGHT_SHIELDS),
+            balance=shield_balance,
             max=MAX_HEART_LIGHT_SHIELDS,
-            last_reward_streak=care_status.last_reward_streak or 0,
+            last_reward_streak=last_reward_streak,
         ),
         planets=TreasurePlanets(unlocked=unlocked_known, total=len(HEART_LIGHT_PLANETS)),
         recent_ledger=[LightPointLedgerOut.model_validate(r) for r in recent],
@@ -1294,7 +1404,11 @@ async def speech_to_text_stream(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        print(f"[Speech Stream] error user={payload.get('sub') if payload else '?'}: {e}")
+        logger.error(
+            "speech stream error user={uid} err={err}",
+            uid=payload.get("sub") if payload else "?",
+            err=str(e),
+        )
         try:
             await websocket.send_json({"type": "error", "message": str(e) or "语音识别失败"})
             await websocket.close(code=1011)

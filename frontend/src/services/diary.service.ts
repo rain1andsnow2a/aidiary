@@ -16,6 +16,8 @@ import type {
   MonthCheckinsResponse,
   LightPointsSummary,
   TreasureResponse,
+  LightPointSpendPayload,
+  LightPointSpendResponse,
 } from '@/types/diary'
 import type { PlanetCollection } from '@/types/diary'
 
@@ -148,6 +150,15 @@ export const diaryService = {
   // 获取资产页聚合数据
   getTreasure: async (): Promise<TreasureResponse> => {
     const response = await api.get<TreasureResponse>('/api/v1/diaries/care/treasure')
+    return response.data
+  },
+
+  // 花费映光（映光商店购买）
+  spendLightPoints: async (payload: LightPointSpendPayload): Promise<LightPointSpendResponse> => {
+    const response = await api.post<LightPointSpendResponse>(
+      '/api/v1/diaries/care/light-points/spend',
+      payload,
+    )
     return response.data
   },
 

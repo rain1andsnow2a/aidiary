@@ -1,5 +1,5 @@
 """
-讯飞语音听写服务（IAT WebSocket）
+讯飞语音听写 + 语音合成服务（IAT / TTS WebSocket）
 """
 import asyncio
 import base64
@@ -15,12 +15,25 @@ from urllib.parse import quote
 import websockets
 
 from app.core.config import settings
+from app.core.logging import logger
 
 
 class SpeechService:
     def __init__(self) -> None:
-        self.host = "iat-api.xfyun.cn"
-        self.path = "/v2/iat"
+        self.iat_host = "iat-api.xfyun.cn"
+        self.iat_path = "/v2/iat"
+        # 讯飞在线 TTS（与 IAT 同账号鉴权方式）
+        self.tts_host = "tts-api.xfyun.cn"
+        self.tts_path = "/v2/tts"
+
+    # 兼容旧字段名
+    @property
+    def host(self) -> str:
+        return self.iat_host
+
+    @property
+    def path(self) -> str:
+        return self.iat_path
 
     @staticmethod
     def _appid() -> str:
@@ -309,6 +322,126 @@ class SpeechService:
                         pass
 
         return final_text.strip()
+
+    # ============================================================
+    # 讯飞在线 TTS
+    # ============================================================
+
+    def _build_tts_ws_url(self) -> str:
+        """讯飞 TTS WebSocket 鉴权 URL（与 IAT 同套规则，仅 host/path 不同）。"""
+        date = formatdate(timeval=None, localtime=False, usegmt=True)
+        signature_origin = (
+            f"host: {self.tts_host}\n"
+            f"date: {date}\n"
+            f"GET {self.tts_path} HTTP/1.1"
+        )
+        signature_sha = hmac.new(
+            self._api_secret().encode("utf-8"),
+            signature_origin.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).digest()
+        signature = base64.b64encode(signature_sha).decode("utf-8")
+
+        authorization_origin = (
+            f'api_key="{self._api_key()}", '
+            f'algorithm="hmac-sha256", '
+            f'headers="host date request-line", '
+            f'signature="{signature}"'
+        )
+        authorization = base64.b64encode(
+            authorization_origin.encode("utf-8")
+        ).decode("utf-8")
+        return (
+            f"wss://{self.tts_host}{self.tts_path}"
+            f"?authorization={quote(authorization)}"
+            f"&date={quote(date)}"
+            f"&host={self.tts_host}"
+        )
+
+    async def synthesize_speech(
+        self,
+        text: str,
+        *,
+        voice: str = "x4_lingfeiyi_oral",
+        speed: int = 50,
+        volume: int = 60,
+        pitch: int = 50,
+    ) -> bytes:
+        """文本转语音，返回 MP3 字节流。
+
+        - voice: 讯飞发音人 vcn。`x4_lingfeiyi_oral`（小燕变体，温柔系）/
+          `xiaoyan` 等都可用，按账号开通的为准。
+        - speed/volume/pitch: 0-100，默认中等。
+
+        实现：单连接发送一帧（status=2 表示文本结束），不断 recv chunk
+        把 base64 音频解码后拼接，直到收到 status=2 的 audio frame 或连接关闭。
+        """
+        if not self.is_configured():
+            raise ValueError("语音合成服务未配置")
+
+        text = (text or "").strip()
+        if not text:
+            return b""
+
+        # 讯飞 TTS 单次最大文本约 8000 字节（UTF-8）。简单截断。
+        encoded = text.encode("utf-8")
+        if len(encoded) > 7800:
+            text = encoded[:7800].decode("utf-8", errors="ignore")
+
+        url = self._build_tts_ws_url()
+        audio_chunks: list[bytes] = []
+
+        request_body = {
+            "common": {"app_id": self._appid()},
+            "business": {
+                "aue": "lame",  # MP3 输出
+                "sfl": 1,
+                "vcn": voice,
+                "speed": speed,
+                "volume": volume,
+                "pitch": pitch,
+                "tte": "UTF8",
+            },
+            "data": {
+                "status": 2,
+                "text": base64.b64encode(text.encode("utf-8")).decode("utf-8"),
+            },
+        }
+
+        async with websockets.connect(
+            url,
+            ping_interval=20,
+            ping_timeout=20,
+            close_timeout=8,
+            max_size=4 * 1024 * 1024,
+        ) as ws:
+            await ws.send(json.dumps(request_body))
+
+            while True:
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=8)
+                except asyncio.TimeoutError:
+                    logger.warning("xfyun tts recv timeout")
+                    break
+                except websockets.ConnectionClosed:
+                    break
+
+                msg = json.loads(raw)
+                if msg.get("code", 0) != 0:
+                    raise ValueError(msg.get("message", "语音合成失败"))
+
+                data = msg.get("data") or {}
+                audio_b64 = data.get("audio")
+                if audio_b64:
+                    try:
+                        audio_chunks.append(base64.b64decode(audio_b64))
+                    except Exception as exc:
+                        logger.warning("xfyun tts decode failed err={err}", err=str(exc))
+
+                if data.get("status") == 2:
+                    break
+
+        return b"".join(audio_chunks)
 
 
 speech_service = SpeechService()

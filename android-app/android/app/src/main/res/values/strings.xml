@@ -4,4 +4,10 @@
     <string name="title_activity_main">映记</string>
     <string name="package_name">com.yinji.smartdiary</string>
     <string name="custom_url_scheme">com.yinji.smartdiary</string>
+
+    <string name="widget_title">今日心灯</string>
+    <string name="widget_streak_label">连续天数</string>
+    <string name="widget_points_label">映光</string>
+    <string name="widget_action_button">点亮今天</string>
+    <string name="widget_description">查看心灯连续天数与映光，一键打开映记</string>
 </resources>

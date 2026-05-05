@@ -28,6 +28,14 @@ export interface StreamCallbacks {
   onError?: (message: string) => void
 }
 
+export interface VoiceChatResponse {
+  session_id: number
+  user_text: string
+  reply_text: string
+  reply_audio_base64: string | null
+  reply_audio_mime: string
+}
+
 function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL || ''
 }
@@ -121,6 +129,32 @@ export const assistantService = {
         }
       }
     }
+  },
+
+  // 语音聊天：发文本（fallback）
+  async voiceChatText(message: string, sessionId?: number, voice?: string): Promise<VoiceChatResponse> {
+    const { data } = await api.post('/api/v1/assistant/voice-chat', {
+      message,
+      session_id: sessionId,
+      voice,
+    })
+    return data
+  },
+
+  // 语音聊天：上传一段 WAV
+  async voiceChatAudio(
+    wav: Blob,
+    sessionId?: number,
+    voice?: string,
+  ): Promise<VoiceChatResponse> {
+    const form = new FormData()
+    form.append('file', wav, 'voice.wav')
+    if (sessionId) form.append('session_id', String(sessionId))
+    if (voice) form.append('voice', voice)
+    const { data } = await api.post('/api/v1/assistant/voice-chat/audio', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
   },
 }
 

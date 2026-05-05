@@ -205,7 +205,7 @@ class LightPointByReason(BaseModel):
 
 class TreasureTopDay(BaseModel):
     """映光峰值：某一天获得最多"""
-    date: Optional[date] = None
+    top_date: Optional[date] = None
     points: int = 0
 
 
@@ -238,3 +238,17 @@ class TreasureResponse(BaseModel):
     shield: TreasureShield
     planets: TreasurePlanets
     recent_ledger: List[LightPointLedgerOut]
+
+
+class LightPointSpendRequest(BaseModel):
+    """映光消费入参（用于映光商店）"""
+    amount: int = Field(..., ge=1, le=100000, description="花费的映光数")
+    item_id: str = Field(..., min_length=1, max_length=64, description="商品 ID")
+    reason: str = Field(default="shop_purchase", max_length=40)
+    meta: Optional[dict] = None
+
+
+class LightPointSpendResponse(BaseModel):
+    new_total: int
+    delta: int
+    ledger_id: int

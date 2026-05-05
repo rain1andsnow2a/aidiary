@@ -466,3 +466,220 @@ async def chat_stream(
             yield _safe_json_sse("error", {"message": f"回复失败：{str(e)}"})
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+# ============================================================
+# 语音对讲（伪通话）：录一段 → STT → DeepSeek → TTS → 一次性返回
+# ============================================================
+
+
+class VoiceChatTextRequest(BaseModel):
+    """已有文字输入时直接走（绕过 STT），主要给前端 fallback 用。"""
+
+    message: str = Field(..., min_length=1, max_length=2000)
+    session_id: Optional[int] = None
+    voice: Optional[str] = Field(default=None, max_length=40)
+
+
+class VoiceChatResponse(BaseModel):
+    session_id: int
+    user_text: str
+    reply_text: str
+    reply_audio_base64: Optional[str] = None
+    reply_audio_mime: str = "audio/mpeg"
+
+
+_VOICE_CHAT_SYSTEM_PROMPT = (
+    "你是映记精灵，是一只温暖、不评判、有洞察力的小狐狸伙伴。"
+    "用户正在用语音和你对话，所以回复要：\n"
+    "1) 简短自然——尽量 2-3 句话，最多 5 句。\n"
+    "2) 像在打电话——口语化，避免列条目和 markdown 格式。\n"
+    "3) 共情先于建议——如果对方在表达情绪，先接住。\n"
+    "4) 不要使用括号注释、表情符号、或者 [[diary:...]] 这类链接语法。\n"
+    "5) 全部用简体中文。"
+)
+
+
+async def _generate_voice_reply(
+    db: AsyncSession,
+    current_user: User,
+    session_id: Optional[int],
+    user_text: str,
+) -> tuple[int, str, AssistantMessage]:
+    """与 chat_stream 相同的对话/会话语义，但非流式、文本更短。
+
+    返回 (session_id, reply_text, ai_msg)
+    """
+    user_text = (user_text or "").strip()
+    if not user_text:
+        raise HTTPException(status_code=400, detail="语音内容为空")
+
+    if session_id is None:
+        new_session = AssistantSession(
+            user_id=current_user.id,
+            title=user_text[:20] or "语音聊天",
+        )
+        db.add(new_session)
+        await db.commit()
+        await db.refresh(new_session)
+        session_id = new_session.id
+    else:
+        session_check = await db.execute(
+            select(AssistantSession).where(
+                and_(
+                    AssistantSession.id == session_id,
+                    AssistantSession.user_id == current_user.id,
+                )
+            )
+        )
+        if not session_check.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="会话不存在")
+
+    user_msg = AssistantMessage(
+        user_id=current_user.id,
+        session_id=session_id,
+        role="user",
+        content=user_text,
+    )
+    db.add(user_msg)
+    await db.commit()
+    await db.refresh(user_msg)
+
+    profile = await _get_or_create_profile(db, current_user.id)
+    nickname = (profile.nickname or current_user.username or "你").strip()
+
+    history_result = await db.execute(
+        select(AssistantMessage)
+        .where(
+            and_(
+                AssistantMessage.user_id == current_user.id,
+                AssistantMessage.session_id == session_id,
+            )
+        )
+        .order_by(desc(AssistantMessage.created_at), desc(AssistantMessage.id))
+        .limit(8)
+    )
+    history_rows = list(history_result.scalars().all())[::-1]
+    history_text = "\n".join(
+        [f"{r.role}: {r.content[:160]}" for r in history_rows]
+    )
+
+    user_prompt = (
+        f"用户昵称：{nickname}\n"
+        f"最近对话：\n{history_text or '无'}\n\n"
+        f"用户当前说的话：{user_text}\n\n"
+        "请用 2-3 句话自然回应，像打电话那样亲切。"
+    )
+
+    reply_text = await deepseek_client.chat_with_system(
+        system_prompt=_VOICE_CHAT_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+        temperature=0.7,
+        max_tokens=300,
+        timeout_seconds=20.0,
+    )
+    reply_text = (reply_text or "").strip() or "我在呢。你愿意再多说一点点吗？"
+
+    ai_msg = AssistantMessage(
+        user_id=current_user.id,
+        session_id=session_id,
+        role="assistant",
+        content=reply_text,
+    )
+    db.add(ai_msg)
+    await db.commit()
+    await db.refresh(ai_msg)
+
+    return session_id, reply_text, ai_msg
+
+
+async def _synthesize_or_none(text: str, voice: Optional[str]) -> Optional[str]:
+    """合成 mp3 并 base64。失败时不抛，让前端只展示文本。"""
+    from app.services.speech_service import speech_service
+    from app.core.logging import logger as _log
+
+    if not speech_service.is_configured():
+        _log.warning("voice-chat tts disabled (xfyun not configured)")
+        return None
+    try:
+        kwargs = {}
+        if voice:
+            kwargs["voice"] = voice
+        audio_bytes = await speech_service.synthesize_speech(text, **kwargs)
+        if not audio_bytes:
+            return None
+        import base64 as _b64
+
+        return _b64.b64encode(audio_bytes).decode("ascii")
+    except Exception as exc:
+        _log.warning("voice-chat tts failed text_len={n} err={err}", n=len(text), err=str(exc))
+        return None
+
+
+@router.post(
+    "/voice-chat",
+    response_model=VoiceChatResponse,
+    summary="语音聊天（文本输入）：DeepSeek 回复 + TTS 合成",
+)
+async def voice_chat_text(
+    payload: VoiceChatTextRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    session_id, reply_text, _ = await _generate_voice_reply(
+        db, current_user, payload.session_id, payload.message
+    )
+    audio_b64 = await _synthesize_or_none(reply_text, payload.voice)
+    return VoiceChatResponse(
+        session_id=session_id,
+        user_text=payload.message.strip(),
+        reply_text=reply_text,
+        reply_audio_base64=audio_b64,
+    )
+
+
+from fastapi import File, Form, UploadFile  # noqa: E402
+
+
+@router.post(
+    "/voice-chat/audio",
+    response_model=VoiceChatResponse,
+    summary="语音聊天（音频）：STT → DeepSeek → TTS",
+)
+async def voice_chat_audio_endpoint(
+    file: UploadFile = File(..., description="16kHz/mono/16bit WAV"),
+    session_id: Optional[int] = Form(default=None),
+    voice: Optional[str] = Form(default=None),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.speech_service import speech_service
+
+    if not speech_service.is_configured():
+        raise HTTPException(status_code=503, detail="语音服务未配置")
+
+    contents = await file.read()
+    if len(contents) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="音频文件不能超过 8MB")
+
+    try:
+        user_text = await speech_service.transcribe_wav(contents)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=502, detail="语音识别失败")
+
+    if not user_text.strip():
+        raise HTTPException(status_code=400, detail="没有识别到内容")
+
+    session_id_out, reply_text, _ = await _generate_voice_reply(
+        db, current_user, session_id, user_text
+    )
+    audio_b64 = await _synthesize_or_none(reply_text, voice)
+
+    return VoiceChatResponse(
+        session_id=session_id_out,
+        user_text=user_text.strip(),
+        reply_text=reply_text,
+        reply_audio_base64=audio_b64,
+    )

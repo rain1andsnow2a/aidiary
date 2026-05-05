@@ -58,7 +58,7 @@ export const useDiaryStore = create<DiaryState>((set, _get) => ({
         keyword: params.keyword,
       })
       set({
-        diaries: response.items,
+        diaries: response.items ?? [],
         pagination: {
           total: response.total,
           page: response.page,

@@ -12,6 +12,7 @@ from typing import Optional
 from email.message import EmailMessage
 
 from app.core.config import settings
+from app.core.logging import logger
 
 # 尝试导入 aiosmtplib，如果失败则使用内置 smtplib
 try:
@@ -19,7 +20,7 @@ try:
     USE_ASYNC_SMTP = True
 except ImportError:
     USE_ASYNC_SMTP = False
-    print("Warning: aiosmtplib not installed, using synchronous smtplib")
+    logger.warning("aiosmtplib not installed, falling back to synchronous smtplib")
 
 
 class EmailService:
@@ -152,7 +153,7 @@ class EmailService:
             return True
 
         except Exception as e:
-            print(f"发送邮件失败: {e}")
+            logger.error("send verification email failed err={err}", err=str(e))
             return False
 
     async def send_plain_email(
@@ -192,7 +193,7 @@ class EmailService:
                 await asyncio.to_thread(self._send_email_sync, message)
             return True
         except Exception as e:
-            print(f"发送普通邮件失败: {e}")
+            logger.error("send plain email failed err={err}", err=str(e))
             return False
 
     def _send_email_sync(self, message: EmailMessage):
@@ -259,7 +260,7 @@ class EmailService:
                 )
             return True
         except Exception as e:
-            print(f"发送测试邮件失败: {e}")
+            logger.error("send test email failed err={err}", err=str(e))
             return False
 
 

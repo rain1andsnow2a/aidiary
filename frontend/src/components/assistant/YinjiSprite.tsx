@@ -1,10 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { X, Send, MessageCircle, PlusCircle, History, Trash2 } from 'lucide-react'
+import { X, Send, MessageCircle, PlusCircle, History, Trash2, Phone } from 'lucide-react'
 import { assistantService, type AssistantMessage, type AssistantSession } from '@/services/assistant.service'
 import { useAuthStore } from '@/store/authStore'
+import { useCosmeticsStore } from '@/store/cosmeticsStore'
+import { findCosmetic } from '@/features/cosmetics/catalog'
 import { toast } from '@/components/ui/toast'
+import VoiceChatModal from './VoiceChatModal'
+
+function SpriteSticker() {
+  const stickerId = useCosmeticsStore((s) => s.selected.spriteSticker)
+  if (!stickerId) return null
+  const cosmetic = findCosmetic(stickerId)
+  if (!cosmetic?.preview.emoji) return null
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -top-1 -right-1 z-10 text-2xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
+    >
+      {cosmetic.preview.emoji}
+    </span>
+  )
+}
 
 // 解析 [[diary:ID|显示文字]] 为可点击链接
 function renderMessageContent(text: string, onDiaryClick: (id: number) => void) {
@@ -70,6 +88,9 @@ export default function YinjiSprite() {
   const [responding, setResponding] = useState(false)
   const [panelDragging, setPanelDragging] = useState(false)
   const [panelPosition, setPanelPosition] = useState<Pos | null>(null)
+  const [voiceOpen, setVoiceOpen] = useState(false)
+
+  const safeSessions = useMemo(() => Array.isArray(sessions) ? sessions : [], [sessions])
 
   const dragRef = useRef({ offsetX: 0, offsetY: 0, started: false, pressing: false, liveX: 0, liveY: 0, rafId: 0 })
   const spriteRef = useRef<HTMLButtonElement>(null)
@@ -104,7 +125,7 @@ export default function YinjiSprite() {
         setDisplayName(profile.nickname || t('sprite.defaultName'))
         setNeedInit(!profile.initialized)
         setMuted(profile.is_muted || localStorage.getItem(STORAGE_MUTED) === '1')
-        setSessions(sessionList || [])
+        setSessions(Array.isArray(sessionList) ? sessionList : [])
         const sid = sessionList?.[0]?.id ?? null
         setSessionId(sid)
         if (sid) {
@@ -404,6 +425,7 @@ export default function YinjiSprite() {
           <span className="text-stone-600 text-xs font-semibold">AI</span>
         ) : (
           <>
+            <SpriteSticker />
             {/* 始终渲染静态图和视频，通过 opacity 切换避免闪烁 */}
             <img
               src="/Image 1.png"
@@ -502,12 +524,19 @@ export default function YinjiSprite() {
               <button onClick={clearCurrentSession} className="px-2 py-1 rounded-lg text-xs text-stone-600 hover:bg-white border border-stone-200 flex items-center gap-1">
                 <Trash2 className="w-3.5 h-3.5" /> {t('sprite.clear')}
               </button>
+              <button
+                onClick={() => { setOpen(false); setVoiceOpen(true) }}
+                className="px-2 py-1 rounded-lg text-xs text-white border border-transparent flex items-center gap-1"
+                style={{ background: 'linear-gradient(135deg,#df8f7b,#a19bb8)' }}
+              >
+                <Phone className="w-3.5 h-3.5" /> {t('sprite.voiceCall')}
+              </button>
               <span className="ml-auto text-[11px] text-stone-400 flex items-center gap-1">
                 <History className="w-3 h-3" /> {displayName}
               </span>
             </div>
             <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-              {sessions.slice(0, 8).map((s) => (
+              {safeSessions.slice(0, 8).map((s) => (
                 <div
                   key={s.id}
                   className={`shrink-0 inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-lg text-[11px] border ${
@@ -582,6 +611,7 @@ export default function YinjiSprite() {
           </div>
         </div>
       )}
+      <VoiceChatModal open={voiceOpen} onClose={() => setVoiceOpen(false)} />
     </>
   )
 }

@@ -109,27 +109,21 @@ async def reset_rls_context(session: AsyncSession) -> None:
 
 async def init_db():
     """
-    初始化数据库
-    创建所有表
-    """
-    async with engine.begin() as conn:
-        # 导入所有模型以确保它们被注册到 Base.metadata
-        from app.models.database import (
-            User,
-            VerificationCode,
-            CounselorApplication,
-            CounselorBinding,
-            CounselorWeeklyDigestLog,
-        )
-        from app.models.diary import Diary, TimelineEvent, AIAnalysis, SocialPostSample, GrowthDailyInsight, CareStatus, HeartLightCheckin, LightPointLedger
-        from app.models.community import CommunityPost, PostComment, PostLike, PostCollect, PostView
-        from app.models.assistant import AssistantProfile, AssistantSession, AssistantMessage
-        from app.models.integration import ExternalIntegrationToken
+    应用启动时的数据库自检：
+    1) 跑 `alembic upgrade head`（幂等，建表 / 加列 / 建索引统一走迁移文件）
+    2) 补齐历史遗留的 `users` 字段（冻结状态，不再添加新条目；新字段一律走 Alembic）
+    3) Postgres：修 PK 序列默认值 + 启用 RLS 策略
 
-        # 创建所有表
-        await conn.run_sync(Base.metadata.create_all)
+    生产首次接入 Alembic 步骤（只做一次）：
+        # 现有库结构 = baseline（旧 schema），先 stamp 到 baseline：
+        alembic stamp 1e20ab06a63c
+        # 之后任意重启会自动 upgrade 到 head（0002：加心灯签到 / 映光流水 / total_light_points）
+    全新库无须 stamp，首次启动 init_db 会 alembic upgrade head 一把建齐。
+    """
+    await _run_migrations_if_needed()
+
+    async with engine.begin() as conn:
         await _ensure_user_columns(conn)
-        await _ensure_care_status_columns(conn)
 
         # SQLite -> PostgreSQL 迁移后，部分表可能只有主键约束却没有默认序列。
         # 启动时做一次轻量自检，确保整数主键具备 nextval 默认值。
@@ -201,8 +195,46 @@ async def init_db():
             await _ensure_rls_policies(conn)
 
 
+async def _run_migrations_if_needed() -> None:
+    """在启动时跑 alembic upgrade head。
+
+    alembic 的命令式 API 是同步阻塞的，且 env.py 内部会 `asyncio.run(...)`——
+    如果直接在主事件循环里调用会踩"already running loop"。因此放到 executor
+    的独立线程里跑，由线程里新开的 loop 驱动 env.py 的 async 迁移。
+    """
+    import asyncio
+    import os
+    from functools import partial
+
+    from alembic import command
+    from alembic.config import Config
+
+    from app.core.logging import logger
+
+    cfg_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), os.pardir, "alembic.ini")
+    )
+
+    def _do_upgrade() -> None:
+        cfg = Config(cfg_path)
+        command.upgrade(cfg, "head")
+
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, partial(_do_upgrade))
+        logger.info("alembic upgrade head completed")
+    except Exception as exc:
+        logger.opt(exception=exc).error(
+            "alembic upgrade failed; app will continue but schema may be stale"
+        )
+
+
 async def _ensure_user_columns(conn):
-    """为既有数据库补齐历史缺失的用户字段，兼容旧库直接升级。"""
+    """为既有数据库补齐历史缺失的用户字段，兼容 Alembic 之前的旧部署直接升级。
+
+    注意：**此函数已冻结，不再新增条目。** 新增 users 字段请改为写 Alembic
+    migration（`alembic revision --autogenerate -m "..."`）。
+    """
     dialect = conn.dialect.name
     if dialect == "sqlite":
         existing_columns = {
@@ -285,54 +317,6 @@ async def _ensure_user_columns(conn):
             "postgresql" if dialect == "postgresql" else "sqlite"
         ]
         await conn.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {definition}"))
-
-
-async def _ensure_care_status_columns(conn) -> None:
-    """为老库的 care_statuses 表补 total_light_points 字段。"""
-    dialect = conn.dialect.name
-    # 表不存在时直接返回（此刻 create_all 已跑过，但防御一下）
-    if dialect == "sqlite":
-        table_exists = (
-            await conn.execute(
-                text("SELECT name FROM sqlite_master WHERE type='table' AND name='care_statuses'")
-            )
-        ).first()
-        if not table_exists:
-            return
-        existing_columns = {
-            row[1] for row in (await conn.execute(text("PRAGMA table_info('care_statuses')"))).all()
-        }
-    else:
-        existing_columns = {
-            row[0]
-            for row in (
-                await conn.execute(
-                    text(
-                        """
-                        SELECT column_name
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public' AND table_name = 'care_statuses'
-                        """
-                    )
-                )
-            ).all()
-        }
-        if not existing_columns:
-            return
-
-    if "total_light_points" in existing_columns:
-        return
-
-    if dialect == "sqlite":
-        await conn.execute(
-            text("ALTER TABLE care_statuses ADD COLUMN total_light_points INTEGER NOT NULL DEFAULT 0")
-        )
-    else:
-        await conn.execute(
-            text(
-                "ALTER TABLE care_statuses ADD COLUMN total_light_points INTEGER NOT NULL DEFAULT 0"
-            )
-        )
 
 
 async def _ensure_rls_policies(conn) -> None:

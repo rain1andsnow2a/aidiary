@@ -8,6 +8,7 @@ import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
 import LandingPage from '@/pages/LandingPage'
+import CosmeticsProvider from '@/features/cosmetics/CosmeticsProvider'
 
 // 懒加载页面组件
 import { lazy, Suspense } from 'react'
@@ -32,6 +33,7 @@ const EmotionMap = lazy(() => import('@/pages/emotion/EmotionMap'))
 const HeartLightPage = lazy(() => import('@/pages/heart-light/HeartLightPage'))
 const PlanetCollection = lazy(() => import('@/pages/heart-light/PlanetCollection'))
 const TreasurePage = lazy(() => import('@/pages/treasure/TreasurePage'))
+const ShopPage = lazy(() => import('@/pages/shop/ShopPage'))
 // 2.0 新增
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 const CounselorApplyPage = lazy(() => import('@/pages/admin/CounselorApplyPage'))
@@ -303,6 +305,14 @@ function AppRoutes() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/shop"
+            element={
+              <PrivateRoute>
+                <ShopPage />
+              </PrivateRoute>
+            }
+          />
 
           {/* 社区路由 */}
           <Route
@@ -377,9 +387,11 @@ function AppRoutes() {
 function App() {
   return (
     <ToastProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <CosmeticsProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </CosmeticsProvider>
     </ToastProvider>
   )
 }

@@ -5,7 +5,6 @@ FastAPI主应用
 import os
 import asyncio
 import uuid
-import logging
 import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -19,39 +18,38 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.logging import setup_logging, logger, set_request_id
 from app.db import init_db, async_session_maker
 from app.api.v1 import auth
 from app.api.v1.auth import router as auth_router
 from app.services.scheduler_service import scheduler_loop
 from app.services.admin_bootstrap_service import ensure_bootstrap_admin
 
-logger = logging.getLogger(__name__)
+# 在任何 import 产生日志之前完成 loguru 配置
+setup_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化数据库
-    print("[INFO] Initializing database...")
+    logger.info("initializing database")
     await init_db()
-    print("[INFO] Database initialized successfully")
+    logger.info("database initialized")
 
     async with async_session_maker() as db:
         await ensure_bootstrap_admin(db)
 
-    # 启动每日定时分析任务
     scheduler_task = asyncio.create_task(scheduler_loop())
-    print("[INFO] Daily scheduler started")
+    logger.info("daily scheduler started")
 
     yield
 
-    # 关闭时取消定时任务
     scheduler_task.cancel()
     try:
         await scheduler_task
     except asyncio.CancelledError:
         pass
-    print("[INFO] Application shutdown")
+    logger.info("application shutdown")
 
 
 # 创建FastAPI应用
@@ -162,7 +160,12 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.state.request_id = request_id
-        response = await call_next(request)
+        set_request_id(request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            # 避免请求结束后协程复用时串 id
+            set_request_id(None)
         response.headers["X-Request-ID"] = request_id
         return response
 
@@ -220,7 +223,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled server error", exc_info=exc)
+    logger.opt(exception=exc).error(
+        "unhandled server error path={path} method={method}",
+        path=request.url.path,
+        method=request.method,
+    )
     return JSONResponse(
         status_code=500,
         content=_error_payload(

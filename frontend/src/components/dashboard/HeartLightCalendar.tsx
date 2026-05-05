@@ -1,5 +1,6 @@
 // Dashboard 月历签到图：替代「最近日记」主位
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Sparkles, Moon } from 'lucide-react'
 import { useHeartLightStore, currentMonthKey } from '@/store/heartLightStore'
 import type { MonthCheckinDay } from '@/types/diary'
@@ -13,32 +14,6 @@ const EMOTION_COLOR: Record<string, string> = {
   angry: '#e28b73',
   exhausted: '#a895c3',
   rest: '#d5c9bf',
-}
-
-const EMOTION_LABEL: Record<string, string> = {
-  happy: '开心',
-  calm: '平静',
-  neutral: '一般',
-  sad: '低落',
-  anxious: '焦虑',
-  angry: '烦躁',
-  exhausted: '疲惫',
-  rest: '休息',
-}
-
-const EVENT_LABEL: Record<string, string> = {
-  study: '学习',
-  work: '工作',
-  family: '家庭',
-  friend: '朋友',
-  love: '感情',
-  health: '健康',
-  rest: '休息',
-}
-
-function formatMonthLabel(monthKey: string): string {
-  const [y, m] = monthKey.split('-')
-  return `${y} 年 ${Number(m)} 月`
 }
 
 function shiftMonth(monthKey: string, delta: number): string {
@@ -58,7 +33,7 @@ function daysInMonth(monthKey: string): number {
 function firstDayWeekIndex(monthKey: string): number {
   // Monday=0 ... Sunday=6
   const [y, m] = monthKey.split('-').map(Number)
-  const jsDay = new Date(y, m - 1, 1).getDay() // 0=Sunday
+  const jsDay = new Date(y, m - 1, 1).getDay()
   return (jsDay + 6) % 7
 }
 
@@ -67,7 +42,26 @@ function todayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function reasonLabel(
+  reason: string,
+  meta: Record<string, any> | null,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (reason === 'checkin') return t('heartLightCalendar.reasonCheckin')
+  if (reason === 'one_line') return t('heartLightCalendar.reasonOneLine')
+  if (reason === 'planet_unlock') {
+    const planet = meta?.planet
+    if (planet) {
+      const label = t(`emotion.${planet}`, planet)
+      return t('heartLightCalendar.reasonPlanetUnlock', { planet: label })
+    }
+    return t('heartLightCalendar.reasonPlanetUnlockGeneric')
+  }
+  return reason
+}
+
 export default function HeartLightCalendar() {
+  const { t } = useTranslation()
   const [monthKey, setMonthKey] = useState(currentMonthKey())
   const monthCheckins = useHeartLightStore((s) => s.monthCheckins)
   const monthDiaryDates = useHeartLightStore((s) => s.monthDiaryDates)
@@ -110,14 +104,25 @@ export default function HeartLightCalendar() {
 
   const today = todayKey()
 
+  const monthLabel = t('heartLightCalendar.monthLabel', { year: y, month: Number(m) })
+  const weekdays = [
+    t('heartLightCalendar.weekdayMon'),
+    t('heartLightCalendar.weekdayTue'),
+    t('heartLightCalendar.weekdayWed'),
+    t('heartLightCalendar.weekdayThu'),
+    t('heartLightCalendar.weekdayFri'),
+    t('heartLightCalendar.weekdaySat'),
+    t('heartLightCalendar.weekdaySun'),
+  ]
+
   return (
     <section className="rounded-[28px] border border-[#eadfd8] bg-white/80 p-6 shadow-[0_18px_52px_rgba(115,84,69,0.08)]">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Sparkles className="h-5 w-5 text-[#b76458]" />
           <div>
-            <h2 className="text-xl font-bold text-stone-800">心灯签到</h2>
-            <p className="text-sm text-stone-400">每一次点亮，都会被温柔记得</p>
+            <h2 className="text-xl font-bold text-stone-800">{t('heartLightCalendar.title')}</h2>
+            <p className="text-sm text-stone-400">{t('heartLightCalendar.subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -125,18 +130,18 @@ export default function HeartLightCalendar() {
             type="button"
             onClick={() => setMonthKey((k) => shiftMonth(k, -1))}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-[#eadfd8] bg-white/78 text-stone-500 hover:text-[#b76458]"
-            title="上个月"
+            title={t('heartLightCalendar.prevMonth')}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="min-w-[7.5rem] text-center text-sm font-semibold text-stone-600">
-            {formatMonthLabel(monthKey)}
+            {monthLabel}
           </span>
           <button
             type="button"
             onClick={() => setMonthKey((k) => shiftMonth(k, 1))}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-[#eadfd8] bg-white/78 text-stone-500 hover:text-[#b76458]"
-            title="下个月"
+            title={t('heartLightCalendar.nextMonth')}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -144,7 +149,7 @@ export default function HeartLightCalendar() {
       </div>
 
       <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-medium text-stone-400">
-        {['一', '二', '三', '四', '五', '六', '日'].map((w) => (
+        {weekdays.map((w) => (
           <div key={w}>{w}</div>
         ))}
       </div>
@@ -164,10 +169,10 @@ export default function HeartLightCalendar() {
           if (checkin) {
             const parts = [
               cell.date,
-              EMOTION_LABEL[checkin.emotion] || checkin.emotion,
-              `能量 ${checkin.energy}/5`,
+              t(`emotion.${checkin.emotion}`, checkin.emotion),
+              t('heartLightCalendar.tooltipEnergy', { energy: checkin.energy }),
             ]
-            if (checkin.event) parts.push(EVENT_LABEL[checkin.event] || checkin.event)
+            if (checkin.event) parts.push(t(`event.${checkin.event}`, checkin.event))
             tooltip = parts.join(' · ')
             if (checkin.one_line_excerpt) tooltip += `\n${checkin.one_line_excerpt}`
           }
@@ -206,15 +211,14 @@ export default function HeartLightCalendar() {
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#f1e9e3] pt-4">
         <p className="text-sm text-stone-500">
-          当前连续 <span className="font-bold text-[#b76458]">{streak}</span> 天 ·
-          映光 <span className="font-bold text-[#b76458]">{totalPoints}</span>
+          {t('heartLightCalendar.footer', { streak, points: totalPoints })}
         </p>
         <button
           type="button"
           onClick={() => setShowLedger(true)}
           className="text-xs font-semibold text-[#8f63e4] hover:text-[#6b46c5]"
         >
-          查看映光流水 →
+          {t('heartLightCalendar.viewLedger')}
         </button>
       </div>
 
@@ -238,6 +242,7 @@ function LightPointsModal({
   ledger: Array<{ id: number; delta: number; reason: string; ref_date: string; meta: Record<string, any> | null; created_at: string }>
   total: number
 }) {
+  const { t } = useTranslation()
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-stone-900/30 backdrop-blur-sm"
@@ -248,17 +253,19 @@ function LightPointsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-stone-800">映光流水</h3>
-          <span className="text-sm text-stone-500">累计 <span className="font-bold text-[#b76458]">{total}</span></span>
+          <h3 className="text-lg font-bold text-stone-800">{t('heartLightCalendar.ledgerTitle')}</h3>
+          <span className="text-sm text-stone-500">
+            {t('heartLightCalendar.ledgerTotal')} <span className="font-bold text-[#b76458]">{total}</span>
+          </span>
         </div>
         {ledger.length === 0 ? (
-          <p className="py-10 text-center text-sm text-stone-400">还没有映光记录，从第一次心灯开始吧。</p>
+          <p className="py-10 text-center text-sm text-stone-400">{t('heartLightCalendar.ledgerEmpty')}</p>
         ) : (
           <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
             {ledger.map((row) => (
               <li key={row.id} className="flex items-center justify-between rounded-2xl bg-[#faf5ef] px-4 py-2.5 text-sm">
                 <div>
-                  <div className="font-semibold text-stone-700">{reasonLabel(row.reason, row.meta)}</div>
+                  <div className="font-semibold text-stone-700">{reasonLabel(row.reason, row.meta, t)}</div>
                   <div className="text-xs text-stone-400">{row.ref_date}</div>
                 </div>
                 <span className={`font-bold ${row.delta > 0 ? 'text-[#c47a61]' : 'text-stone-500'}`}>
@@ -273,20 +280,9 @@ function LightPointsModal({
           onClick={onClose}
           className="mt-5 w-full rounded-2xl bg-[#b76458] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#9c4f46]"
         >
-          关闭
+          {t('heartLightCalendar.close')}
         </button>
       </div>
     </div>
   )
-}
-
-function reasonLabel(reason: string, meta: Record<string, any> | null): string {
-  if (reason === 'checkin') return '心灯签到'
-  if (reason === 'one_line') return '写下一句心情'
-  if (reason === 'planet_unlock') {
-    const planet = meta?.planet
-    const label = planet ? EMOTION_LABEL[planet] || planet : ''
-    return label ? `首次解锁「${label}」星球` : '首次解锁情绪星球'
-  }
-  return reason
 }

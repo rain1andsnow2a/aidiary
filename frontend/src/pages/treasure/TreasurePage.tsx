@@ -1,28 +1,25 @@
 // 映光资产页：映光/护盾/星球/流水
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Sparkles, Shield, Orbit, PenLine, Award, TrendingUp } from 'lucide-react'
 import { diaryService } from '@/services/diary.service'
 import type { TreasureResponse, LightPointLedgerEntry } from '@/types/diary'
 
-const EMOTION_LABEL: Record<string, string> = {
-  happy: '开心',
-  calm: '平静',
-  neutral: '一般',
-  sad: '低落',
-  anxious: '焦虑',
-  angry: '烦躁',
-  exhausted: '疲惫',
-  rest: '休息',
-}
-
-function reasonLabel(reason: string, meta: Record<string, any> | null): string {
-  if (reason === 'checkin') return '心灯签到'
-  if (reason === 'one_line') return '写下一句心情'
+function reasonLabel(
+  reason: string,
+  meta: Record<string, any> | null,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (reason === 'checkin') return t('heartLightCalendar.reasonCheckin')
+  if (reason === 'one_line') return t('heartLightCalendar.reasonOneLine')
   if (reason === 'planet_unlock') {
     const planet = meta?.planet
-    const label = planet ? EMOTION_LABEL[planet] || planet : ''
-    return label ? `首次解锁「${label}」星球` : '首次解锁情绪星球'
+    if (planet) {
+      const label = t(`emotion.${planet}`, planet)
+      return t('heartLightCalendar.reasonPlanetUnlock', { planet: label })
+    }
+    return t('heartLightCalendar.reasonPlanetUnlockGeneric')
   }
   return reason
 }
@@ -34,6 +31,7 @@ function formatDate(value: string | null): string {
 
 export default function TreasurePage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [data, setData] = useState<TreasureResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +45,7 @@ export default function TreasurePage() {
         if (!cancelled) setData(res)
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || '加载失败')
+        if (!cancelled) setError(err?.message || t('treasure.loadFailed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -55,7 +53,7 @@ export default function TreasurePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   return (
     <div
@@ -64,20 +62,17 @@ export default function TreasurePage() {
     >
       <header className="sticky top-0 z-30 border-b border-[#ead9cd]/70 bg-[rgba(251,247,242,0.9)] backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
-          <button
-            onClick={() => navigate('/')}
-            className="text-sm text-stone-400 hover:text-stone-600"
-          >
-            ← 首页
+          <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600">
+            ← {t('treasure.back')}
           </button>
           <span className="flex items-center gap-1.5 text-sm font-semibold text-stone-600">
-            <Sparkles className="h-4 w-4 text-[#b56f61]" /> 映光资产
+            <Sparkles className="h-4 w-4 text-[#b56f61]" /> {t('treasure.headerTitle')}
           </span>
           <button
             onClick={() => navigate('/heart-light')}
             className="text-sm font-semibold text-[#b56f61] hover:text-[#9c5e52]"
           >
-            去点亮 →
+            {t('treasure.goLight')}
           </button>
         </div>
       </header>
@@ -95,10 +90,10 @@ export default function TreasurePage() {
         )}
         {!loading && data && (
           <>
-            <HeroSection data={data} />
-            <TrendRow data={data} />
-            <ByReasonCard data={data} />
-            <LedgerSection ledger={data.recent_ledger} count={data.all_time_count} />
+            <HeroSection data={data} t={t} />
+            <TrendRow data={data} t={t} />
+            <ByReasonCard data={data} t={t} />
+            <LedgerSection ledger={data.recent_ledger} count={data.all_time_count} t={t} />
           </>
         )}
       </main>
@@ -106,7 +101,7 @@ export default function TreasurePage() {
   )
 }
 
-function HeroSection({ data }: { data: TreasureResponse }) {
+function HeroSection({ data, t }: { data: TreasureResponse; t: ReturnType<typeof useTranslation>['t'] }) {
   return (
     <section className="grid gap-4 md:grid-cols-[1.2fr_1fr_1fr]">
       <div className="relative overflow-hidden rounded-[28px] border border-[#eadfd8] bg-[linear-gradient(135deg,#fffaf2,#ffefe4_55%,#f6ecff)] p-6 shadow-[0_18px_52px_rgba(115,84,69,0.08)]">
@@ -116,12 +111,12 @@ function HeroSection({ data }: { data: TreasureResponse }) {
             <Sparkles className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-stone-500">累计映光</p>
+            <p className="text-sm font-semibold text-stone-500">{t('treasure.totalLabel')}</p>
             <p className="text-4xl font-bold text-[#b56f61]">{data.total}</p>
           </div>
         </div>
         <p className="relative mt-4 text-sm leading-6 text-stone-500">
-          已记录 {data.all_time_count} 条映光流水。每一次轻轻回来，都是沉淀。
+          {t('treasure.totalDesc', { count: data.all_time_count })}
         </p>
       </div>
 
@@ -131,16 +126,14 @@ function HeroSection({ data }: { data: TreasureResponse }) {
             <Shield className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-stone-500">心灯护盾</p>
+            <p className="text-sm font-semibold text-stone-500">{t('treasure.shieldLabel')}</p>
             <p className="text-2xl font-bold text-stone-800">
               {data.shield.balance}
               <span className="ml-1 text-sm font-medium text-stone-400">/ {data.shield.max}</span>
             </p>
           </div>
         </div>
-        <p className="mt-3 text-xs leading-5 text-stone-500">
-          每连续点亮 7 天奖励一个；忘记记录的那天会自动使用护盾，保住连续。
-        </p>
+        <p className="mt-3 text-xs leading-5 text-stone-500">{t('treasure.shieldDesc')}</p>
       </div>
 
       <div className="rounded-[28px] border border-[#eadfd8] bg-white/82 p-6 shadow-[0_18px_52px_rgba(115,84,69,0.06)]">
@@ -149,52 +142,52 @@ function HeroSection({ data }: { data: TreasureResponse }) {
             <Orbit className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-stone-500">情绪星球</p>
+            <p className="text-sm font-semibold text-stone-500">{t('treasure.planetsLabel')}</p>
             <p className="text-2xl font-bold text-stone-800">
               {data.planets.unlocked}
               <span className="ml-1 text-sm font-medium text-stone-400">/ {data.planets.total}</span>
             </p>
           </div>
         </div>
-        <p className="mt-3 text-xs leading-5 text-stone-500">
-          每一种情绪首次出现都会解锁一颗星球，并获得 +20 映光奖励。
-        </p>
+        <p className="mt-3 text-xs leading-5 text-stone-500">{t('treasure.planetsDesc')}</p>
       </div>
     </section>
   )
 }
 
-function TrendRow({ data }: { data: TreasureResponse }) {
+function TrendRow({ data, t }: { data: TreasureResponse; t: ReturnType<typeof useTranslation>['t'] }) {
   const items = [
     {
       icon: <TrendingUp />,
-      label: '本周映光',
+      label: t('treasure.trendWeek'),
       value: data.this_week_points,
-      hint: '周一起算',
+      hint: t('treasure.trendWeekHint'),
       tone: 'text-[#4bbf88]',
       bg: 'bg-[#eef7f1]',
     },
     {
       icon: <TrendingUp />,
-      label: '本月映光',
+      label: t('treasure.trendMonth'),
       value: data.this_month_points,
-      hint: '月初至今',
+      hint: t('treasure.trendMonthHint'),
       tone: 'text-[#c47a61]',
       bg: 'bg-[#fbece3]',
     },
     {
       icon: <Award />,
-      label: '单日峰值',
+      label: t('treasure.trendTopDay'),
       value: data.top_day.points,
-      hint: formatDate(data.top_day.date),
+      hint: formatDate(data.top_day.top_date),
       tone: 'text-[#b78a3b]',
       bg: 'bg-[#fbf4e4]',
     },
     {
       icon: <Award />,
-      label: '单周峰值',
+      label: t('treasure.trendTopWeek'),
       value: data.top_week.points,
-      hint: data.top_week.week_start ? `自 ${data.top_week.week_start}` : '—',
+      hint: data.top_week.week_start
+        ? t('treasure.trendTopWeekFrom', { date: data.top_week.week_start })
+        : '—',
       tone: 'text-[#8f65e8]',
       bg: 'bg-[#f3eeff]',
     },
@@ -222,19 +215,19 @@ function TrendRow({ data }: { data: TreasureResponse }) {
   )
 }
 
-function ByReasonCard({ data }: { data: TreasureResponse }) {
+function ByReasonCard({ data, t }: { data: TreasureResponse; t: ReturnType<typeof useTranslation>['t'] }) {
   const total = Math.max(
     data.by_reason.checkin + data.by_reason.one_line + data.by_reason.planet_unlock,
     1,
   )
   const segments = [
-    { label: '签到', value: data.by_reason.checkin, color: '#f6b95c', icon: <Sparkles /> },
-    { label: '写一句', value: data.by_reason.one_line, color: '#d58aa5', icon: <PenLine /> },
-    { label: '首解行星', value: data.by_reason.planet_unlock, color: '#8f65e8', icon: <Orbit /> },
+    { label: t('treasure.sourceCheckin'), value: data.by_reason.checkin, color: '#f6b95c', icon: <Sparkles /> },
+    { label: t('treasure.sourceOneLine'), value: data.by_reason.one_line, color: '#d58aa5', icon: <PenLine /> },
+    { label: t('treasure.sourcePlanetUnlock'), value: data.by_reason.planet_unlock, color: '#8f65e8', icon: <Orbit /> },
   ]
   return (
     <section className="rounded-[28px] border border-[#eadfd8] bg-white/82 p-6 shadow-[0_14px_40px_rgba(115,84,69,0.06)]">
-      <h2 className="mb-5 text-lg font-bold text-stone-800">映光来源</h2>
+      <h2 className="mb-5 text-lg font-bold text-stone-800">{t('treasure.sourceTitle')}</h2>
       <div className="mb-5 flex h-3 w-full overflow-hidden rounded-full bg-[#f3ede7]">
         {segments.map((s) => (
           <div
@@ -272,17 +265,25 @@ function ByReasonCard({ data }: { data: TreasureResponse }) {
   )
 }
 
-function LedgerSection({ ledger, count }: { ledger: LightPointLedgerEntry[]; count: number }) {
+function LedgerSection({
+  ledger,
+  count,
+  t,
+}: {
+  ledger: LightPointLedgerEntry[]
+  count: number
+  t: ReturnType<typeof useTranslation>['t']
+}) {
   return (
     <section className="rounded-[28px] border border-[#eadfd8] bg-white/82 p-6 shadow-[0_14px_40px_rgba(115,84,69,0.06)]">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-stone-800">映光流水</h2>
-        <span className="text-xs text-stone-400">共 {count} 条，展示最近 {ledger.length} 条</span>
+        <h2 className="text-lg font-bold text-stone-800">{t('treasure.ledgerTitle')}</h2>
+        <span className="text-xs text-stone-400">
+          {t('treasure.ledgerSummary', { total: count, shown: ledger.length })}
+        </span>
       </div>
       {ledger.length === 0 ? (
-        <p className="py-10 text-center text-sm text-stone-400">
-          还没有映光流水。从点亮第一盏心灯开始吧。
-        </p>
+        <p className="py-10 text-center text-sm text-stone-400">{t('treasure.ledgerEmpty')}</p>
       ) : (
         <ul className="space-y-2">
           {ledger.map((row) => (
@@ -292,7 +293,7 @@ function LedgerSection({ ledger, count }: { ledger: LightPointLedgerEntry[]; cou
             >
               <div>
                 <div className="font-semibold text-stone-700">
-                  {reasonLabel(row.reason, row.meta)}
+                  {reasonLabel(row.reason, row.meta, t)}
                 </div>
                 <div className="text-xs text-stone-400">
                   {row.ref_date} · {row.created_at.slice(0, 10)}

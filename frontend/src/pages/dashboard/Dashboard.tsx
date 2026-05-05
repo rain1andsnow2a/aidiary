@@ -113,6 +113,7 @@ function toPreviewText(text: string, max = 92) {
 }
 
 function buildStats(diaries: Diary[]): { stats: DashboardStats; emotionStats: EmotionStat[] } {
+  const safeDiaries = diaries ?? []
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const start30 = new Date(today)
@@ -124,14 +125,14 @@ function buildStats(diaries: Diary[]): { stats: DashboardStats; emotionStats: Em
   const previousEnd = new Date(today)
   previousEnd.setDate(today.getDate() - 15)
 
-  const thisMonth = diaries.filter((d) => {
+  const thisMonth = safeDiaries.filter((d) => {
     const date = getDiaryDate(d)
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
   }).length
 
-  const last30Days = diaries.filter((d) => getDiaryDate(d) >= start30).length
-  const recentHalf = diaries.filter((d) => getDiaryDate(d) >= split15).length
-  const previousHalf = diaries.filter((d) => {
+  const last30Days = safeDiaries.filter((d) => getDiaryDate(d) >= start30).length
+  const recentHalf = safeDiaries.filter((d) => getDiaryDate(d) >= split15).length
+  const previousHalf = safeDiaries.filter((d) => {
     const date = getDiaryDate(d)
     return date >= previousStart && date <= previousEnd
   }).length
@@ -140,7 +141,7 @@ function buildStats(diaries: Diary[]): { stats: DashboardStats; emotionStats: Em
   const trendLabel = trend === 'ascending' ? '整体回升' : trend === 'descending' ? '略有回落' : '比较稳定'
 
   const emotionCounts: Record<string, number> = {}
-  diaries.forEach((d) => {
+  safeDiaries.forEach((d) => {
     ;(d.emotion_tags ?? []).forEach((tag) => {
       const normalizedTag = normalizeEmotionTag(tag)
       if (!normalizedTag) return
@@ -167,7 +168,7 @@ function buildStats(diaries: Diary[]): { stats: DashboardStats; emotionStats: Em
 
   return {
     stats: {
-      total: diaries.length,
+      total: safeDiaries.length,
       last30Days,
       thisMonth,
       topEmotion,
@@ -221,7 +222,7 @@ export default function Dashboard() {
       .catch(() => setShieldBalance(null))
   }, [])
   const stats = useMemo(
-    () => dashboardInsights ? toDashboardStats(dashboardInsights) : fallbackDashboard.stats,
+    () => dashboardInsights?.stats ? toDashboardStats(dashboardInsights) : fallbackDashboard.stats,
     [dashboardInsights, fallbackDashboard.stats]
   )
   const emotionStats = useMemo(
@@ -355,17 +356,18 @@ export default function Dashboard() {
 }
 
 function toDashboardStats(data: DashboardInsights): DashboardStats {
+  const s = data.stats ?? ({} as any)
   return {
-    total: data.stats.total_diaries,
-    last30Days: data.stats.last_days_count,
-    thisMonth: data.stats.this_month_count,
-    topEmotion: data.stats.top_emotion,
-    topEmotionCount: data.stats.top_emotion_count,
-    trend: data.stats.trend === 'ascending' || data.stats.trend === 'descending' ? data.stats.trend : 'stable',
-    trendLabel: data.stats.trend_label,
-    trendDelta: data.stats.trend_delta,
-    riskLabel: data.stats.risk_label,
-    riskDesc: data.stats.risk_desc,
+    total: s.total_diaries ?? 0,
+    last30Days: s.last_days_count ?? 0,
+    thisMonth: s.this_month_count ?? 0,
+    topEmotion: s.top_emotion ?? '暂无',
+    topEmotionCount: s.top_emotion_count ?? 0,
+    trend: s.trend === 'ascending' || s.trend === 'descending' ? s.trend : 'stable',
+    trendLabel: s.trend_label ?? '比较稳定',
+    trendDelta: s.trend_delta ?? 0,
+    riskLabel: s.risk_label ?? '状态平稳',
+    riskDesc: s.risk_desc ?? '继续保持记录与睡眠节奏',
   }
 }
 
@@ -443,7 +445,7 @@ function DashboardNav({
           </button>
 
           {showUserMenu ? (
-            <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-3xl border border-[#eadfd8] bg-white/96 shadow-[0_22px_60px_rgba(98,72,58,0.16)] backdrop-blur-xl">
+            <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-3xl border border-[#eadfd8] bg-white shadow-[0_22px_60px_rgba(98,72,58,0.16)]">
               <div className="border-b border-[#f0e5df] px-4 py-4">
                 <div className="flex items-center gap-3">
                   <UserAvatar avatarUrl={avatarUrl} avatarLetter={avatarLetter} size="lg" />
@@ -671,43 +673,47 @@ function PrimaryActionCards({
   lightPoints: number
   shieldBalance: number | null
 }) {
+  const { t } = useTranslation()
+  const treasureDesc =
+    t('dashboardCards.treasureDescPoints', { points: lightPoints }) +
+    (shieldBalance !== null ? t('dashboardCards.treasureDescShield', { shield: shieldBalance }) : '')
+
   const actions = [
     {
       icon: <Sparkles />,
-      title: '今日心灯',
-      desc: '5 秒情绪签到 + 每日小目标',
+      title: t('dashboardCards.heartLightTitle'),
+      desc: t('dashboardCards.heartLightDesc'),
       path: '/heart-light',
       className: 'border-[#ffcfc8] bg-[linear-gradient(135deg,#fff8f5,#fff0ef)] text-[#dd6d62]',
     },
     {
       icon: <PenLine />,
-      title: '写完整日记',
-      desc: '富文本编辑、图片和自动保存',
+      title: t('dashboardCards.writeFullTitle'),
+      desc: t('dashboardCards.writeFullDesc'),
       path: '/diaries/new',
       className: 'border-[#dfd0ff] bg-[linear-gradient(135deg,#fbf8ff,#f6f0ff)] text-[#8f65e8]',
     },
     {
       icon: <BarChart3 />,
-      title: '成长中心',
-      desc: '查看长期趋势、转折点与成长建议',
+      title: t('dashboardCards.growthTitle'),
+      desc: t('dashboardCards.growthDesc'),
       path: '/growth',
       className: 'border-[#ccebdc] bg-[linear-gradient(135deg,#f6fffa,#effbf4)] text-[#4bbf88]',
     },
     {
       icon: <ShieldCheck />,
-      title: '映光资产',
-      desc:
-        `当前 ${lightPoints} 映光` +
-        (shieldBalance !== null ? ` · 护盾 ${shieldBalance}` : ''),
+      title: t('dashboardCards.treasureTitle'),
+      desc: treasureDesc,
       path: '/treasure',
       className: 'border-[#f3dfa6] bg-[linear-gradient(135deg,#fffaf0,#fff2dc)] text-[#b78a3b]',
     },
   ]
 
   const secondary = [
-    { label: '日记浏览', path: '/diaries', icon: <BookOpen /> },
-    { label: '情绪星图', path: '/emotion', icon: <Orbit /> },
-    { label: 'AI 分析', path: '/analysis', icon: <BarChart3 /> },
+    { label: t('dashboardCards.secondaryDiaryList'), path: '/diaries', icon: <BookOpen /> },
+    { label: t('dashboardCards.secondaryEmotionMap'), path: '/emotion', icon: <Orbit /> },
+    { label: t('dashboardCards.secondaryAnalysis'), path: '/analysis', icon: <BarChart3 /> },
+    { label: t('dashboardCards.secondaryShop'), path: '/shop', icon: <Sparkles /> },
   ]
 
   return (
@@ -881,12 +887,12 @@ function RecentDiaryGrid({
         <div className="flex items-center gap-3">
           <BookMarked className="h-5 w-5 text-[#b76458]" />
           <div>
-            <h2 className="text-xl font-bold text-stone-800">最近手写日记</h2>
-            <p className="text-sm text-stone-400">从真实记录里，看见最近的自己</p>
+            <h2 className="text-xl font-bold text-stone-800">{t('dashboardCards.recentHandwrittenTitle')}</h2>
+            <p className="text-sm text-stone-400">{t('dashboardCards.recentHandwrittenSubtitle')}</p>
           </div>
         </div>
         <button onClick={() => onNavigate('/diaries')} className="text-sm font-semibold text-[#b76458] transition-colors hover:text-[#914c42]">
-          查看全部 →
+          {t('dashboardCards.viewAll')}
         </button>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

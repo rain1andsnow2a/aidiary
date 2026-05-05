@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useHeartLightStore } from '@/store/heartLightStore'
 import { diaryService } from '@/services/diary.service'
 import { toast } from '@/components/ui/toast'
@@ -17,16 +18,11 @@ import ChestTimeline from './components/ChestTimeline'
 
 type LightMemory = Pick<Diary, 'id' | 'title' | 'content' | 'diary_date'>
 
-const DAILY_QUESTIONS = [
-  '今天有没有一件事让你觉得被看见？',
-  '此刻你最想对自己说的一句话是什么？',
-  '今天的身体状态打几分，1-5？',
-  '有什么让你感到不容易，但还是坚持了？',
-  '今天有没有片刻让你觉得松一口气？',
-]
+const QUESTION_KEYS = ['q1', 'q2', 'q3', 'q4', 'q5'] as const
 
 export default function HeartLightPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const submitCheckin = useHeartLightStore((state) => state.submitCheckin)
   const loadLightPoints = useHeartLightStore((state) => state.loadLightPoints)
 
@@ -43,7 +39,10 @@ export default function HeartLightPage() {
   const [careProgress, setCareProgress] = useState<CareProgress | null>(null)
   const [lightMemory, setLightMemory] = useState<LightMemory | null>(null)
   const [planetCollection, setPlanetCollection] = useState<PlanetCollection | null>(null)
-  const [guidedQuestion] = useState(DAILY_QUESTIONS[new Date().getDate() % DAILY_QUESTIONS.length])
+  const [guidedQuestion] = useState(() => {
+    const key = QUESTION_KEYS[new Date().getDate() % QUESTION_KEYS.length]
+    return t(`heartLightPage.questions.${key}`)
+  })
 
   const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -126,12 +125,12 @@ export default function HeartLightPage() {
       void loadLightPoints()
       if (res.new_planet) {
         const label = CHECKIN_EMOTIONS.find((item) => item.key === res.new_planet)?.label || res.new_planet
-        toast(`首次解锁「${label}」星球 +20 映光`, 'success')
+        toast(t('heartLightPage.toastUnlockedPlanet', { label }), 'success')
       } else {
-        toast('今日心灯已点亮。你可以到这里为止，也可以补充几句话。', 'success')
+        toast(t('heartLightPage.toastCompleted'), 'success')
       }
     } catch (error: any) {
-      toast(error.message || '保存失败，请稍后再试', 'error')
+      toast(error.message || t('heartLightPage.toastSaveFailed'), 'error')
     }
   }
 
@@ -147,9 +146,9 @@ export default function HeartLightPage() {
       triggerCelebration()
       void loadCareProgress()
       void loadLightPoints()
-      toast('已记录「今天不想写」。你可以到这里为止。', 'success')
+      toast(t('heartLightPage.toastRestRecorded'), 'success')
     } catch (error: any) {
-      toast(error.message || '记录失败，请稍后重试', 'error')
+      toast(error.message || t('heartLightPage.toastRestFailed'), 'error')
     }
   }
 
@@ -171,16 +170,16 @@ export default function HeartLightPage() {
         <div className="absolute right-4 top-2"><LanguageSwitcher /></div>
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
           <button onClick={() => navigate('/')} className="text-sm text-stone-400 hover:text-stone-600">
-            ← 首页
+            {t('heartLightPage.headerHome')}
           </button>
           <span className="flex items-center gap-1.5 text-sm font-semibold text-stone-600">
-            <Sparkles className="h-4 w-4 text-[#b56f61]" /> 今日心灯
+            <Sparkles className="h-4 w-4 text-[#b56f61]" /> {t('heartLightPage.headerTitle')}
           </span>
           <button
             onClick={openFullEditor}
             className="text-sm font-semibold text-[#b56f61] hover:text-[#9c5e52]"
           >
-            写完整日记
+            {t('heartLightPage.headerWriteFull')}
           </button>
         </div>
       </header>
@@ -223,12 +222,14 @@ export default function HeartLightPage() {
             setShowOneLine(true)
             setTimeout(() => document.getElementById('light-one-line')?.focus(), 50)
           }}
-          onVoice={() => toast('语音轻记录可以作为下一步接入，这里先保留入口。', 'success')}
+          onVoice={() => toast(t('heartLightPage.toastVoicePending'), 'success')}
           onAskAi={() => setShowAiQuestion(true)}
           onSelectReflection={(value) => {
             setSelectedReflection(value)
             const label = REFLECTION_OPTIONS.find((item) => item.key === value)?.label || ''
-            const generated = `今天我有点${selectedCheckinEmotion.label}，主要是${label}。`
+            const generated = t('heartLightPage.lightNotePlaceholder')
+            // 用占位句作为生成草稿（避免拼字符串混 i18n）
+            void label
             setOneLineText(generated)
             setShowOneLine(true)
           }}
@@ -277,6 +278,7 @@ function HeartLightCheckin({
   onRest: () => void
   onAddLine: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <section className="relative overflow-hidden rounded-[28px] border border-[#eadfd8] bg-white/82 shadow-[0_18px_54px_rgba(122,83,73,0.1)]">
       <div className="absolute inset-y-0 left-0 hidden w-36 overflow-hidden bg-[linear-gradient(160deg,#fff4e8,#ffe7ee_55%,#f2edff)] sm:block">
@@ -294,9 +296,9 @@ function HeartLightCheckin({
 
       {showCelebration && (
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 animate-[heartLightCenterPop_2.4s_ease-in-out_forwards] flex-col items-center text-center">
-          <img src="/star-small.png" alt="今日已点亮" width={96} height={96} className="h-24 w-24 object-contain drop-shadow-[0_18px_28px_rgba(233,172,91,0.34)]" />
+          <img src="/star-small.png" alt={t('heartLightPage.rewardLit')} width={96} height={96} className="h-24 w-24 object-contain drop-shadow-[0_18px_28px_rgba(233,172,91,0.34)]" />
           <span className="mt-1 rounded-full bg-white/78 px-4 py-1.5 text-sm font-bold text-[#c57668] shadow-[0_10px_24px_rgba(163,103,95,0.12)] backdrop-blur">
-            今日已点亮
+            {t('heartLightPage.rewardLit')}
           </span>
         </div>
       )}
@@ -308,29 +310,29 @@ function HeartLightCheckin({
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold tracking-normal text-stone-800">今天也来点亮一盏心灯吧</h2>
+              <h2 className="text-2xl font-bold tracking-normal text-stone-800">{t('heartLightPage.checkinTitle')}</h2>
               <Sparkles className="h-4 w-4 text-[#f0a09a]" />
             </div>
-            <p className="mt-1 text-sm text-stone-400">只需要 5 秒，不必马上写很多。</p>
+            <p className="mt-1 text-sm text-stone-400">{t('heartLightPage.checkinSub')}</p>
           </div>
         </div>
 
         <div className="rounded-3xl border border-[#eadfd8] bg-white/62 p-4 shadow-inner">
-          <CheckinRow label="情绪">
+          <CheckinRow label={t('heartLightPage.rowEmotion')}>
             {CHECKIN_EMOTIONS.map((item) => (
               <ChoicePill key={item.key} active={emotion === item.key} onClick={() => onEmotionChange(item.key)}>
                 <span>{item.emoji}</span>{item.label}
               </ChoicePill>
             ))}
           </CheckinRow>
-          <CheckinRow label="能量">
+          <CheckinRow label={t('heartLightPage.rowEnergy')}>
             {[1, 2, 3, 4, 5].map((item) => (
               <ChoicePill key={item} active={energy === item} onClick={() => onEnergyChange(item)}>
                 {item}
               </ChoicePill>
             ))}
           </CheckinRow>
-          <CheckinRow label="事件">
+          <CheckinRow label={t('heartLightPage.rowEvent')}>
             {CHECKIN_EVENTS.map((item) => (
               <ChoicePill key={item.key} active={eventType === item.key} onClick={() => onEventChange(item.key)}>
                 {item.label}
@@ -345,25 +347,25 @@ function HeartLightCheckin({
             onClick={onComplete}
             className="inline-flex h-12 items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#f58b7d,#b19adc)] px-7 text-sm font-bold text-white shadow-[0_14px_34px_rgba(210,113,121,0.24)] transition-all hover:-translate-y-0.5 active:scale-[0.98]"
           >
-            <Sparkles className="h-4 w-4" /> 完成今日心灯
+            <Sparkles className="h-4 w-4" /> {t('heartLightPage.btnComplete')}
           </button>
           <button
             type="button"
             onClick={onAddLine}
             className="inline-flex h-12 items-center gap-2 rounded-2xl border border-[#eadfd8] bg-white/82 px-6 text-sm font-bold text-stone-600 shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.98]"
           >
-            <PenLine className="h-4 w-4" /> 继续补一句
+            <PenLine className="h-4 w-4" /> {t('heartLightPage.btnAddLine')}
           </button>
           <button
             type="button"
             onClick={onRest}
             className="h-12 px-3 text-sm font-semibold text-stone-400 transition-colors hover:text-[#b56f61]"
           >
-            今天不想写
+            {t('heartLightPage.btnRest')}
           </button>
         </div>
         <p className="mt-3 text-center text-sm text-stone-400">
-          {isCompleted ? '今日心灯已点亮。你可以到这里为止，也可以补充一句话。' : '不写正文也可以完成一次轻记录。'}
+          {isCompleted ? t('heartLightPage.completedHint') : t('heartLightPage.incompleteHint')}
         </p>
       </div>
     </section>
@@ -408,6 +410,7 @@ function DailyReflectionPrompt({
   onAskAi: () => void
   onSelectReflection: (value: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <section className="rounded-3xl border border-[#eadfd8] bg-white/76 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -416,20 +419,20 @@ function DailyReflectionPrompt({
             <Sparkles className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-stone-500">今日映题</p>
+            <p className="text-sm font-semibold text-stone-500">{t('heartLightPage.promptTodayTitle')}</p>
             <p className="mt-1 text-lg font-bold leading-7 text-stone-800">{question}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <PromptButton icon={<ChevronRight />} label="今天不想写" onClick={onSkip} />
-          <PromptButton icon={<PenLine />} label="写一句" onClick={onWriteOneLine} active />
-          <PromptButton icon={<Mic />} label="语音说说" onClick={onVoice} />
-          <PromptButton icon={<Wand2 />} label="让 AI 问我" onClick={onAskAi} />
+          <PromptButton icon={<ChevronRight />} label={t('heartLightPage.promptSkip')} onClick={onSkip} />
+          <PromptButton icon={<PenLine />} label={t('heartLightPage.promptWriteOne')} onClick={onWriteOneLine} active />
+          <PromptButton icon={<Mic />} label={t('heartLightPage.promptVoice')} onClick={onVoice} />
+          <PromptButton icon={<Wand2 />} label={t('heartLightPage.promptAskAi')} onClick={onAskAi} />
         </div>
       </div>
       {showAiQuestion && (
         <div className="mt-4 rounded-3xl border border-[#eadfd8] bg-[#fffaf6] p-4">
-          <p className="mb-3 text-sm font-semibold text-stone-600">这份感受更像是：</p>
+          <p className="mb-3 text-sm font-semibold text-stone-600">{t('heartLightPage.promptReflectTitle')}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {REFLECTION_OPTIONS.map((item) => (
               <button
@@ -467,11 +470,12 @@ function PromptButton({ icon, label, onClick, active = false }: { icon: ReactNod
 }
 
 function LightNotePanel({ visible, value, onChange }: { visible: boolean; value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation()
   return (
     <section className="rounded-3xl border border-[#eadfd8] bg-white/78 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
       <div className="mb-3 flex items-center gap-2">
         <PenLine className="h-4 w-4 text-[#d98878]" />
-        <h3 className="text-base font-bold text-stone-700">轻记录</h3>
+        <h3 className="text-base font-bold text-stone-700">{t('heartLightPage.lightNoteTitle')}</h3>
       </div>
       {visible ? (
         <>
@@ -479,17 +483,17 @@ function LightNotePanel({ visible, value, onChange }: { visible: boolean; value:
             id="light-one-line"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="比如：今天我有点焦虑，主要是害怕自己做不好。"
+            placeholder={t('heartLightPage.lightNotePlaceholder')}
             className="min-h-36 w-full resize-none rounded-2xl border border-[#eadfd8] bg-white/70 p-4 text-sm leading-7 text-stone-700 outline-none transition-all placeholder:text-stone-300 focus:border-[#c9badc]"
           />
           <div className="mt-2 flex items-center justify-between text-xs text-stone-400">
-            <span>{value.length} 字</span>
-            <span>写得不精确也没关系</span>
+            <span>{t('heartLightPage.lightNoteCharCount', { n: value.length })}</span>
+            <span>{t('heartLightPage.lightNoteHint')}</span>
           </div>
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-[#eadfd8] bg-white/50 p-6 text-sm leading-7 text-stone-400">
-          你可以只完成心灯签到，不需要写正文。想补充时，再写一句就好。
+          {t('heartLightPage.lightNoteEmpty')}
         </div>
       )}
     </section>
@@ -497,6 +501,7 @@ function LightNotePanel({ visible, value, onChange }: { visible: boolean; value:
 }
 
 function EmotionPlanet({ emotion }: { emotion: typeof CHECKIN_EMOTIONS[number] }) {
+  const { t } = useTranslation()
   return (
     <section className="relative overflow-hidden rounded-3xl border border-[#eadfd8] bg-white/78 p-5 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
       <div className="absolute right-3 top-4 h-24 w-32 rounded-full bg-[radial-gradient(circle,#d8c4ff_0%,#ffe1f2_45%,transparent_70%)] blur-sm" />
@@ -504,9 +509,9 @@ function EmotionPlanet({ emotion }: { emotion: typeof CHECKIN_EMOTIONS[number] }
         <div>
           <div className="mb-2 flex items-center gap-2">
             <span className="text-lg">🌌</span>
-            <h3 className="text-base font-bold text-stone-700">情绪星球</h3>
+            <h3 className="text-base font-bold text-stone-700">{t('heartLightPage.planetSectionTitle')}</h3>
           </div>
-          <p className="text-sm leading-7 text-stone-600">今天你点亮了"{emotion.planet}"的一颗星。</p>
+          <p className="text-sm leading-7 text-stone-600">{t('heartLightPage.planetTodayLine', { planet: emotion.planet })}</p>
           <p className="text-sm leading-7 text-stone-500">{emotion.description}</p>
         </div>
         <div className="relative flex h-24 w-28 shrink-0 items-center justify-center">
@@ -522,6 +527,7 @@ function EmotionPlanet({ emotion }: { emotion: typeof CHECKIN_EMOTIONS[number] }
 }
 
 function PlanetEntryCard({ total, unlocked, onOpen }: { total: number; unlocked: number; onOpen: () => void }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
@@ -533,8 +539,8 @@ function PlanetEntryCard({ total, unlocked, onOpen }: { total: number; unlocked:
           <Orbit className="h-5 w-5" />
         </span>
         <div>
-          <h3 className="text-base font-bold text-stone-700">情绪星球图鉴</h3>
-          <p className="mt-0.5 text-xs text-stone-500">已收集 {unlocked}/{total} 颗星球</p>
+          <h3 className="text-base font-bold text-stone-700">{t('heartLightPage.planetEntryTitle')}</h3>
+          <p className="mt-0.5 text-xs text-stone-500">{t('heartLightPage.planetEntryProgress', { unlocked, total })}</p>
         </div>
       </div>
       <ChevronRight className="h-5 w-5 text-stone-300" />
@@ -543,6 +549,7 @@ function PlanetEntryCard({ total, unlocked, onOpen }: { total: number; unlocked:
 }
 
 function MemoryBlindBox({ memory, onOpen }: { memory: LightMemory; onOpen: () => void }) {
+  const { t } = useTranslation()
   const preview = memory.content.replace(/\s+/g, ' ').slice(0, 68)
   return (
     <button
@@ -558,9 +565,9 @@ function MemoryBlindBox({ memory, onOpen }: { memory: LightMemory; onOpen: () =>
         <div>
           <div className="mb-1 flex items-center gap-2">
             <Gift className="h-4 w-4 text-[#d99370]" />
-            <h3 className="text-base font-bold text-stone-700">记忆盲盒</h3>
+            <h3 className="text-base font-bold text-stone-700">{t('heartLightPage.memoryBoxTitle')}</h3>
           </div>
-          <p className="text-sm leading-6 text-stone-600">你在 {memory.diary_date} 有过相近记录。</p>
+          <p className="text-sm leading-6 text-stone-600">{t('heartLightPage.memoryBoxDateLine', { date: memory.diary_date })}</p>
           <p className="text-sm leading-6 text-stone-500">{preview}{memory.content.length > 68 ? '...' : ''}</p>
         </div>
       </div>
@@ -569,22 +576,24 @@ function MemoryBlindBox({ memory, onOpen }: { memory: LightMemory; onOpen: () =>
 }
 
 function LightRewardBar({ points, card }: { points: number; card: string }) {
+  const { t } = useTranslation()
   return (
     <div className="relative overflow-hidden rounded-3xl border border-[#eadfd8] bg-[linear-gradient(100deg,#fffaf3,#ffe7df,#f0e9ff)] px-6 py-4 shadow-[0_14px_40px_rgba(122,83,73,0.08)]">
       <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_20%_40%,#fff_0_2px,transparent_3px),radial-gradient(circle_at_80%_55%,#fff_0_2px,transparent_3px)]" />
       <div className="relative flex flex-wrap items-center justify-center gap-6 text-sm font-bold text-stone-700">
         <span className="inline-flex items-center gap-2 rounded-2xl bg-white/62 px-5 py-2 text-[#c47a61]">
-          <Sparkles className="h-4 w-4" /> +{points} 映光
+          <Sparkles className="h-4 w-4" /> {t('heartLightPage.rewardLight', { points })}
         </span>
         <span className="h-6 w-px bg-[#e6d7d0]" />
-        <span>获得卡牌：{card}</span>
-        <span className="rotate-6 rounded-xl bg-white/60 px-3 py-2 text-xs text-[#8e83bd] shadow-sm">心灯已点亮</span>
+        <span>{t('heartLightPage.rewardCard', { card })}</span>
+        <span className="rotate-6 rounded-xl bg-white/60 px-3 py-2 text-xs text-[#8e83bd] shadow-sm">{t('heartLightPage.rewardLit')}</span>
       </div>
     </div>
   )
 }
 
 function NextStepBar({ onOpenFullEditor, onOpenGrowth }: { onOpenFullEditor: () => void; onOpenGrowth: () => void }) {
+  const { t } = useTranslation()
   return (
     <section className="grid gap-3 sm:grid-cols-2">
       <button
@@ -593,8 +602,8 @@ function NextStepBar({ onOpenFullEditor, onOpenGrowth }: { onOpenFullEditor: () 
         className="flex items-center justify-between rounded-3xl border border-[#eadfd8] bg-white/78 px-5 py-4 text-left shadow-[0_12px_34px_rgba(122,83,73,0.07)] transition-all hover:-translate-y-0.5"
       >
         <span>
-          <span className="block text-sm font-bold text-stone-700">写完整日记</span>
-          <span className="mt-1 block text-xs text-stone-400">进入富文本编辑、图片和自动保存</span>
+          <span className="block text-sm font-bold text-stone-700">{t('heartLightPage.nextWriteFullTitle')}</span>
+          <span className="mt-1 block text-xs text-stone-400">{t('heartLightPage.nextWriteFullDesc')}</span>
         </span>
         <ChevronRight className="h-5 w-5 text-stone-300" />
       </button>
@@ -604,8 +613,8 @@ function NextStepBar({ onOpenFullEditor, onOpenGrowth }: { onOpenFullEditor: () 
         className="flex items-center justify-between rounded-3xl border border-[#eadfd8] bg-white/64 px-5 py-4 text-left shadow-[0_12px_34px_rgba(122,83,73,0.05)] transition-all hover:-translate-y-0.5"
       >
         <span>
-          <span className="block text-sm font-bold text-stone-700">查看成长旅程</span>
-          <span className="mt-1 block text-xs text-stone-400">情绪趋势、时间线和长期回看</span>
+          <span className="block text-sm font-bold text-stone-700">{t('heartLightPage.nextGrowthTitle')}</span>
+          <span className="mt-1 block text-xs text-stone-400">{t('heartLightPage.nextGrowthDesc')}</span>
         </span>
         <ChevronRight className="h-5 w-5 text-stone-300" />
       </button>

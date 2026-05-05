@@ -15,6 +15,7 @@ from app.db import async_session_maker, set_rls_service_context
 from app.models.database import User
 from app.models.diary import Diary, TimelineEvent
 from app.core.config import settings
+from app.core.logging import logger
 
 
 async def _analyze_user_diaries_for_date(
@@ -68,9 +69,18 @@ async def _analyze_user_diaries_for_date(
                 diary_id=diary.id,
             )
             processed += 1
-            print(f"  [Scheduler] OK user={user_id} diary={diary.id} refined")
+            logger.info(
+                "scheduler refine ok user={uid} diary={did}",
+                uid=user_id,
+                did=diary.id,
+            )
         except Exception as e:
-            print(f"  [Scheduler] ERROR user={user_id} diary={diary.id} error: {e}")
+            logger.error(
+                "scheduler refine error user={uid} diary={did} err={err}",
+                uid=user_id,
+                did=diary.id,
+                err=str(e),
+            )
 
     return processed
 
@@ -83,7 +93,11 @@ async def run_daily_analysis():
     today = date.today()
     yesterday = today - timedelta(days=1)
     target_dates = [yesterday, today]
-    print(f"\n[Scheduler] === 每日分析任务开始 === 目标日期: {yesterday} ~ {today}")
+    logger.info(
+        "scheduler daily_analysis begin target_dates={start}..{end}",
+        start=yesterday,
+        end=today,
+    )
 
     async with async_session_maker() as db:
         await set_rls_service_context(db)
@@ -96,7 +110,7 @@ async def run_daily_analysis():
         user_ids = [row[0] for row in user_result.all()]
 
         if not user_ids:
-            print("[Scheduler] 这两天无用户写日记，跳过")
+            logger.info("scheduler daily_analysis skip (no diaries in window)")
             return
 
         total = 0
@@ -105,7 +119,11 @@ async def run_daily_analysis():
                 count = await _analyze_user_diaries_for_date(db, uid, td)
                 total += count
 
-        print(f"[Scheduler] === 每日分析完成 === 用户数: {len(user_ids)}, 处理日记: {total}")
+        logger.info(
+            "scheduler daily_analysis done users={u} processed={p}",
+            u=len(user_ids),
+            p=total,
+        )
 
 
 async def run_growth_analysis_for_range(
@@ -130,10 +148,11 @@ async def run_growth_analysis_for_range(
         target_dates.append(current)
         current += timedelta(days=1)
 
-    print(
-        f"\n[Scheduler] === 手动成长分析开始 === "
-        f"日期范围: {start_date} ~ {end_date}"
-        + (f" user_id={user_id}" if user_id is not None else "")
+    logger.info(
+        "scheduler manual_growth_analysis begin start={s} end={e} user={u}",
+        s=start_date,
+        e=end_date,
+        u=user_id,
     )
 
     async with async_session_maker() as db:
@@ -146,7 +165,7 @@ async def run_growth_analysis_for_range(
         user_ids = [row[0] for row in user_result.all()]
 
         if not user_ids:
-            print("[Scheduler] 指定范围内没有可分析的日记")
+            logger.info("scheduler manual_growth_analysis skip (no diaries)")
             return {
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
@@ -161,9 +180,10 @@ async def run_growth_analysis_for_range(
                 count = await _analyze_user_diaries_for_date(db, uid, td)
                 total += count
 
-        print(
-            f"[Scheduler] === 手动成长分析完成 === "
-            f"用户数: {len(user_ids)}, 处理日记: {total}"
+        logger.info(
+            "scheduler manual_growth_analysis done users={u} processed={p}",
+            u=len(user_ids),
+            p=total,
         )
         return {
             "start_date": start_date.isoformat(),
@@ -180,13 +200,13 @@ async def run_weekly_counselor_digest():
     if today.weekday() != settings.counselor_digest_weekday:
         return
 
-    print(f"\n[Scheduler] === 辅导员/心理老师周报任务开始 === 日期: {today}")
+    logger.info("scheduler weekly_digest begin today={d}", d=today)
     async with async_session_maker() as db:
         await set_rls_service_context(db)
         from app.services.counselor_digest_service import send_weekly_counselor_digests
 
         sent_count = await send_weekly_counselor_digests(db=db, today=today)
-        print(f"[Scheduler] === 周报任务完成 === 成功发送: {sent_count}")
+        logger.info("scheduler weekly_digest done sent={n}", n=sent_count)
 
 
 def _seconds_until_midnight() -> float:
@@ -203,16 +223,14 @@ async def scheduler_loop():
     """
     while True:
         wait = _seconds_until_midnight()
-        print(f"[Scheduler] 下次执行在 {wait/3600:.1f} 小时后 (午夜 0:00)")
+        logger.info("scheduler next run in {h:.1f}h", h=wait / 3600)
         await asyncio.sleep(wait)
 
         try:
             await run_daily_analysis()
             await run_weekly_counselor_digest()
         except Exception as e:
-            print(f"[Scheduler] 任务异常: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.opt(exception=e).error("scheduler task failed")
 
         # 任务执行完后，额外等 60 秒避免在同一分钟内重复触发
         await asyncio.sleep(60)

@@ -291,7 +291,7 @@ export interface LightPointByReason {
 }
 
 export interface TreasureTopDay {
-  date: string | null
+  top_date: string | null
   points: number
 }
 
@@ -322,4 +322,17 @@ export interface TreasureResponse {
   shield: TreasureShield
   planets: TreasurePlanets
   recent_ledger: LightPointLedgerEntry[]
+}
+
+export interface LightPointSpendPayload {
+  amount: number
+  item_id: string
+  reason?: string
+  meta?: Record<string, any>
+}
+
+export interface LightPointSpendResponse {
+  new_total: number
+  delta: number
+  ledger_id: number
 }
